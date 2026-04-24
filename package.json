@@ -1,0 +1,51 @@
+{
+  "name": "@rez/shared-types",
+  "version": "2.0.0",
+  "description": "Canonical TypeScript interfaces, zod schemas, FSM helpers, branded IDs, and runtime guards for all RuFlo/REZ services",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "MIGRATION.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "clean": "rm -rf dist",
+    "test": "echo '(tests live in __tests__; run via parent repo jest)'"
+  },
+  "keywords": [
+    "types",
+    "interfaces",
+    "entities",
+    "zod",
+    "fsm",
+    "branded-ids",
+    "rez"
+  ],
+  "dependencies": {
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./fsm": {
+      "types": "./dist/fsm/index.d.ts",
+      "default": "./dist/fsm/index.js"
+    },
+    "./guards": {
+      "types": "./dist/guards/index.d.ts",
+      "default": "./dist/guards/index.js"
+    },
+    "./branded": {
+      "types": "./dist/branded/ids.d.ts",
+      "default": "./dist/branded/ids.js"
+    }
+  }
+}
