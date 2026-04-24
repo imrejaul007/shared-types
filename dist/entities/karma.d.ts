@@ -140,4 +140,39 @@ export interface KarmaProfileDelta {
     newLevel?: KarmaLevel;
     lastDecayAppliedAt?: Date;
 }
+export type KarmaScoreBand = 'starter' | 'active' | 'performer' | 'leader' | 'elite' | 'pinnacle';
+export type TrustGrade = 'D' | 'C' | 'B' | 'A' | 'S';
+export type MomentumLabel = 'cold' | 'slow' | 'steady' | 'hot' | 'blazing';
+export interface KarmaScoreComponents {
+    base: number;
+    impact: number;
+    relativeRank: number;
+    trust: number;
+    momentum: number;
+}
+export interface BandMetadata {
+    label: string;
+    color: string;
+    bgColor: string;
+    minScore: number;
+    maxScore: number;
+    perks: string[];
+}
+export interface StabilitySnapshot {
+    raw: number;
+    display: number;
+    lastRawAt: number;
+}
+export interface ScoreHistoryEntry {
+    date: Date;
+    rawScore: number;
+    displayScore: number;
+    band: string;
+    percentile: number;
+    components: KarmaScoreComponents;
+    activeKarma: number;
+    lifetimeKarma: number;
+}
+export type PerkType = 'discount' | 'upgrade' | 'access' | 'cashback' | 'coin_bonus';
+export type PerkClaimStatus = 'active' | 'used' | 'expired' | 'revoked';
 //# sourceMappingURL=karma.d.ts.map
