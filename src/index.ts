@@ -217,6 +217,15 @@ export type {
   EventDifficulty,
   EventCategory,
   KarmaEventStatus,
+  KarmaScoreBand,
+  TrustGrade,
+  MomentumLabel,
+  KarmaScoreComponents,
+  BandMetadata,
+  StabilitySnapshot,
+  ScoreHistoryEntry,
+  PerkType,
+  PerkClaimStatus,
 } from './entities/karma';
 
 export type { IAnalyticsEvent, IAnalyticsEventContext } from './entities/analytics';
