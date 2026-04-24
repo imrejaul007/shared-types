@@ -1,37 +1,223 @@
 import { z } from 'zod';
 export declare const CAMPAIGN_STATUS: z.ZodEnum<["draft", "scheduled", "sending", "sent", "pending_review", "active", "paused", "completed", "expired", "rejected", "failed", "cancelled"]>;
 export declare const CAMPAIGN_CHANNEL: z.ZodEnum<["email", "sms", "push", "in_app", "whatsapp", "social", "web", "api"]>;
+export declare const AudienceTargetingSchema: z.ZodObject<{
+    segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+    daysInactive: z.ZodOptional<z.ZodNumber>;
+    minSpend: z.ZodOptional<z.ZodNumber>;
+    location: z.ZodOptional<z.ZodObject<{
+        city: z.ZodOptional<z.ZodString>;
+        area: z.ZodOptional<z.ZodString>;
+        pincode: z.ZodOptional<z.ZodString>;
+        radiusKm: z.ZodOptional<z.ZodNumber>;
+    }, "strip", z.ZodTypeAny, {
+        city?: string | undefined;
+        pincode?: string | undefined;
+        area?: string | undefined;
+        radiusKm?: number | undefined;
+    }, {
+        city?: string | undefined;
+        pincode?: string | undefined;
+        area?: string | undefined;
+        radiusKm?: number | undefined;
+    }>>;
+    interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+    institution: z.ZodOptional<z.ZodString>;
+    keyword: z.ZodOptional<z.ZodString>;
+    estimatedCount: z.ZodOptional<z.ZodNumber>;
+}, "strict", z.ZodTypeAny, {
+    segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+    daysInactive?: number | undefined;
+    minSpend?: number | undefined;
+    location?: {
+        city?: string | undefined;
+        pincode?: string | undefined;
+        area?: string | undefined;
+        radiusKm?: number | undefined;
+    } | undefined;
+    interests?: string[] | undefined;
+    institution?: string | undefined;
+    keyword?: string | undefined;
+    estimatedCount?: number | undefined;
+}, {
+    segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+    daysInactive?: number | undefined;
+    minSpend?: number | undefined;
+    location?: {
+        city?: string | undefined;
+        pincode?: string | undefined;
+        area?: string | undefined;
+        radiusKm?: number | undefined;
+    } | undefined;
+    interests?: string[] | undefined;
+    institution?: string | undefined;
+    keyword?: string | undefined;
+    estimatedCount?: number | undefined;
+}>;
+export declare const CampaignConditionSchema: z.ZodObject<{
+    field: z.ZodString;
+    operator: z.ZodEnum<["eq", "neq", "gt", "gte", "lt", "lte", "in", "not_in", "contains", "exists"]>;
+    value: z.ZodOptional<z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull, z.ZodArray<z.ZodUnion<[z.ZodString, z.ZodNumber]>, "many">]>>;
+}, "strict", z.ZodTypeAny, {
+    operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+    field: string;
+    value?: string | number | boolean | (string | number)[] | null | undefined;
+}, {
+    operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+    field: string;
+    value?: string | number | boolean | (string | number)[] | null | undefined;
+}>;
+export declare const CampaignActionSchema: z.ZodObject<{
+    kind: z.ZodEnum<["credit_coins", "grant_badge", "send_notification", "award_voucher", "issue_coupon"]>;
+    params: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull, z.ZodArray<z.ZodString, "many">, z.ZodArray<z.ZodNumber, "many">]>>>;
+}, "strict", z.ZodTypeAny, {
+    kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+    params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+}, {
+    kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+    params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+}>;
+export declare const CampaignTriggerSchema: z.ZodObject<{
+    event: z.ZodEnum<["order.placed", "order.delivered", "visit.completed", "signup", "referral.invite", "cron", "manual"]>;
+    filters: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        field: z.ZodString;
+        operator: z.ZodEnum<["eq", "neq", "gt", "gte", "lt", "lte", "in", "not_in", "contains", "exists"]>;
+        value: z.ZodOptional<z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull, z.ZodArray<z.ZodUnion<[z.ZodString, z.ZodNumber]>, "many">]>>;
+    }, "strict", z.ZodTypeAny, {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }, {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }>, "many">>;
+}, "strict", z.ZodTypeAny, {
+    event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+    filters?: {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }[] | undefined;
+}, {
+    event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+    filters?: {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }[] | undefined;
+}>;
 export declare const BaseCampaignSchema: z.ZodObject<{
     name: z.ZodString;
     description: z.ZodOptional<z.ZodString>;
     status: z.ZodEnum<["draft", "scheduled", "sending", "sent", "pending_review", "active", "paused", "completed", "expired", "rejected", "failed", "cancelled"]>;
-    startDate: z.ZodDate;
-    endDate: z.ZodOptional<z.ZodDate>;
+    startDate: z.ZodUnion<[z.ZodDate, z.ZodString]>;
+    endDate: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     channel: z.ZodOptional<z.ZodEnum<["email", "sms", "push", "in_app", "whatsapp", "social", "web", "api"]>>;
-    targetAudience: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+    targetAudience: z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>;
     budget: z.ZodOptional<z.ZodNumber>;
     spent: z.ZodOptional<z.ZodNumber>;
     createdBy: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
     description?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
 }, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
     description?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
 }>;
@@ -39,10 +225,62 @@ export declare const CreateMarketingCampaignSchema: z.ZodObject<{
     name: z.ZodString;
     description: z.ZodOptional<z.ZodString>;
     status: z.ZodEnum<["draft", "scheduled", "sending", "sent", "pending_review", "active", "paused", "completed", "expired", "rejected", "failed", "cancelled"]>;
-    startDate: z.ZodDate;
-    endDate: z.ZodOptional<z.ZodDate>;
+    startDate: z.ZodUnion<[z.ZodDate, z.ZodString]>;
+    endDate: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     channel: z.ZodOptional<z.ZodEnum<["email", "sms", "push", "in_app", "whatsapp", "social", "web", "api"]>>;
-    targetAudience: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+    targetAudience: z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>;
     budget: z.ZodOptional<z.ZodNumber>;
     spent: z.ZodOptional<z.ZodNumber>;
     createdBy: z.ZodOptional<z.ZodString>;
@@ -55,54 +293,162 @@ export declare const CreateMarketingCampaignSchema: z.ZodObject<{
     imageUrl: z.ZodOptional<z.ZodString>;
     ctaUrl: z.ZodOptional<z.ZodString>;
     ctaText: z.ZodOptional<z.ZodString>;
-    audience: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
-    scheduledAt: z.ZodOptional<z.ZodDate>;
+    audience: z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>;
+    scheduledAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     dailyBudget: z.ZodOptional<z.ZodNumber>;
     attributionWindowDays: z.ZodOptional<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     message?: string | undefined;
     type?: "marketing" | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     objective?: "awareness" | "engagement" | "sales" | "win_back" | undefined;
     templateName?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
-    audience?: Record<string, any> | undefined;
-    scheduledAt?: Date | undefined;
+    audience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
+    scheduledAt?: string | Date | undefined;
     dailyBudget?: number | undefined;
     attributionWindowDays?: number | undefined;
 }, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     message?: string | undefined;
     type?: "marketing" | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     objective?: "awareness" | "engagement" | "sales" | "win_back" | undefined;
     templateName?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
-    audience?: Record<string, any> | undefined;
-    scheduledAt?: Date | undefined;
+    audience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
+    scheduledAt?: string | Date | undefined;
     dailyBudget?: number | undefined;
     attributionWindowDays?: number | undefined;
 }>;
@@ -110,10 +456,62 @@ export declare const UpdateMarketingCampaignSchema: z.ZodObject<{
     name: z.ZodOptional<z.ZodString>;
     description: z.ZodOptional<z.ZodOptional<z.ZodString>>;
     status: z.ZodOptional<z.ZodEnum<["draft", "scheduled", "sending", "sent", "pending_review", "active", "paused", "completed", "expired", "rejected", "failed", "cancelled"]>>;
-    startDate: z.ZodOptional<z.ZodDate>;
-    endDate: z.ZodOptional<z.ZodOptional<z.ZodDate>>;
+    startDate: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
+    endDate: z.ZodOptional<z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>>;
     channel: z.ZodOptional<z.ZodOptional<z.ZodEnum<["email", "sms", "push", "in_app", "whatsapp", "social", "web", "api"]>>>;
-    targetAudience: z.ZodOptional<z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>>;
+    targetAudience: z.ZodOptional<z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>>;
     budget: z.ZodOptional<z.ZodOptional<z.ZodNumber>>;
     spent: z.ZodOptional<z.ZodOptional<z.ZodNumber>>;
     createdBy: z.ZodOptional<z.ZodOptional<z.ZodString>>;
@@ -125,54 +523,162 @@ export declare const UpdateMarketingCampaignSchema: z.ZodObject<{
     imageUrl: z.ZodOptional<z.ZodOptional<z.ZodString>>;
     ctaUrl: z.ZodOptional<z.ZodOptional<z.ZodString>>;
     ctaText: z.ZodOptional<z.ZodOptional<z.ZodString>>;
-    audience: z.ZodOptional<z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>>;
-    scheduledAt: z.ZodOptional<z.ZodOptional<z.ZodDate>>;
+    audience: z.ZodOptional<z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>>;
+    scheduledAt: z.ZodOptional<z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>>;
     dailyBudget: z.ZodOptional<z.ZodOptional<z.ZodNumber>>;
     attributionWindowDays: z.ZodOptional<z.ZodOptional<z.ZodNumber>>;
 }, "strip", z.ZodTypeAny, {
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     status?: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected" | undefined;
     name?: string | undefined;
     message?: string | undefined;
     type?: "marketing" | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    startDate?: Date | undefined;
-    endDate?: Date | undefined;
+    startDate?: string | Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     objective?: "awareness" | "engagement" | "sales" | "win_back" | undefined;
     templateName?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
-    audience?: Record<string, any> | undefined;
-    scheduledAt?: Date | undefined;
+    audience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
+    scheduledAt?: string | Date | undefined;
     dailyBudget?: number | undefined;
     attributionWindowDays?: number | undefined;
 }, {
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     status?: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected" | undefined;
     name?: string | undefined;
     message?: string | undefined;
     type?: "marketing" | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    startDate?: Date | undefined;
-    endDate?: Date | undefined;
+    startDate?: string | Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     objective?: "awareness" | "engagement" | "sales" | "win_back" | undefined;
     templateName?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
-    audience?: Record<string, any> | undefined;
-    scheduledAt?: Date | undefined;
+    audience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
+    scheduledAt?: string | Date | undefined;
     dailyBudget?: number | undefined;
     attributionWindowDays?: number | undefined;
 }>;
@@ -180,10 +686,62 @@ export declare const MarketingCampaignResponseSchema: z.ZodObject<{
     name: z.ZodString;
     description: z.ZodOptional<z.ZodString>;
     status: z.ZodEnum<["draft", "scheduled", "sending", "sent", "pending_review", "active", "paused", "completed", "expired", "rejected", "failed", "cancelled"]>;
-    startDate: z.ZodDate;
-    endDate: z.ZodOptional<z.ZodDate>;
+    startDate: z.ZodUnion<[z.ZodDate, z.ZodString]>;
+    endDate: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     channel: z.ZodOptional<z.ZodEnum<["email", "sms", "push", "in_app", "whatsapp", "social", "web", "api"]>>;
-    targetAudience: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+    targetAudience: z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>;
     budget: z.ZodOptional<z.ZodNumber>;
     spent: z.ZodOptional<z.ZodNumber>;
     createdBy: z.ZodOptional<z.ZodString>;
@@ -196,13 +754,65 @@ export declare const MarketingCampaignResponseSchema: z.ZodObject<{
     imageUrl: z.ZodOptional<z.ZodString>;
     ctaUrl: z.ZodOptional<z.ZodString>;
     ctaText: z.ZodOptional<z.ZodString>;
-    audience: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
-    scheduledAt: z.ZodOptional<z.ZodDate>;
+    audience: z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>;
+    scheduledAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     dailyBudget: z.ZodOptional<z.ZodNumber>;
     attributionWindowDays: z.ZodOptional<z.ZodNumber>;
 } & {
     _id: z.ZodOptional<z.ZodString>;
-    sentAt: z.ZodOptional<z.ZodDate>;
+    sentAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     stats: z.ZodOptional<z.ZodObject<{
         sent: z.ZodOptional<z.ZodNumber>;
         delivered: z.ZodOptional<z.ZodNumber>;
@@ -230,35 +840,63 @@ export declare const MarketingCampaignResponseSchema: z.ZodObject<{
     }>>;
     errorMessage: z.ZodOptional<z.ZodString>;
     totalSpent: z.ZodOptional<z.ZodNumber>;
-    createdAt: z.ZodOptional<z.ZodDate>;
-    updatedAt: z.ZodOptional<z.ZodDate>;
+    createdAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
+    updatedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
 }, "strip", z.ZodTypeAny, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     message?: string | undefined;
     type?: "marketing" | undefined;
     _id?: string | undefined;
-    createdAt?: Date | undefined;
-    updatedAt?: Date | undefined;
+    createdAt?: string | Date | undefined;
+    updatedAt?: string | Date | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     objective?: "awareness" | "engagement" | "sales" | "win_back" | undefined;
     templateName?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
-    audience?: Record<string, any> | undefined;
-    scheduledAt?: Date | undefined;
+    audience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
+    scheduledAt?: string | Date | undefined;
     dailyBudget?: number | undefined;
     attributionWindowDays?: number | undefined;
-    sentAt?: Date | undefined;
+    sentAt?: string | Date | undefined;
     stats?: {
         delivered?: number | undefined;
         failed?: number | undefined;
@@ -273,30 +911,58 @@ export declare const MarketingCampaignResponseSchema: z.ZodObject<{
 }, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     message?: string | undefined;
     type?: "marketing" | undefined;
     _id?: string | undefined;
-    createdAt?: Date | undefined;
-    updatedAt?: Date | undefined;
+    createdAt?: string | Date | undefined;
+    updatedAt?: string | Date | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     objective?: "awareness" | "engagement" | "sales" | "win_back" | undefined;
     templateName?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
-    audience?: Record<string, any> | undefined;
-    scheduledAt?: Date | undefined;
+    audience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
+    scheduledAt?: string | Date | undefined;
     dailyBudget?: number | undefined;
     attributionWindowDays?: number | undefined;
-    sentAt?: Date | undefined;
+    sentAt?: string | Date | undefined;
     stats?: {
         delivered?: number | undefined;
         failed?: number | undefined;
@@ -313,10 +979,62 @@ export declare const CreateAdCampaignSchema: z.ZodObject<{
     name: z.ZodString;
     description: z.ZodOptional<z.ZodString>;
     status: z.ZodEnum<["draft", "scheduled", "sending", "sent", "pending_review", "active", "paused", "completed", "expired", "rejected", "failed", "cancelled"]>;
-    startDate: z.ZodDate;
-    endDate: z.ZodOptional<z.ZodDate>;
+    startDate: z.ZodUnion<[z.ZodDate, z.ZodString]>;
+    endDate: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     channel: z.ZodOptional<z.ZodEnum<["email", "sms", "push", "in_app", "whatsapp", "social", "web", "api"]>>;
-    targetAudience: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+    targetAudience: z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>;
     budget: z.ZodOptional<z.ZodNumber>;
     spent: z.ZodOptional<z.ZodNumber>;
     createdBy: z.ZodOptional<z.ZodString>;
@@ -350,25 +1068,39 @@ export declare const CreateAdCampaignSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     type?: "ad" | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
     dailyBudget?: number | undefined;
     storeId?: string | undefined;
     title?: string | undefined;
     headline?: string | undefined;
     placement?: "home_banner" | "explore_feed" | "store_listing" | "search_result" | undefined;
-    targetSegment?: "all" | "new" | "loyal" | "lapsed" | "nearby" | undefined;
+    targetSegment?: "all" | "lapsed" | "new" | "loyal" | "nearby" | undefined;
     targetLocation?: {
         city?: string | undefined;
         radiusKm?: number | undefined;
@@ -381,25 +1113,39 @@ export declare const CreateAdCampaignSchema: z.ZodObject<{
 }, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     type?: "ad" | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
     dailyBudget?: number | undefined;
     storeId?: string | undefined;
     title?: string | undefined;
     headline?: string | undefined;
     placement?: "home_banner" | "explore_feed" | "store_listing" | "search_result" | undefined;
-    targetSegment?: "all" | "new" | "loyal" | "lapsed" | "nearby" | undefined;
+    targetSegment?: "all" | "lapsed" | "new" | "loyal" | "nearby" | undefined;
     targetLocation?: {
         city?: string | undefined;
         radiusKm?: number | undefined;
@@ -414,10 +1160,62 @@ export declare const UpdateAdCampaignSchema: z.ZodObject<{
     name: z.ZodOptional<z.ZodString>;
     description: z.ZodOptional<z.ZodOptional<z.ZodString>>;
     status: z.ZodOptional<z.ZodEnum<["draft", "scheduled", "sending", "sent", "pending_review", "active", "paused", "completed", "expired", "rejected", "failed", "cancelled"]>>;
-    startDate: z.ZodOptional<z.ZodDate>;
-    endDate: z.ZodOptional<z.ZodOptional<z.ZodDate>>;
+    startDate: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
+    endDate: z.ZodOptional<z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>>;
     channel: z.ZodOptional<z.ZodOptional<z.ZodEnum<["email", "sms", "push", "in_app", "whatsapp", "social", "web", "api"]>>>;
-    targetAudience: z.ZodOptional<z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>>;
+    targetAudience: z.ZodOptional<z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>>;
     budget: z.ZodOptional<z.ZodOptional<z.ZodNumber>>;
     spent: z.ZodOptional<z.ZodOptional<z.ZodNumber>>;
     createdBy: z.ZodOptional<z.ZodOptional<z.ZodString>>;
@@ -449,26 +1247,40 @@ export declare const UpdateAdCampaignSchema: z.ZodObject<{
     frequencyCapDays: z.ZodOptional<z.ZodOptional<z.ZodNumber>>;
 }, "strip", z.ZodTypeAny, {
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     status?: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected" | undefined;
     name?: string | undefined;
     type?: "ad" | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    startDate?: Date | undefined;
-    endDate?: Date | undefined;
+    startDate?: string | Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
     dailyBudget?: number | undefined;
     storeId?: string | undefined;
     title?: string | undefined;
     headline?: string | undefined;
     placement?: "home_banner" | "explore_feed" | "store_listing" | "search_result" | undefined;
-    targetSegment?: "all" | "new" | "loyal" | "lapsed" | "nearby" | undefined;
+    targetSegment?: "all" | "lapsed" | "new" | "loyal" | "nearby" | undefined;
     targetLocation?: {
         city?: string | undefined;
         radiusKm?: number | undefined;
@@ -480,26 +1292,40 @@ export declare const UpdateAdCampaignSchema: z.ZodObject<{
     frequencyCapDays?: number | undefined;
 }, {
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     status?: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected" | undefined;
     name?: string | undefined;
     type?: "ad" | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    startDate?: Date | undefined;
-    endDate?: Date | undefined;
+    startDate?: string | Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
     dailyBudget?: number | undefined;
     storeId?: string | undefined;
     title?: string | undefined;
     headline?: string | undefined;
     placement?: "home_banner" | "explore_feed" | "store_listing" | "search_result" | undefined;
-    targetSegment?: "all" | "new" | "loyal" | "lapsed" | "nearby" | undefined;
+    targetSegment?: "all" | "lapsed" | "new" | "loyal" | "nearby" | undefined;
     targetLocation?: {
         city?: string | undefined;
         radiusKm?: number | undefined;
@@ -514,10 +1340,62 @@ export declare const AdCampaignResponseSchema: z.ZodObject<{
     name: z.ZodString;
     description: z.ZodOptional<z.ZodString>;
     status: z.ZodEnum<["draft", "scheduled", "sending", "sent", "pending_review", "active", "paused", "completed", "expired", "rejected", "failed", "cancelled"]>;
-    startDate: z.ZodDate;
-    endDate: z.ZodOptional<z.ZodDate>;
+    startDate: z.ZodUnion<[z.ZodDate, z.ZodString]>;
+    endDate: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     channel: z.ZodOptional<z.ZodEnum<["email", "sms", "push", "in_app", "whatsapp", "social", "web", "api"]>>;
-    targetAudience: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+    targetAudience: z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>;
     budget: z.ZodOptional<z.ZodNumber>;
     spent: z.ZodOptional<z.ZodNumber>;
     createdBy: z.ZodOptional<z.ZodString>;
@@ -555,36 +1433,50 @@ export declare const AdCampaignResponseSchema: z.ZodObject<{
     clicks: z.ZodOptional<z.ZodNumber>;
     ctr: z.ZodOptional<z.ZodNumber>;
     reviewedBy: z.ZodOptional<z.ZodString>;
-    reviewedAt: z.ZodOptional<z.ZodDate>;
+    reviewedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     rejectionReason: z.ZodOptional<z.ZodString>;
-    createdAt: z.ZodOptional<z.ZodDate>;
-    updatedAt: z.ZodOptional<z.ZodDate>;
+    createdAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
+    updatedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
 }, "strip", z.ZodTypeAny, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     type?: "ad" | undefined;
     _id?: string | undefined;
-    createdAt?: Date | undefined;
-    updatedAt?: Date | undefined;
+    createdAt?: string | Date | undefined;
+    updatedAt?: string | Date | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
     dailyBudget?: number | undefined;
     totalSpent?: number | undefined;
     storeId?: string | undefined;
     title?: string | undefined;
     headline?: string | undefined;
     placement?: "home_banner" | "explore_feed" | "store_listing" | "search_result" | undefined;
-    targetSegment?: "all" | "new" | "loyal" | "lapsed" | "nearby" | undefined;
+    targetSegment?: "all" | "lapsed" | "new" | "loyal" | "nearby" | undefined;
     targetLocation?: {
         city?: string | undefined;
         radiusKm?: number | undefined;
@@ -598,34 +1490,48 @@ export declare const AdCampaignResponseSchema: z.ZodObject<{
     clicks?: number | undefined;
     ctr?: number | undefined;
     reviewedBy?: string | undefined;
-    reviewedAt?: Date | undefined;
+    reviewedAt?: string | Date | undefined;
     rejectionReason?: string | undefined;
 }, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     type?: "ad" | undefined;
     _id?: string | undefined;
-    createdAt?: Date | undefined;
-    updatedAt?: Date | undefined;
+    createdAt?: string | Date | undefined;
+    updatedAt?: string | Date | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
     dailyBudget?: number | undefined;
     totalSpent?: number | undefined;
     storeId?: string | undefined;
     title?: string | undefined;
     headline?: string | undefined;
     placement?: "home_banner" | "explore_feed" | "store_listing" | "search_result" | undefined;
-    targetSegment?: "all" | "new" | "loyal" | "lapsed" | "nearby" | undefined;
+    targetSegment?: "all" | "lapsed" | "new" | "loyal" | "nearby" | undefined;
     targetLocation?: {
         city?: string | undefined;
         radiusKm?: number | undefined;
@@ -639,17 +1545,69 @@ export declare const AdCampaignResponseSchema: z.ZodObject<{
     clicks?: number | undefined;
     ctr?: number | undefined;
     reviewedBy?: string | undefined;
-    reviewedAt?: Date | undefined;
+    reviewedAt?: string | Date | undefined;
     rejectionReason?: string | undefined;
 }>;
 export declare const CreateMerchantCampaignSchema: z.ZodObject<{
     name: z.ZodString;
     description: z.ZodOptional<z.ZodString>;
     status: z.ZodEnum<["draft", "scheduled", "sending", "sent", "pending_review", "active", "paused", "completed", "expired", "rejected", "failed", "cancelled"]>;
-    startDate: z.ZodDate;
-    endDate: z.ZodOptional<z.ZodDate>;
+    startDate: z.ZodUnion<[z.ZodDate, z.ZodString]>;
+    endDate: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     channel: z.ZodOptional<z.ZodEnum<["email", "sms", "push", "in_app", "whatsapp", "social", "web", "api"]>>;
-    targetAudience: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+    targetAudience: z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>;
     budget: z.ZodOptional<z.ZodNumber>;
     spent: z.ZodOptional<z.ZodNumber>;
     createdBy: z.ZodOptional<z.ZodString>;
@@ -664,22 +1622,86 @@ export declare const CreateMerchantCampaignSchema: z.ZodObject<{
     rewardValue: z.ZodOptional<z.ZodNumber>;
     rewardType: z.ZodOptional<z.ZodString>;
     durationDays: z.ZodOptional<z.ZodNumber>;
-    conditions: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
-    actions: z.ZodOptional<z.ZodArray<z.ZodRecord<z.ZodString, z.ZodAny>, "many">>;
-    triggers: z.ZodOptional<z.ZodArray<z.ZodRecord<z.ZodString, z.ZodAny>, "many">>;
+    conditions: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        field: z.ZodString;
+        operator: z.ZodEnum<["eq", "neq", "gt", "gte", "lt", "lte", "in", "not_in", "contains", "exists"]>;
+        value: z.ZodOptional<z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull, z.ZodArray<z.ZodUnion<[z.ZodString, z.ZodNumber]>, "many">]>>;
+    }, "strict", z.ZodTypeAny, {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }, {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }>, "many">>;
+    actions: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        kind: z.ZodEnum<["credit_coins", "grant_badge", "send_notification", "award_voucher", "issue_coupon"]>;
+        params: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull, z.ZodArray<z.ZodString, "many">, z.ZodArray<z.ZodNumber, "many">]>>>;
+    }, "strict", z.ZodTypeAny, {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }, {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }>, "many">>;
+    triggers: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        event: z.ZodEnum<["order.placed", "order.delivered", "visit.completed", "signup", "referral.invite", "cron", "manual"]>;
+        filters: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            field: z.ZodString;
+            operator: z.ZodEnum<["eq", "neq", "gt", "gte", "lt", "lte", "in", "not_in", "contains", "exists"]>;
+            value: z.ZodOptional<z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull, z.ZodArray<z.ZodUnion<[z.ZodString, z.ZodNumber]>, "many">]>>;
+        }, "strict", z.ZodTypeAny, {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }, {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }>, "many">>;
+    }, "strict", z.ZodTypeAny, {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }, {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }>, "many">>;
     priority: z.ZodOptional<z.ZodNumber>;
     cooldownDays: z.ZodOptional<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
     type?: "merchant" | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     storeId?: string | undefined;
@@ -690,22 +1712,50 @@ export declare const CreateMerchantCampaignSchema: z.ZodObject<{
     rewardValue?: number | undefined;
     rewardType?: string | undefined;
     durationDays?: number | undefined;
-    conditions?: Record<string, any> | undefined;
-    actions?: Record<string, any>[] | undefined;
-    triggers?: Record<string, any>[] | undefined;
+    conditions?: {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }[] | undefined;
+    actions?: {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }[] | undefined;
+    triggers?: {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }[] | undefined;
     priority?: number | undefined;
     cooldownDays?: number | undefined;
 }, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
     type?: "merchant" | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     storeId?: string | undefined;
@@ -716,9 +1766,23 @@ export declare const CreateMerchantCampaignSchema: z.ZodObject<{
     rewardValue?: number | undefined;
     rewardType?: string | undefined;
     durationDays?: number | undefined;
-    conditions?: Record<string, any> | undefined;
-    actions?: Record<string, any>[] | undefined;
-    triggers?: Record<string, any>[] | undefined;
+    conditions?: {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }[] | undefined;
+    actions?: {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }[] | undefined;
+    triggers?: {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }[] | undefined;
     priority?: number | undefined;
     cooldownDays?: number | undefined;
 }>;
@@ -726,10 +1790,62 @@ export declare const UpdateMerchantCampaignSchema: z.ZodObject<{
     name: z.ZodOptional<z.ZodString>;
     description: z.ZodOptional<z.ZodOptional<z.ZodString>>;
     status: z.ZodOptional<z.ZodEnum<["draft", "scheduled", "sending", "sent", "pending_review", "active", "paused", "completed", "expired", "rejected", "failed", "cancelled"]>>;
-    startDate: z.ZodOptional<z.ZodDate>;
-    endDate: z.ZodOptional<z.ZodOptional<z.ZodDate>>;
+    startDate: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
+    endDate: z.ZodOptional<z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>>;
     channel: z.ZodOptional<z.ZodOptional<z.ZodEnum<["email", "sms", "push", "in_app", "whatsapp", "social", "web", "api"]>>>;
-    targetAudience: z.ZodOptional<z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>>;
+    targetAudience: z.ZodOptional<z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>>;
     budget: z.ZodOptional<z.ZodOptional<z.ZodNumber>>;
     spent: z.ZodOptional<z.ZodOptional<z.ZodNumber>>;
     createdBy: z.ZodOptional<z.ZodOptional<z.ZodString>>;
@@ -743,22 +1859,86 @@ export declare const UpdateMerchantCampaignSchema: z.ZodObject<{
     rewardValue: z.ZodOptional<z.ZodOptional<z.ZodNumber>>;
     rewardType: z.ZodOptional<z.ZodOptional<z.ZodString>>;
     durationDays: z.ZodOptional<z.ZodOptional<z.ZodNumber>>;
-    conditions: z.ZodOptional<z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>>;
-    actions: z.ZodOptional<z.ZodOptional<z.ZodArray<z.ZodRecord<z.ZodString, z.ZodAny>, "many">>>;
-    triggers: z.ZodOptional<z.ZodOptional<z.ZodArray<z.ZodRecord<z.ZodString, z.ZodAny>, "many">>>;
+    conditions: z.ZodOptional<z.ZodOptional<z.ZodArray<z.ZodObject<{
+        field: z.ZodString;
+        operator: z.ZodEnum<["eq", "neq", "gt", "gte", "lt", "lte", "in", "not_in", "contains", "exists"]>;
+        value: z.ZodOptional<z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull, z.ZodArray<z.ZodUnion<[z.ZodString, z.ZodNumber]>, "many">]>>;
+    }, "strict", z.ZodTypeAny, {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }, {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }>, "many">>>;
+    actions: z.ZodOptional<z.ZodOptional<z.ZodArray<z.ZodObject<{
+        kind: z.ZodEnum<["credit_coins", "grant_badge", "send_notification", "award_voucher", "issue_coupon"]>;
+        params: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull, z.ZodArray<z.ZodString, "many">, z.ZodArray<z.ZodNumber, "many">]>>>;
+    }, "strict", z.ZodTypeAny, {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }, {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }>, "many">>>;
+    triggers: z.ZodOptional<z.ZodOptional<z.ZodArray<z.ZodObject<{
+        event: z.ZodEnum<["order.placed", "order.delivered", "visit.completed", "signup", "referral.invite", "cron", "manual"]>;
+        filters: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            field: z.ZodString;
+            operator: z.ZodEnum<["eq", "neq", "gt", "gte", "lt", "lte", "in", "not_in", "contains", "exists"]>;
+            value: z.ZodOptional<z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull, z.ZodArray<z.ZodUnion<[z.ZodString, z.ZodNumber]>, "many">]>>;
+        }, "strict", z.ZodTypeAny, {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }, {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }>, "many">>;
+    }, "strict", z.ZodTypeAny, {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }, {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }>, "many">>>;
     priority: z.ZodOptional<z.ZodOptional<z.ZodNumber>>;
     cooldownDays: z.ZodOptional<z.ZodOptional<z.ZodNumber>>;
 }, "strip", z.ZodTypeAny, {
     spent?: number | undefined;
+    merchantId?: string | undefined;
     status?: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected" | undefined;
     name?: string | undefined;
     type?: "merchant" | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    startDate?: Date | undefined;
-    endDate?: Date | undefined;
+    startDate?: string | Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     storeId?: string | undefined;
@@ -769,22 +1949,50 @@ export declare const UpdateMerchantCampaignSchema: z.ZodObject<{
     rewardValue?: number | undefined;
     rewardType?: string | undefined;
     durationDays?: number | undefined;
-    conditions?: Record<string, any> | undefined;
-    actions?: Record<string, any>[] | undefined;
-    triggers?: Record<string, any>[] | undefined;
+    conditions?: {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }[] | undefined;
+    actions?: {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }[] | undefined;
+    triggers?: {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }[] | undefined;
     priority?: number | undefined;
     cooldownDays?: number | undefined;
 }, {
     spent?: number | undefined;
+    merchantId?: string | undefined;
     status?: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected" | undefined;
     name?: string | undefined;
     type?: "merchant" | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    startDate?: Date | undefined;
-    endDate?: Date | undefined;
+    startDate?: string | Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     storeId?: string | undefined;
@@ -795,9 +2003,23 @@ export declare const UpdateMerchantCampaignSchema: z.ZodObject<{
     rewardValue?: number | undefined;
     rewardType?: string | undefined;
     durationDays?: number | undefined;
-    conditions?: Record<string, any> | undefined;
-    actions?: Record<string, any>[] | undefined;
-    triggers?: Record<string, any>[] | undefined;
+    conditions?: {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }[] | undefined;
+    actions?: {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }[] | undefined;
+    triggers?: {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }[] | undefined;
     priority?: number | undefined;
     cooldownDays?: number | undefined;
 }>;
@@ -805,10 +2027,62 @@ export declare const MerchantCampaignResponseSchema: z.ZodObject<{
     name: z.ZodString;
     description: z.ZodOptional<z.ZodString>;
     status: z.ZodEnum<["draft", "scheduled", "sending", "sent", "pending_review", "active", "paused", "completed", "expired", "rejected", "failed", "cancelled"]>;
-    startDate: z.ZodDate;
-    endDate: z.ZodOptional<z.ZodDate>;
+    startDate: z.ZodUnion<[z.ZodDate, z.ZodString]>;
+    endDate: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     channel: z.ZodOptional<z.ZodEnum<["email", "sms", "push", "in_app", "whatsapp", "social", "web", "api"]>>;
-    targetAudience: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+    targetAudience: z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>;
     budget: z.ZodOptional<z.ZodNumber>;
     spent: z.ZodOptional<z.ZodNumber>;
     createdBy: z.ZodOptional<z.ZodString>;
@@ -823,30 +2097,94 @@ export declare const MerchantCampaignResponseSchema: z.ZodObject<{
     rewardValue: z.ZodOptional<z.ZodNumber>;
     rewardType: z.ZodOptional<z.ZodString>;
     durationDays: z.ZodOptional<z.ZodNumber>;
-    conditions: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
-    actions: z.ZodOptional<z.ZodArray<z.ZodRecord<z.ZodString, z.ZodAny>, "many">>;
-    triggers: z.ZodOptional<z.ZodArray<z.ZodRecord<z.ZodString, z.ZodAny>, "many">>;
+    conditions: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        field: z.ZodString;
+        operator: z.ZodEnum<["eq", "neq", "gt", "gte", "lt", "lte", "in", "not_in", "contains", "exists"]>;
+        value: z.ZodOptional<z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull, z.ZodArray<z.ZodUnion<[z.ZodString, z.ZodNumber]>, "many">]>>;
+    }, "strict", z.ZodTypeAny, {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }, {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }>, "many">>;
+    actions: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        kind: z.ZodEnum<["credit_coins", "grant_badge", "send_notification", "award_voucher", "issue_coupon"]>;
+        params: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull, z.ZodArray<z.ZodString, "many">, z.ZodArray<z.ZodNumber, "many">]>>>;
+    }, "strict", z.ZodTypeAny, {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }, {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }>, "many">>;
+    triggers: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        event: z.ZodEnum<["order.placed", "order.delivered", "visit.completed", "signup", "referral.invite", "cron", "manual"]>;
+        filters: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            field: z.ZodString;
+            operator: z.ZodEnum<["eq", "neq", "gt", "gte", "lt", "lte", "in", "not_in", "contains", "exists"]>;
+            value: z.ZodOptional<z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull, z.ZodArray<z.ZodUnion<[z.ZodString, z.ZodNumber]>, "many">]>>;
+        }, "strict", z.ZodTypeAny, {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }, {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }>, "many">>;
+    }, "strict", z.ZodTypeAny, {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }, {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }>, "many">>;
     priority: z.ZodOptional<z.ZodNumber>;
     cooldownDays: z.ZodOptional<z.ZodNumber>;
 } & {
     _id: z.ZodOptional<z.ZodString>;
     redemptionCount: z.ZodOptional<z.ZodNumber>;
-    createdAt: z.ZodOptional<z.ZodDate>;
-    updatedAt: z.ZodOptional<z.ZodDate>;
+    createdAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
+    updatedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
 }, "strip", z.ZodTypeAny, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
     type?: "merchant" | undefined;
     _id?: string | undefined;
-    createdAt?: Date | undefined;
-    updatedAt?: Date | undefined;
+    createdAt?: string | Date | undefined;
+    updatedAt?: string | Date | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     storeId?: string | undefined;
@@ -857,26 +2195,54 @@ export declare const MerchantCampaignResponseSchema: z.ZodObject<{
     rewardValue?: number | undefined;
     rewardType?: string | undefined;
     durationDays?: number | undefined;
-    conditions?: Record<string, any> | undefined;
-    actions?: Record<string, any>[] | undefined;
-    triggers?: Record<string, any>[] | undefined;
+    conditions?: {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }[] | undefined;
+    actions?: {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }[] | undefined;
+    triggers?: {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }[] | undefined;
     priority?: number | undefined;
     cooldownDays?: number | undefined;
     redemptionCount?: number | undefined;
 }, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
     type?: "merchant" | undefined;
     _id?: string | undefined;
-    createdAt?: Date | undefined;
-    updatedAt?: Date | undefined;
+    createdAt?: string | Date | undefined;
+    updatedAt?: string | Date | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     storeId?: string | undefined;
@@ -887,9 +2253,23 @@ export declare const MerchantCampaignResponseSchema: z.ZodObject<{
     rewardValue?: number | undefined;
     rewardType?: string | undefined;
     durationDays?: number | undefined;
-    conditions?: Record<string, any> | undefined;
-    actions?: Record<string, any>[] | undefined;
-    triggers?: Record<string, any>[] | undefined;
+    conditions?: {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }[] | undefined;
+    actions?: {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }[] | undefined;
+    triggers?: {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }[] | undefined;
     priority?: number | undefined;
     cooldownDays?: number | undefined;
     redemptionCount?: number | undefined;
@@ -898,10 +2278,62 @@ export declare const CampaignResponseSchema: z.ZodUnion<[z.ZodObject<{
     name: z.ZodString;
     description: z.ZodOptional<z.ZodString>;
     status: z.ZodEnum<["draft", "scheduled", "sending", "sent", "pending_review", "active", "paused", "completed", "expired", "rejected", "failed", "cancelled"]>;
-    startDate: z.ZodDate;
-    endDate: z.ZodOptional<z.ZodDate>;
+    startDate: z.ZodUnion<[z.ZodDate, z.ZodString]>;
+    endDate: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     channel: z.ZodOptional<z.ZodEnum<["email", "sms", "push", "in_app", "whatsapp", "social", "web", "api"]>>;
-    targetAudience: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+    targetAudience: z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>;
     budget: z.ZodOptional<z.ZodNumber>;
     spent: z.ZodOptional<z.ZodNumber>;
     createdBy: z.ZodOptional<z.ZodString>;
@@ -914,13 +2346,65 @@ export declare const CampaignResponseSchema: z.ZodUnion<[z.ZodObject<{
     imageUrl: z.ZodOptional<z.ZodString>;
     ctaUrl: z.ZodOptional<z.ZodString>;
     ctaText: z.ZodOptional<z.ZodString>;
-    audience: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
-    scheduledAt: z.ZodOptional<z.ZodDate>;
+    audience: z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>;
+    scheduledAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     dailyBudget: z.ZodOptional<z.ZodNumber>;
     attributionWindowDays: z.ZodOptional<z.ZodNumber>;
 } & {
     _id: z.ZodOptional<z.ZodString>;
-    sentAt: z.ZodOptional<z.ZodDate>;
+    sentAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     stats: z.ZodOptional<z.ZodObject<{
         sent: z.ZodOptional<z.ZodNumber>;
         delivered: z.ZodOptional<z.ZodNumber>;
@@ -948,35 +2432,63 @@ export declare const CampaignResponseSchema: z.ZodUnion<[z.ZodObject<{
     }>>;
     errorMessage: z.ZodOptional<z.ZodString>;
     totalSpent: z.ZodOptional<z.ZodNumber>;
-    createdAt: z.ZodOptional<z.ZodDate>;
-    updatedAt: z.ZodOptional<z.ZodDate>;
+    createdAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
+    updatedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
 }, "strip", z.ZodTypeAny, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     message?: string | undefined;
     type?: "marketing" | undefined;
     _id?: string | undefined;
-    createdAt?: Date | undefined;
-    updatedAt?: Date | undefined;
+    createdAt?: string | Date | undefined;
+    updatedAt?: string | Date | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     objective?: "awareness" | "engagement" | "sales" | "win_back" | undefined;
     templateName?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
-    audience?: Record<string, any> | undefined;
-    scheduledAt?: Date | undefined;
+    audience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
+    scheduledAt?: string | Date | undefined;
     dailyBudget?: number | undefined;
     attributionWindowDays?: number | undefined;
-    sentAt?: Date | undefined;
+    sentAt?: string | Date | undefined;
     stats?: {
         delivered?: number | undefined;
         failed?: number | undefined;
@@ -991,30 +2503,58 @@ export declare const CampaignResponseSchema: z.ZodUnion<[z.ZodObject<{
 }, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     message?: string | undefined;
     type?: "marketing" | undefined;
     _id?: string | undefined;
-    createdAt?: Date | undefined;
-    updatedAt?: Date | undefined;
+    createdAt?: string | Date | undefined;
+    updatedAt?: string | Date | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     objective?: "awareness" | "engagement" | "sales" | "win_back" | undefined;
     templateName?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
-    audience?: Record<string, any> | undefined;
-    scheduledAt?: Date | undefined;
+    audience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
+    scheduledAt?: string | Date | undefined;
     dailyBudget?: number | undefined;
     attributionWindowDays?: number | undefined;
-    sentAt?: Date | undefined;
+    sentAt?: string | Date | undefined;
     stats?: {
         delivered?: number | undefined;
         failed?: number | undefined;
@@ -1030,10 +2570,62 @@ export declare const CampaignResponseSchema: z.ZodUnion<[z.ZodObject<{
     name: z.ZodString;
     description: z.ZodOptional<z.ZodString>;
     status: z.ZodEnum<["draft", "scheduled", "sending", "sent", "pending_review", "active", "paused", "completed", "expired", "rejected", "failed", "cancelled"]>;
-    startDate: z.ZodDate;
-    endDate: z.ZodOptional<z.ZodDate>;
+    startDate: z.ZodUnion<[z.ZodDate, z.ZodString]>;
+    endDate: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     channel: z.ZodOptional<z.ZodEnum<["email", "sms", "push", "in_app", "whatsapp", "social", "web", "api"]>>;
-    targetAudience: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+    targetAudience: z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>;
     budget: z.ZodOptional<z.ZodNumber>;
     spent: z.ZodOptional<z.ZodNumber>;
     createdBy: z.ZodOptional<z.ZodString>;
@@ -1071,36 +2663,50 @@ export declare const CampaignResponseSchema: z.ZodUnion<[z.ZodObject<{
     clicks: z.ZodOptional<z.ZodNumber>;
     ctr: z.ZodOptional<z.ZodNumber>;
     reviewedBy: z.ZodOptional<z.ZodString>;
-    reviewedAt: z.ZodOptional<z.ZodDate>;
+    reviewedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     rejectionReason: z.ZodOptional<z.ZodString>;
-    createdAt: z.ZodOptional<z.ZodDate>;
-    updatedAt: z.ZodOptional<z.ZodDate>;
+    createdAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
+    updatedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
 }, "strip", z.ZodTypeAny, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     type?: "ad" | undefined;
     _id?: string | undefined;
-    createdAt?: Date | undefined;
-    updatedAt?: Date | undefined;
+    createdAt?: string | Date | undefined;
+    updatedAt?: string | Date | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
     dailyBudget?: number | undefined;
     totalSpent?: number | undefined;
     storeId?: string | undefined;
     title?: string | undefined;
     headline?: string | undefined;
     placement?: "home_banner" | "explore_feed" | "store_listing" | "search_result" | undefined;
-    targetSegment?: "all" | "new" | "loyal" | "lapsed" | "nearby" | undefined;
+    targetSegment?: "all" | "lapsed" | "new" | "loyal" | "nearby" | undefined;
     targetLocation?: {
         city?: string | undefined;
         radiusKm?: number | undefined;
@@ -1114,34 +2720,48 @@ export declare const CampaignResponseSchema: z.ZodUnion<[z.ZodObject<{
     clicks?: number | undefined;
     ctr?: number | undefined;
     reviewedBy?: string | undefined;
-    reviewedAt?: Date | undefined;
+    reviewedAt?: string | Date | undefined;
     rejectionReason?: string | undefined;
 }, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     type?: "ad" | undefined;
     _id?: string | undefined;
-    createdAt?: Date | undefined;
-    updatedAt?: Date | undefined;
+    createdAt?: string | Date | undefined;
+    updatedAt?: string | Date | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
     dailyBudget?: number | undefined;
     totalSpent?: number | undefined;
     storeId?: string | undefined;
     title?: string | undefined;
     headline?: string | undefined;
     placement?: "home_banner" | "explore_feed" | "store_listing" | "search_result" | undefined;
-    targetSegment?: "all" | "new" | "loyal" | "lapsed" | "nearby" | undefined;
+    targetSegment?: "all" | "lapsed" | "new" | "loyal" | "nearby" | undefined;
     targetLocation?: {
         city?: string | undefined;
         radiusKm?: number | undefined;
@@ -1155,16 +2775,68 @@ export declare const CampaignResponseSchema: z.ZodUnion<[z.ZodObject<{
     clicks?: number | undefined;
     ctr?: number | undefined;
     reviewedBy?: string | undefined;
-    reviewedAt?: Date | undefined;
+    reviewedAt?: string | Date | undefined;
     rejectionReason?: string | undefined;
 }>, z.ZodObject<{
     name: z.ZodString;
     description: z.ZodOptional<z.ZodString>;
     status: z.ZodEnum<["draft", "scheduled", "sending", "sent", "pending_review", "active", "paused", "completed", "expired", "rejected", "failed", "cancelled"]>;
-    startDate: z.ZodDate;
-    endDate: z.ZodOptional<z.ZodDate>;
+    startDate: z.ZodUnion<[z.ZodDate, z.ZodString]>;
+    endDate: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     channel: z.ZodOptional<z.ZodEnum<["email", "sms", "push", "in_app", "whatsapp", "social", "web", "api"]>>;
-    targetAudience: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+    targetAudience: z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>;
     budget: z.ZodOptional<z.ZodNumber>;
     spent: z.ZodOptional<z.ZodNumber>;
     createdBy: z.ZodOptional<z.ZodString>;
@@ -1179,30 +2851,94 @@ export declare const CampaignResponseSchema: z.ZodUnion<[z.ZodObject<{
     rewardValue: z.ZodOptional<z.ZodNumber>;
     rewardType: z.ZodOptional<z.ZodString>;
     durationDays: z.ZodOptional<z.ZodNumber>;
-    conditions: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
-    actions: z.ZodOptional<z.ZodArray<z.ZodRecord<z.ZodString, z.ZodAny>, "many">>;
-    triggers: z.ZodOptional<z.ZodArray<z.ZodRecord<z.ZodString, z.ZodAny>, "many">>;
+    conditions: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        field: z.ZodString;
+        operator: z.ZodEnum<["eq", "neq", "gt", "gte", "lt", "lte", "in", "not_in", "contains", "exists"]>;
+        value: z.ZodOptional<z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull, z.ZodArray<z.ZodUnion<[z.ZodString, z.ZodNumber]>, "many">]>>;
+    }, "strict", z.ZodTypeAny, {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }, {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }>, "many">>;
+    actions: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        kind: z.ZodEnum<["credit_coins", "grant_badge", "send_notification", "award_voucher", "issue_coupon"]>;
+        params: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull, z.ZodArray<z.ZodString, "many">, z.ZodArray<z.ZodNumber, "many">]>>>;
+    }, "strict", z.ZodTypeAny, {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }, {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }>, "many">>;
+    triggers: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        event: z.ZodEnum<["order.placed", "order.delivered", "visit.completed", "signup", "referral.invite", "cron", "manual"]>;
+        filters: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            field: z.ZodString;
+            operator: z.ZodEnum<["eq", "neq", "gt", "gte", "lt", "lte", "in", "not_in", "contains", "exists"]>;
+            value: z.ZodOptional<z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull, z.ZodArray<z.ZodUnion<[z.ZodString, z.ZodNumber]>, "many">]>>;
+        }, "strict", z.ZodTypeAny, {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }, {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }>, "many">>;
+    }, "strict", z.ZodTypeAny, {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }, {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }>, "many">>;
     priority: z.ZodOptional<z.ZodNumber>;
     cooldownDays: z.ZodOptional<z.ZodNumber>;
 } & {
     _id: z.ZodOptional<z.ZodString>;
     redemptionCount: z.ZodOptional<z.ZodNumber>;
-    createdAt: z.ZodOptional<z.ZodDate>;
-    updatedAt: z.ZodOptional<z.ZodDate>;
+    createdAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
+    updatedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
 }, "strip", z.ZodTypeAny, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
     type?: "merchant" | undefined;
     _id?: string | undefined;
-    createdAt?: Date | undefined;
-    updatedAt?: Date | undefined;
+    createdAt?: string | Date | undefined;
+    updatedAt?: string | Date | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     storeId?: string | undefined;
@@ -1213,26 +2949,54 @@ export declare const CampaignResponseSchema: z.ZodUnion<[z.ZodObject<{
     rewardValue?: number | undefined;
     rewardType?: string | undefined;
     durationDays?: number | undefined;
-    conditions?: Record<string, any> | undefined;
-    actions?: Record<string, any>[] | undefined;
-    triggers?: Record<string, any>[] | undefined;
+    conditions?: {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }[] | undefined;
+    actions?: {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }[] | undefined;
+    triggers?: {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }[] | undefined;
     priority?: number | undefined;
     cooldownDays?: number | undefined;
     redemptionCount?: number | undefined;
 }, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
     type?: "merchant" | undefined;
     _id?: string | undefined;
-    createdAt?: Date | undefined;
-    updatedAt?: Date | undefined;
+    createdAt?: string | Date | undefined;
+    updatedAt?: string | Date | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     storeId?: string | undefined;
@@ -1243,9 +3007,23 @@ export declare const CampaignResponseSchema: z.ZodUnion<[z.ZodObject<{
     rewardValue?: number | undefined;
     rewardType?: string | undefined;
     durationDays?: number | undefined;
-    conditions?: Record<string, any> | undefined;
-    actions?: Record<string, any>[] | undefined;
-    triggers?: Record<string, any>[] | undefined;
+    conditions?: {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }[] | undefined;
+    actions?: {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }[] | undefined;
+    triggers?: {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }[] | undefined;
     priority?: number | undefined;
     cooldownDays?: number | undefined;
     redemptionCount?: number | undefined;
@@ -1254,10 +3032,62 @@ export declare const CampaignListResponseSchema: z.ZodArray<z.ZodUnion<[z.ZodObj
     name: z.ZodString;
     description: z.ZodOptional<z.ZodString>;
     status: z.ZodEnum<["draft", "scheduled", "sending", "sent", "pending_review", "active", "paused", "completed", "expired", "rejected", "failed", "cancelled"]>;
-    startDate: z.ZodDate;
-    endDate: z.ZodOptional<z.ZodDate>;
+    startDate: z.ZodUnion<[z.ZodDate, z.ZodString]>;
+    endDate: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     channel: z.ZodOptional<z.ZodEnum<["email", "sms", "push", "in_app", "whatsapp", "social", "web", "api"]>>;
-    targetAudience: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+    targetAudience: z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>;
     budget: z.ZodOptional<z.ZodNumber>;
     spent: z.ZodOptional<z.ZodNumber>;
     createdBy: z.ZodOptional<z.ZodString>;
@@ -1270,13 +3100,65 @@ export declare const CampaignListResponseSchema: z.ZodArray<z.ZodUnion<[z.ZodObj
     imageUrl: z.ZodOptional<z.ZodString>;
     ctaUrl: z.ZodOptional<z.ZodString>;
     ctaText: z.ZodOptional<z.ZodString>;
-    audience: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
-    scheduledAt: z.ZodOptional<z.ZodDate>;
+    audience: z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>;
+    scheduledAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     dailyBudget: z.ZodOptional<z.ZodNumber>;
     attributionWindowDays: z.ZodOptional<z.ZodNumber>;
 } & {
     _id: z.ZodOptional<z.ZodString>;
-    sentAt: z.ZodOptional<z.ZodDate>;
+    sentAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     stats: z.ZodOptional<z.ZodObject<{
         sent: z.ZodOptional<z.ZodNumber>;
         delivered: z.ZodOptional<z.ZodNumber>;
@@ -1304,35 +3186,63 @@ export declare const CampaignListResponseSchema: z.ZodArray<z.ZodUnion<[z.ZodObj
     }>>;
     errorMessage: z.ZodOptional<z.ZodString>;
     totalSpent: z.ZodOptional<z.ZodNumber>;
-    createdAt: z.ZodOptional<z.ZodDate>;
-    updatedAt: z.ZodOptional<z.ZodDate>;
+    createdAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
+    updatedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
 }, "strip", z.ZodTypeAny, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     message?: string | undefined;
     type?: "marketing" | undefined;
     _id?: string | undefined;
-    createdAt?: Date | undefined;
-    updatedAt?: Date | undefined;
+    createdAt?: string | Date | undefined;
+    updatedAt?: string | Date | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     objective?: "awareness" | "engagement" | "sales" | "win_back" | undefined;
     templateName?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
-    audience?: Record<string, any> | undefined;
-    scheduledAt?: Date | undefined;
+    audience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
+    scheduledAt?: string | Date | undefined;
     dailyBudget?: number | undefined;
     attributionWindowDays?: number | undefined;
-    sentAt?: Date | undefined;
+    sentAt?: string | Date | undefined;
     stats?: {
         delivered?: number | undefined;
         failed?: number | undefined;
@@ -1347,30 +3257,58 @@ export declare const CampaignListResponseSchema: z.ZodArray<z.ZodUnion<[z.ZodObj
 }, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     message?: string | undefined;
     type?: "marketing" | undefined;
     _id?: string | undefined;
-    createdAt?: Date | undefined;
-    updatedAt?: Date | undefined;
+    createdAt?: string | Date | undefined;
+    updatedAt?: string | Date | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     objective?: "awareness" | "engagement" | "sales" | "win_back" | undefined;
     templateName?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
-    audience?: Record<string, any> | undefined;
-    scheduledAt?: Date | undefined;
+    audience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
+    scheduledAt?: string | Date | undefined;
     dailyBudget?: number | undefined;
     attributionWindowDays?: number | undefined;
-    sentAt?: Date | undefined;
+    sentAt?: string | Date | undefined;
     stats?: {
         delivered?: number | undefined;
         failed?: number | undefined;
@@ -1386,10 +3324,62 @@ export declare const CampaignListResponseSchema: z.ZodArray<z.ZodUnion<[z.ZodObj
     name: z.ZodString;
     description: z.ZodOptional<z.ZodString>;
     status: z.ZodEnum<["draft", "scheduled", "sending", "sent", "pending_review", "active", "paused", "completed", "expired", "rejected", "failed", "cancelled"]>;
-    startDate: z.ZodDate;
-    endDate: z.ZodOptional<z.ZodDate>;
+    startDate: z.ZodUnion<[z.ZodDate, z.ZodString]>;
+    endDate: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     channel: z.ZodOptional<z.ZodEnum<["email", "sms", "push", "in_app", "whatsapp", "social", "web", "api"]>>;
-    targetAudience: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+    targetAudience: z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>;
     budget: z.ZodOptional<z.ZodNumber>;
     spent: z.ZodOptional<z.ZodNumber>;
     createdBy: z.ZodOptional<z.ZodString>;
@@ -1427,36 +3417,50 @@ export declare const CampaignListResponseSchema: z.ZodArray<z.ZodUnion<[z.ZodObj
     clicks: z.ZodOptional<z.ZodNumber>;
     ctr: z.ZodOptional<z.ZodNumber>;
     reviewedBy: z.ZodOptional<z.ZodString>;
-    reviewedAt: z.ZodOptional<z.ZodDate>;
+    reviewedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     rejectionReason: z.ZodOptional<z.ZodString>;
-    createdAt: z.ZodOptional<z.ZodDate>;
-    updatedAt: z.ZodOptional<z.ZodDate>;
+    createdAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
+    updatedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
 }, "strip", z.ZodTypeAny, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     type?: "ad" | undefined;
     _id?: string | undefined;
-    createdAt?: Date | undefined;
-    updatedAt?: Date | undefined;
+    createdAt?: string | Date | undefined;
+    updatedAt?: string | Date | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
     dailyBudget?: number | undefined;
     totalSpent?: number | undefined;
     storeId?: string | undefined;
     title?: string | undefined;
     headline?: string | undefined;
     placement?: "home_banner" | "explore_feed" | "store_listing" | "search_result" | undefined;
-    targetSegment?: "all" | "new" | "loyal" | "lapsed" | "nearby" | undefined;
+    targetSegment?: "all" | "lapsed" | "new" | "loyal" | "nearby" | undefined;
     targetLocation?: {
         city?: string | undefined;
         radiusKm?: number | undefined;
@@ -1470,34 +3474,48 @@ export declare const CampaignListResponseSchema: z.ZodArray<z.ZodUnion<[z.ZodObj
     clicks?: number | undefined;
     ctr?: number | undefined;
     reviewedBy?: string | undefined;
-    reviewedAt?: Date | undefined;
+    reviewedAt?: string | Date | undefined;
     rejectionReason?: string | undefined;
 }, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
+    ctaText?: string | undefined;
+    imageUrl?: string | undefined;
     type?: "ad" | undefined;
     _id?: string | undefined;
-    createdAt?: Date | undefined;
-    updatedAt?: Date | undefined;
+    createdAt?: string | Date | undefined;
+    updatedAt?: string | Date | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
-    imageUrl?: string | undefined;
     ctaUrl?: string | undefined;
-    ctaText?: string | undefined;
     dailyBudget?: number | undefined;
     totalSpent?: number | undefined;
     storeId?: string | undefined;
     title?: string | undefined;
     headline?: string | undefined;
     placement?: "home_banner" | "explore_feed" | "store_listing" | "search_result" | undefined;
-    targetSegment?: "all" | "new" | "loyal" | "lapsed" | "nearby" | undefined;
+    targetSegment?: "all" | "lapsed" | "new" | "loyal" | "nearby" | undefined;
     targetLocation?: {
         city?: string | undefined;
         radiusKm?: number | undefined;
@@ -1511,16 +3529,68 @@ export declare const CampaignListResponseSchema: z.ZodArray<z.ZodUnion<[z.ZodObj
     clicks?: number | undefined;
     ctr?: number | undefined;
     reviewedBy?: string | undefined;
-    reviewedAt?: Date | undefined;
+    reviewedAt?: string | Date | undefined;
     rejectionReason?: string | undefined;
 }>, z.ZodObject<{
     name: z.ZodString;
     description: z.ZodOptional<z.ZodString>;
     status: z.ZodEnum<["draft", "scheduled", "sending", "sent", "pending_review", "active", "paused", "completed", "expired", "rejected", "failed", "cancelled"]>;
-    startDate: z.ZodDate;
-    endDate: z.ZodOptional<z.ZodDate>;
+    startDate: z.ZodUnion<[z.ZodDate, z.ZodString]>;
+    endDate: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     channel: z.ZodOptional<z.ZodEnum<["email", "sms", "push", "in_app", "whatsapp", "social", "web", "api"]>>;
-    targetAudience: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+    targetAudience: z.ZodOptional<z.ZodObject<{
+        segment: z.ZodOptional<z.ZodEnum<["all", "recent", "lapsed", "high_value", "stamp_card"]>>;
+        daysInactive: z.ZodOptional<z.ZodNumber>;
+        minSpend: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodOptional<z.ZodObject<{
+            city: z.ZodOptional<z.ZodString>;
+            area: z.ZodOptional<z.ZodString>;
+            pincode: z.ZodOptional<z.ZodString>;
+            radiusKm: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }, {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        }>>;
+        interests: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+        institution: z.ZodOptional<z.ZodString>;
+        keyword: z.ZodOptional<z.ZodString>;
+        estimatedCount: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }, {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    }>>;
     budget: z.ZodOptional<z.ZodNumber>;
     spent: z.ZodOptional<z.ZodNumber>;
     createdBy: z.ZodOptional<z.ZodString>;
@@ -1535,30 +3605,94 @@ export declare const CampaignListResponseSchema: z.ZodArray<z.ZodUnion<[z.ZodObj
     rewardValue: z.ZodOptional<z.ZodNumber>;
     rewardType: z.ZodOptional<z.ZodString>;
     durationDays: z.ZodOptional<z.ZodNumber>;
-    conditions: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
-    actions: z.ZodOptional<z.ZodArray<z.ZodRecord<z.ZodString, z.ZodAny>, "many">>;
-    triggers: z.ZodOptional<z.ZodArray<z.ZodRecord<z.ZodString, z.ZodAny>, "many">>;
+    conditions: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        field: z.ZodString;
+        operator: z.ZodEnum<["eq", "neq", "gt", "gte", "lt", "lte", "in", "not_in", "contains", "exists"]>;
+        value: z.ZodOptional<z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull, z.ZodArray<z.ZodUnion<[z.ZodString, z.ZodNumber]>, "many">]>>;
+    }, "strict", z.ZodTypeAny, {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }, {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }>, "many">>;
+    actions: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        kind: z.ZodEnum<["credit_coins", "grant_badge", "send_notification", "award_voucher", "issue_coupon"]>;
+        params: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull, z.ZodArray<z.ZodString, "many">, z.ZodArray<z.ZodNumber, "many">]>>>;
+    }, "strict", z.ZodTypeAny, {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }, {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }>, "many">>;
+    triggers: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        event: z.ZodEnum<["order.placed", "order.delivered", "visit.completed", "signup", "referral.invite", "cron", "manual"]>;
+        filters: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            field: z.ZodString;
+            operator: z.ZodEnum<["eq", "neq", "gt", "gte", "lt", "lte", "in", "not_in", "contains", "exists"]>;
+            value: z.ZodOptional<z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull, z.ZodArray<z.ZodUnion<[z.ZodString, z.ZodNumber]>, "many">]>>;
+        }, "strict", z.ZodTypeAny, {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }, {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }>, "many">>;
+    }, "strict", z.ZodTypeAny, {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }, {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }>, "many">>;
     priority: z.ZodOptional<z.ZodNumber>;
     cooldownDays: z.ZodOptional<z.ZodNumber>;
 } & {
     _id: z.ZodOptional<z.ZodString>;
     redemptionCount: z.ZodOptional<z.ZodNumber>;
-    createdAt: z.ZodOptional<z.ZodDate>;
-    updatedAt: z.ZodOptional<z.ZodDate>;
+    createdAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
+    updatedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
 }, "strip", z.ZodTypeAny, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
     type?: "merchant" | undefined;
     _id?: string | undefined;
-    createdAt?: Date | undefined;
-    updatedAt?: Date | undefined;
+    createdAt?: string | Date | undefined;
+    updatedAt?: string | Date | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     storeId?: string | undefined;
@@ -1569,26 +3703,54 @@ export declare const CampaignListResponseSchema: z.ZodArray<z.ZodUnion<[z.ZodObj
     rewardValue?: number | undefined;
     rewardType?: string | undefined;
     durationDays?: number | undefined;
-    conditions?: Record<string, any> | undefined;
-    actions?: Record<string, any>[] | undefined;
-    triggers?: Record<string, any>[] | undefined;
+    conditions?: {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }[] | undefined;
+    actions?: {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }[] | undefined;
+    triggers?: {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }[] | undefined;
     priority?: number | undefined;
     cooldownDays?: number | undefined;
     redemptionCount?: number | undefined;
 }, {
     status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
     name: string;
-    startDate: Date;
+    startDate: string | Date;
     spent?: number | undefined;
+    merchantId?: string | undefined;
     type?: "merchant" | undefined;
     _id?: string | undefined;
-    createdAt?: Date | undefined;
-    updatedAt?: Date | undefined;
+    createdAt?: string | Date | undefined;
+    updatedAt?: string | Date | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
-    endDate?: Date | undefined;
+    endDate?: string | Date | undefined;
     channel?: "email" | "sms" | "push" | "in_app" | "whatsapp" | "social" | "web" | "api" | undefined;
-    targetAudience?: Record<string, any> | undefined;
+    targetAudience?: {
+        segment?: "all" | "recent" | "lapsed" | "high_value" | "stamp_card" | undefined;
+        daysInactive?: number | undefined;
+        minSpend?: number | undefined;
+        location?: {
+            city?: string | undefined;
+            pincode?: string | undefined;
+            area?: string | undefined;
+            radiusKm?: number | undefined;
+        } | undefined;
+        interests?: string[] | undefined;
+        institution?: string | undefined;
+        keyword?: string | undefined;
+        estimatedCount?: number | undefined;
+    } | undefined;
     budget?: number | undefined;
     createdBy?: string | undefined;
     storeId?: string | undefined;
@@ -1599,9 +3761,23 @@ export declare const CampaignListResponseSchema: z.ZodArray<z.ZodUnion<[z.ZodObj
     rewardValue?: number | undefined;
     rewardType?: string | undefined;
     durationDays?: number | undefined;
-    conditions?: Record<string, any> | undefined;
-    actions?: Record<string, any>[] | undefined;
-    triggers?: Record<string, any>[] | undefined;
+    conditions?: {
+        operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+        field: string;
+        value?: string | number | boolean | (string | number)[] | null | undefined;
+    }[] | undefined;
+    actions?: {
+        kind: "credit_coins" | "grant_badge" | "send_notification" | "award_voucher" | "issue_coupon";
+        params?: Record<string, string | number | boolean | string[] | number[] | null> | undefined;
+    }[] | undefined;
+    triggers?: {
+        event: "manual" | "signup" | "order.placed" | "order.delivered" | "visit.completed" | "referral.invite" | "cron";
+        filters?: {
+            operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "not_in" | "contains" | "exists";
+            field: string;
+            value?: string | number | boolean | (string | number)[] | null | undefined;
+        }[] | undefined;
+    }[] | undefined;
     priority?: number | undefined;
     cooldownDays?: number | undefined;
     redemptionCount?: number | undefined;

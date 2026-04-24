@@ -362,7 +362,26 @@ When all six boxes are green in prod for 48h, delete the v1 shims.
 | `CreateOrderSchema` | `rez-contracts/schemas/order` | `@rez/shared-types` |
 | `WalletDebitSchema` | `rez-contracts/schemas/wallet` | `@rez/shared-types` |
 
-## Appendix B — zod schema behavior matrix
+## Appendix B — FSM drift from rezbackend (intentional)
+
+Diffed `src/fsm/paymentFsm.ts` against `rezbackend/src/config/financialStateMachine.ts`
+PAYMENT_TRANSITIONS. One intentional addition in canonical:
+
+| State | Backend | Canonical (v2) | Why |
+|---|---|---|---|
+| `partially_refunded` | **missing from PAYMENT_TRANSITIONS map** | `partially_refunded: [refund_initiated]` | Backend's Payment enum accepts `partially_refunded` as a status value, but the PAYMENT_TRANSITIONS map has no row for it. Any save that tried to transition out of `partially_refunded` would throw at the pre-save hook. Canonical v2 adds the transition row explicitly. |
+| `refund_processing` | `[refunded, refund_failed]` | `[refunded, partially_refunded, refund_failed]` | Required to reach the new `partially_refunded` state. |
+
+**Action for the Week 2 cutover:** when `financialStateMachine.ts` switches to
+re-export from `@rez/shared-types`, this drift resolves automatically and the
+backend gains the `partially_refunded` transition handling it was missing.
+File a small follow-up to verify any refund-flow tests still pass after the shim
+lands (they should — the backend bug was latent, not exercised).
+
+ORDER_PAYMENT_TRANSITIONS (order sub-doc FSM) is field-for-field identical to
+the backend. No drift.
+
+## Appendix C — zod schema behavior matrix
 
 | Schema | Unknown fields | Required fields enforced |
 |---|---|---|

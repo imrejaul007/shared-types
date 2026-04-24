@@ -162,13 +162,6 @@ export declare const UserProfileSchema: z.ZodObject<{
         submittedAt: Date;
     }>>;
 }, "strip", z.ZodTypeAny, {
-    firstName?: string | undefined;
-    lastName?: string | undefined;
-    avatar?: string | undefined;
-    bio?: string | undefined;
-    website?: string | undefined;
-    dateOfBirth?: Date | undefined;
-    gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
     location?: {
         city?: string | undefined;
         state?: string | undefined;
@@ -176,6 +169,13 @@ export declare const UserProfileSchema: z.ZodObject<{
         coordinates?: [number, number] | undefined;
         address?: string | undefined;
     } | undefined;
+    firstName?: string | undefined;
+    lastName?: string | undefined;
+    avatar?: string | undefined;
+    bio?: string | undefined;
+    website?: string | undefined;
+    dateOfBirth?: Date | undefined;
+    gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
     locationHistory?: {
         coordinates: [number, number];
         address: string;
@@ -198,13 +198,6 @@ export declare const UserProfileSchema: z.ZodObject<{
         submittedAt: Date;
     } | undefined;
 }, {
-    firstName?: string | undefined;
-    lastName?: string | undefined;
-    avatar?: string | undefined;
-    bio?: string | undefined;
-    website?: string | undefined;
-    dateOfBirth?: Date | undefined;
-    gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
     location?: {
         city?: string | undefined;
         state?: string | undefined;
@@ -212,6 +205,13 @@ export declare const UserProfileSchema: z.ZodObject<{
         coordinates?: [number, number] | undefined;
         address?: string | undefined;
     } | undefined;
+    firstName?: string | undefined;
+    lastName?: string | undefined;
+    avatar?: string | undefined;
+    bio?: string | undefined;
+    website?: string | undefined;
+    dateOfBirth?: Date | undefined;
+    gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
     locationHistory?: {
         coordinates: [number, number];
         address: string;
@@ -382,13 +382,6 @@ export declare const CreateUserSchema: z.ZodObject<{
             submittedAt: Date;
         }>>;
     }, "strip", z.ZodTypeAny, {
-        firstName?: string | undefined;
-        lastName?: string | undefined;
-        avatar?: string | undefined;
-        bio?: string | undefined;
-        website?: string | undefined;
-        dateOfBirth?: Date | undefined;
-        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         location?: {
             city?: string | undefined;
             state?: string | undefined;
@@ -396,6 +389,13 @@ export declare const CreateUserSchema: z.ZodObject<{
             coordinates?: [number, number] | undefined;
             address?: string | undefined;
         } | undefined;
+        firstName?: string | undefined;
+        lastName?: string | undefined;
+        avatar?: string | undefined;
+        bio?: string | undefined;
+        website?: string | undefined;
+        dateOfBirth?: Date | undefined;
+        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         locationHistory?: {
             coordinates: [number, number];
             address: string;
@@ -418,13 +418,6 @@ export declare const CreateUserSchema: z.ZodObject<{
             submittedAt: Date;
         } | undefined;
     }, {
-        firstName?: string | undefined;
-        lastName?: string | undefined;
-        avatar?: string | undefined;
-        bio?: string | undefined;
-        website?: string | undefined;
-        dateOfBirth?: Date | undefined;
-        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         location?: {
             city?: string | undefined;
             state?: string | undefined;
@@ -432,6 +425,13 @@ export declare const CreateUserSchema: z.ZodObject<{
             coordinates?: [number, number] | undefined;
             address?: string | undefined;
         } | undefined;
+        firstName?: string | undefined;
+        lastName?: string | undefined;
+        avatar?: string | undefined;
+        bio?: string | undefined;
+        website?: string | undefined;
+        dateOfBirth?: Date | undefined;
+        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         locationHistory?: {
             coordinates: [number, number];
             address: string;
@@ -505,13 +505,6 @@ export declare const CreateUserSchema: z.ZodObject<{
     phone: string;
     password: string;
     profile?: {
-        firstName?: string | undefined;
-        lastName?: string | undefined;
-        avatar?: string | undefined;
-        bio?: string | undefined;
-        website?: string | undefined;
-        dateOfBirth?: Date | undefined;
-        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         location?: {
             city?: string | undefined;
             state?: string | undefined;
@@ -519,6 +512,13 @@ export declare const CreateUserSchema: z.ZodObject<{
             coordinates?: [number, number] | undefined;
             address?: string | undefined;
         } | undefined;
+        firstName?: string | undefined;
+        lastName?: string | undefined;
+        avatar?: string | undefined;
+        bio?: string | undefined;
+        website?: string | undefined;
+        dateOfBirth?: Date | undefined;
+        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         locationHistory?: {
             coordinates: [number, number];
             address: string;
@@ -559,13 +559,6 @@ export declare const CreateUserSchema: z.ZodObject<{
     phone: string;
     password: string;
     profile?: {
-        firstName?: string | undefined;
-        lastName?: string | undefined;
-        avatar?: string | undefined;
-        bio?: string | undefined;
-        website?: string | undefined;
-        dateOfBirth?: Date | undefined;
-        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         location?: {
             city?: string | undefined;
             state?: string | undefined;
@@ -573,6 +566,13 @@ export declare const CreateUserSchema: z.ZodObject<{
             coordinates?: [number, number] | undefined;
             address?: string | undefined;
         } | undefined;
+        firstName?: string | undefined;
+        lastName?: string | undefined;
+        avatar?: string | undefined;
+        bio?: string | undefined;
+        website?: string | undefined;
+        dateOfBirth?: Date | undefined;
+        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         locationHistory?: {
             coordinates: [number, number];
             address: string;
@@ -698,13 +698,6 @@ export declare const UpdateProfileSchema: z.ZodObject<{
         smsNotifications?: boolean | undefined;
     }>>;
 }, "strip", z.ZodTypeAny, {
-    firstName?: string | undefined;
-    lastName?: string | undefined;
-    avatar?: string | undefined;
-    bio?: string | undefined;
-    website?: string | undefined;
-    dateOfBirth?: Date | undefined;
-    gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
     location?: {
         city?: string | undefined;
         state?: string | undefined;
@@ -712,6 +705,13 @@ export declare const UpdateProfileSchema: z.ZodObject<{
         coordinates?: [number, number] | undefined;
         address?: string | undefined;
     } | undefined;
+    firstName?: string | undefined;
+    lastName?: string | undefined;
+    avatar?: string | undefined;
+    bio?: string | undefined;
+    website?: string | undefined;
+    dateOfBirth?: Date | undefined;
+    gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
     timezone?: string | undefined;
     ringSize?: string | undefined;
     jewelryPreferences?: {
@@ -733,13 +733,6 @@ export declare const UpdateProfileSchema: z.ZodObject<{
         smsNotifications?: boolean | undefined;
     } | undefined;
 }, {
-    firstName?: string | undefined;
-    lastName?: string | undefined;
-    avatar?: string | undefined;
-    bio?: string | undefined;
-    website?: string | undefined;
-    dateOfBirth?: Date | undefined;
-    gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
     location?: {
         city?: string | undefined;
         state?: string | undefined;
@@ -747,6 +740,13 @@ export declare const UpdateProfileSchema: z.ZodObject<{
         coordinates?: [number, number] | undefined;
         address?: string | undefined;
     } | undefined;
+    firstName?: string | undefined;
+    lastName?: string | undefined;
+    avatar?: string | undefined;
+    bio?: string | undefined;
+    website?: string | undefined;
+    dateOfBirth?: Date | undefined;
+    gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
     timezone?: string | undefined;
     ringSize?: string | undefined;
     jewelryPreferences?: {
@@ -852,13 +852,6 @@ export declare const UserResponseSchema: z.ZodObject<{
             submittedAt: Date;
         }>>;
     }, "strip", z.ZodTypeAny, {
-        firstName?: string | undefined;
-        lastName?: string | undefined;
-        avatar?: string | undefined;
-        bio?: string | undefined;
-        website?: string | undefined;
-        dateOfBirth?: Date | undefined;
-        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         location?: {
             city?: string | undefined;
             state?: string | undefined;
@@ -866,6 +859,13 @@ export declare const UserResponseSchema: z.ZodObject<{
             coordinates?: [number, number] | undefined;
             address?: string | undefined;
         } | undefined;
+        firstName?: string | undefined;
+        lastName?: string | undefined;
+        avatar?: string | undefined;
+        bio?: string | undefined;
+        website?: string | undefined;
+        dateOfBirth?: Date | undefined;
+        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         locationHistory?: {
             coordinates: [number, number];
             address: string;
@@ -888,13 +888,6 @@ export declare const UserResponseSchema: z.ZodObject<{
             submittedAt: Date;
         } | undefined;
     }, {
-        firstName?: string | undefined;
-        lastName?: string | undefined;
-        avatar?: string | undefined;
-        bio?: string | undefined;
-        website?: string | undefined;
-        dateOfBirth?: Date | undefined;
-        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         location?: {
             city?: string | undefined;
             state?: string | undefined;
@@ -902,6 +895,13 @@ export declare const UserResponseSchema: z.ZodObject<{
             coordinates?: [number, number] | undefined;
             address?: string | undefined;
         } | undefined;
+        firstName?: string | undefined;
+        lastName?: string | undefined;
+        avatar?: string | undefined;
+        bio?: string | undefined;
+        website?: string | undefined;
+        dateOfBirth?: Date | undefined;
+        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         locationHistory?: {
             coordinates: [number, number];
             address: string;
@@ -995,13 +995,6 @@ export declare const UserResponseSchema: z.ZodObject<{
     role: "user" | "consumer" | "merchant" | "admin" | "support" | "operator" | "super_admin";
     phone: string;
     profile?: {
-        firstName?: string | undefined;
-        lastName?: string | undefined;
-        avatar?: string | undefined;
-        bio?: string | undefined;
-        website?: string | undefined;
-        dateOfBirth?: Date | undefined;
-        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         location?: {
             city?: string | undefined;
             state?: string | undefined;
@@ -1009,6 +1002,13 @@ export declare const UserResponseSchema: z.ZodObject<{
             coordinates?: [number, number] | undefined;
             address?: string | undefined;
         } | undefined;
+        firstName?: string | undefined;
+        lastName?: string | undefined;
+        avatar?: string | undefined;
+        bio?: string | undefined;
+        website?: string | undefined;
+        dateOfBirth?: Date | undefined;
+        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         locationHistory?: {
             coordinates: [number, number];
             address: string;
@@ -1059,13 +1059,6 @@ export declare const UserResponseSchema: z.ZodObject<{
     role: "user" | "consumer" | "merchant" | "admin" | "support" | "operator" | "super_admin";
     phone: string;
     profile?: {
-        firstName?: string | undefined;
-        lastName?: string | undefined;
-        avatar?: string | undefined;
-        bio?: string | undefined;
-        website?: string | undefined;
-        dateOfBirth?: Date | undefined;
-        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         location?: {
             city?: string | undefined;
             state?: string | undefined;
@@ -1073,6 +1066,13 @@ export declare const UserResponseSchema: z.ZodObject<{
             coordinates?: [number, number] | undefined;
             address?: string | undefined;
         } | undefined;
+        firstName?: string | undefined;
+        lastName?: string | undefined;
+        avatar?: string | undefined;
+        bio?: string | undefined;
+        website?: string | undefined;
+        dateOfBirth?: Date | undefined;
+        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         locationHistory?: {
             coordinates: [number, number];
             address: string;
@@ -1203,13 +1203,6 @@ export declare const UserListResponseSchema: z.ZodArray<z.ZodObject<{
             submittedAt: Date;
         }>>;
     }, "strip", z.ZodTypeAny, {
-        firstName?: string | undefined;
-        lastName?: string | undefined;
-        avatar?: string | undefined;
-        bio?: string | undefined;
-        website?: string | undefined;
-        dateOfBirth?: Date | undefined;
-        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         location?: {
             city?: string | undefined;
             state?: string | undefined;
@@ -1217,6 +1210,13 @@ export declare const UserListResponseSchema: z.ZodArray<z.ZodObject<{
             coordinates?: [number, number] | undefined;
             address?: string | undefined;
         } | undefined;
+        firstName?: string | undefined;
+        lastName?: string | undefined;
+        avatar?: string | undefined;
+        bio?: string | undefined;
+        website?: string | undefined;
+        dateOfBirth?: Date | undefined;
+        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         locationHistory?: {
             coordinates: [number, number];
             address: string;
@@ -1239,13 +1239,6 @@ export declare const UserListResponseSchema: z.ZodArray<z.ZodObject<{
             submittedAt: Date;
         } | undefined;
     }, {
-        firstName?: string | undefined;
-        lastName?: string | undefined;
-        avatar?: string | undefined;
-        bio?: string | undefined;
-        website?: string | undefined;
-        dateOfBirth?: Date | undefined;
-        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         location?: {
             city?: string | undefined;
             state?: string | undefined;
@@ -1253,6 +1246,13 @@ export declare const UserListResponseSchema: z.ZodArray<z.ZodObject<{
             coordinates?: [number, number] | undefined;
             address?: string | undefined;
         } | undefined;
+        firstName?: string | undefined;
+        lastName?: string | undefined;
+        avatar?: string | undefined;
+        bio?: string | undefined;
+        website?: string | undefined;
+        dateOfBirth?: Date | undefined;
+        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         locationHistory?: {
             coordinates: [number, number];
             address: string;
@@ -1346,13 +1346,6 @@ export declare const UserListResponseSchema: z.ZodArray<z.ZodObject<{
     role: "user" | "consumer" | "merchant" | "admin" | "support" | "operator" | "super_admin";
     phone: string;
     profile?: {
-        firstName?: string | undefined;
-        lastName?: string | undefined;
-        avatar?: string | undefined;
-        bio?: string | undefined;
-        website?: string | undefined;
-        dateOfBirth?: Date | undefined;
-        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         location?: {
             city?: string | undefined;
             state?: string | undefined;
@@ -1360,6 +1353,13 @@ export declare const UserListResponseSchema: z.ZodArray<z.ZodObject<{
             coordinates?: [number, number] | undefined;
             address?: string | undefined;
         } | undefined;
+        firstName?: string | undefined;
+        lastName?: string | undefined;
+        avatar?: string | undefined;
+        bio?: string | undefined;
+        website?: string | undefined;
+        dateOfBirth?: Date | undefined;
+        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         locationHistory?: {
             coordinates: [number, number];
             address: string;
@@ -1410,13 +1410,6 @@ export declare const UserListResponseSchema: z.ZodArray<z.ZodObject<{
     role: "user" | "consumer" | "merchant" | "admin" | "support" | "operator" | "super_admin";
     phone: string;
     profile?: {
-        firstName?: string | undefined;
-        lastName?: string | undefined;
-        avatar?: string | undefined;
-        bio?: string | undefined;
-        website?: string | undefined;
-        dateOfBirth?: Date | undefined;
-        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         location?: {
             city?: string | undefined;
             state?: string | undefined;
@@ -1424,6 +1417,13 @@ export declare const UserListResponseSchema: z.ZodArray<z.ZodObject<{
             coordinates?: [number, number] | undefined;
             address?: string | undefined;
         } | undefined;
+        firstName?: string | undefined;
+        lastName?: string | undefined;
+        avatar?: string | undefined;
+        bio?: string | undefined;
+        website?: string | undefined;
+        dateOfBirth?: Date | undefined;
+        gender?: "male" | "female" | "other" | "prefer_not_to_say" | undefined;
         locationHistory?: {
             coordinates: [number, number];
             address: string;

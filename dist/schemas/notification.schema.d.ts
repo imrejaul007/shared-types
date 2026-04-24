@@ -5,17 +5,17 @@ export declare const NotificationEventSchema: z.ZodObject<{
     type: z.ZodEnum<["order", "payment", "promotion", "wallet", "referral", "system", "alert"]>;
     entityId: z.ZodOptional<z.ZodString>;
     entityType: z.ZodOptional<z.ZodString>;
-    data: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+    data: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull]>>>;
 }, "strip", z.ZodTypeAny, {
     type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
     entityId?: string | undefined;
     entityType?: string | undefined;
-    data?: Record<string, any> | undefined;
+    data?: Record<string, string | number | boolean | null> | undefined;
 }, {
     type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
     entityId?: string | undefined;
     entityType?: string | undefined;
-    data?: Record<string, any> | undefined;
+    data?: Record<string, string | number | boolean | null> | undefined;
 }>;
 export declare const NotificationRecipientSchema: z.ZodObject<{
     userId: z.ZodString;
@@ -38,17 +38,17 @@ export declare const SendNotificationSchema: z.ZodObject<{
         type: z.ZodEnum<["order", "payment", "promotion", "wallet", "referral", "system", "alert"]>;
         entityId: z.ZodOptional<z.ZodString>;
         entityType: z.ZodOptional<z.ZodString>;
-        data: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+        data: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull]>>>;
     }, "strip", z.ZodTypeAny, {
         type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
         entityId?: string | undefined;
         entityType?: string | undefined;
-        data?: Record<string, any> | undefined;
+        data?: Record<string, string | number | boolean | null> | undefined;
     }, {
         type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
         entityId?: string | undefined;
         entityType?: string | undefined;
-        data?: Record<string, any> | undefined;
+        data?: Record<string, string | number | boolean | null> | undefined;
     }>;
     recipients: z.ZodArray<z.ZodObject<{
         userId: z.ZodString;
@@ -70,14 +70,14 @@ export declare const SendNotificationSchema: z.ZodObject<{
     channel: z.ZodEnum<["push", "email", "sms", "in_app"]>;
     title: z.ZodOptional<z.ZodString>;
     message: z.ZodString;
-    payload: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+    payload: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull]>>>;
     scheduledFor: z.ZodOptional<z.ZodDate>;
 }, "strip", z.ZodTypeAny, {
     event: {
         type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
         entityId?: string | undefined;
         entityType?: string | undefined;
-        data?: Record<string, any> | undefined;
+        data?: Record<string, string | number | boolean | null> | undefined;
     };
     message: string;
     type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
@@ -89,14 +89,14 @@ export declare const SendNotificationSchema: z.ZodObject<{
         pushToken?: string | undefined;
     }[];
     title?: string | undefined;
-    payload?: Record<string, any> | undefined;
+    payload?: Record<string, string | number | boolean | null> | undefined;
     scheduledFor?: Date | undefined;
 }, {
     event: {
         type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
         entityId?: string | undefined;
         entityType?: string | undefined;
-        data?: Record<string, any> | undefined;
+        data?: Record<string, string | number | boolean | null> | undefined;
     };
     message: string;
     type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
@@ -108,7 +108,7 @@ export declare const SendNotificationSchema: z.ZodObject<{
         pushToken?: string | undefined;
     }[];
     title?: string | undefined;
-    payload?: Record<string, any> | undefined;
+    payload?: Record<string, string | number | boolean | null> | undefined;
     scheduledFor?: Date | undefined;
 }>;
 export declare const NotificationResponseSchema: z.ZodObject<{
@@ -117,17 +117,17 @@ export declare const NotificationResponseSchema: z.ZodObject<{
         type: z.ZodEnum<["order", "payment", "promotion", "wallet", "referral", "system", "alert"]>;
         entityId: z.ZodOptional<z.ZodString>;
         entityType: z.ZodOptional<z.ZodString>;
-        data: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+        data: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull]>>>;
     }, "strip", z.ZodTypeAny, {
         type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
         entityId?: string | undefined;
         entityType?: string | undefined;
-        data?: Record<string, any> | undefined;
+        data?: Record<string, string | number | boolean | null> | undefined;
     }, {
         type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
         entityId?: string | undefined;
         entityType?: string | undefined;
-        data?: Record<string, any> | undefined;
+        data?: Record<string, string | number | boolean | null> | undefined;
     }>;
     recipients: z.ZodArray<z.ZodObject<{
         userId: z.ZodString;
@@ -149,7 +149,7 @@ export declare const NotificationResponseSchema: z.ZodObject<{
     channel: z.ZodEnum<["push", "email", "sms", "in_app"]>;
     title: z.ZodOptional<z.ZodString>;
     message: z.ZodString;
-    payload: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+    payload: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull]>>>;
     isRead: z.ZodOptional<z.ZodBoolean>;
     readAt: z.ZodOptional<z.ZodDate>;
     sentAt: z.ZodOptional<z.ZodDate>;
@@ -161,7 +161,7 @@ export declare const NotificationResponseSchema: z.ZodObject<{
         type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
         entityId?: string | undefined;
         entityType?: string | undefined;
-        data?: Record<string, any> | undefined;
+        data?: Record<string, string | number | boolean | null> | undefined;
     };
     message: string;
     type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
@@ -178,7 +178,7 @@ export declare const NotificationResponseSchema: z.ZodObject<{
     updatedAt?: Date | undefined;
     sentAt?: Date | undefined;
     title?: string | undefined;
-    payload?: Record<string, any> | undefined;
+    payload?: Record<string, string | number | boolean | null> | undefined;
     isRead?: boolean | undefined;
     readAt?: Date | undefined;
 }, {
@@ -186,7 +186,7 @@ export declare const NotificationResponseSchema: z.ZodObject<{
         type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
         entityId?: string | undefined;
         entityType?: string | undefined;
-        data?: Record<string, any> | undefined;
+        data?: Record<string, string | number | boolean | null> | undefined;
     };
     message: string;
     type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
@@ -203,7 +203,7 @@ export declare const NotificationResponseSchema: z.ZodObject<{
     updatedAt?: Date | undefined;
     sentAt?: Date | undefined;
     title?: string | undefined;
-    payload?: Record<string, any> | undefined;
+    payload?: Record<string, string | number | boolean | null> | undefined;
     isRead?: boolean | undefined;
     readAt?: Date | undefined;
 }>;
@@ -213,17 +213,17 @@ export declare const NotificationListResponseSchema: z.ZodArray<z.ZodObject<{
         type: z.ZodEnum<["order", "payment", "promotion", "wallet", "referral", "system", "alert"]>;
         entityId: z.ZodOptional<z.ZodString>;
         entityType: z.ZodOptional<z.ZodString>;
-        data: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+        data: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull]>>>;
     }, "strip", z.ZodTypeAny, {
         type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
         entityId?: string | undefined;
         entityType?: string | undefined;
-        data?: Record<string, any> | undefined;
+        data?: Record<string, string | number | boolean | null> | undefined;
     }, {
         type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
         entityId?: string | undefined;
         entityType?: string | undefined;
-        data?: Record<string, any> | undefined;
+        data?: Record<string, string | number | boolean | null> | undefined;
     }>;
     recipients: z.ZodArray<z.ZodObject<{
         userId: z.ZodString;
@@ -245,7 +245,7 @@ export declare const NotificationListResponseSchema: z.ZodArray<z.ZodObject<{
     channel: z.ZodEnum<["push", "email", "sms", "in_app"]>;
     title: z.ZodOptional<z.ZodString>;
     message: z.ZodString;
-    payload: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
+    payload: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull]>>>;
     isRead: z.ZodOptional<z.ZodBoolean>;
     readAt: z.ZodOptional<z.ZodDate>;
     sentAt: z.ZodOptional<z.ZodDate>;
@@ -257,7 +257,7 @@ export declare const NotificationListResponseSchema: z.ZodArray<z.ZodObject<{
         type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
         entityId?: string | undefined;
         entityType?: string | undefined;
-        data?: Record<string, any> | undefined;
+        data?: Record<string, string | number | boolean | null> | undefined;
     };
     message: string;
     type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
@@ -274,7 +274,7 @@ export declare const NotificationListResponseSchema: z.ZodArray<z.ZodObject<{
     updatedAt?: Date | undefined;
     sentAt?: Date | undefined;
     title?: string | undefined;
-    payload?: Record<string, any> | undefined;
+    payload?: Record<string, string | number | boolean | null> | undefined;
     isRead?: boolean | undefined;
     readAt?: Date | undefined;
 }, {
@@ -282,7 +282,7 @@ export declare const NotificationListResponseSchema: z.ZodArray<z.ZodObject<{
         type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
         entityId?: string | undefined;
         entityType?: string | undefined;
-        data?: Record<string, any> | undefined;
+        data?: Record<string, string | number | boolean | null> | undefined;
     };
     message: string;
     type: "referral" | "wallet" | "order" | "payment" | "promotion" | "system" | "alert";
@@ -299,7 +299,7 @@ export declare const NotificationListResponseSchema: z.ZodArray<z.ZodObject<{
     updatedAt?: Date | undefined;
     sentAt?: Date | undefined;
     title?: string | undefined;
-    payload?: Record<string, any> | undefined;
+    payload?: Record<string, string | number | boolean | null> | undefined;
     isRead?: boolean | undefined;
     readAt?: Date | undefined;
 }>, "many">;

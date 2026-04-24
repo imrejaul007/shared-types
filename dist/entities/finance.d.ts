@@ -1,4 +1,12 @@
 import { FinanceTransactionType, FinanceTransactionStatus } from '../enums/index';
+export interface IFinanceTransactionMetadata {
+    customerRef?: string;
+    receiptNumber?: string;
+    circle?: string;
+    planId?: string;
+    bbpsRequestId?: string;
+    [key: string]: string | number | boolean | null | undefined;
+}
 export interface IFinanceTransaction {
     _id?: string;
     userId: string;
@@ -17,8 +25,8 @@ export interface IFinanceTransaction {
     coinsAwarded: number;
     parentId?: string;
     parentType?: 'Payment' | 'LoanApplication' | 'Order';
-    metadata?: Record<string, any>;
-    createdAt: Date;
-    updatedAt: Date;
+    metadata?: IFinanceTransactionMetadata;
+    createdAt: Date | string;
+    updatedAt: Date | string;
 }
 //# sourceMappingURL=finance.d.ts.map

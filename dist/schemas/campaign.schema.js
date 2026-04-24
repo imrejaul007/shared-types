@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CampaignListResponseSchema = exports.CampaignResponseSchema = exports.MerchantCampaignResponseSchema = exports.UpdateMerchantCampaignSchema = exports.CreateMerchantCampaignSchema = exports.AdCampaignResponseSchema = exports.UpdateAdCampaignSchema = exports.CreateAdCampaignSchema = exports.MarketingCampaignResponseSchema = exports.UpdateMarketingCampaignSchema = exports.CreateMarketingCampaignSchema = exports.BaseCampaignSchema = exports.CAMPAIGN_CHANNEL = exports.CAMPAIGN_STATUS = void 0;
+exports.CampaignListResponseSchema = exports.CampaignResponseSchema = exports.MerchantCampaignResponseSchema = exports.UpdateMerchantCampaignSchema = exports.CreateMerchantCampaignSchema = exports.AdCampaignResponseSchema = exports.UpdateAdCampaignSchema = exports.CreateAdCampaignSchema = exports.MarketingCampaignResponseSchema = exports.UpdateMarketingCampaignSchema = exports.CreateMarketingCampaignSchema = exports.BaseCampaignSchema = exports.CampaignTriggerSchema = exports.CampaignActionSchema = exports.CampaignConditionSchema = exports.AudienceTargetingSchema = exports.CAMPAIGN_CHANNEL = exports.CAMPAIGN_STATUS = void 0;
 const zod_1 = require("zod");
+const DateOrString = zod_1.z.union([zod_1.z.date(), zod_1.z.string()]);
 exports.CAMPAIGN_STATUS = zod_1.z.enum([
     'draft',
     'scheduled',
@@ -26,14 +27,93 @@ exports.CAMPAIGN_CHANNEL = zod_1.z.enum([
     'web',
     'api',
 ]);
+exports.AudienceTargetingSchema = zod_1.z
+    .object({
+    segment: zod_1.z.enum(['all', 'recent', 'lapsed', 'high_value', 'stamp_card']).optional(),
+    daysInactive: zod_1.z.number().int().positive().optional(),
+    minSpend: zod_1.z.number().min(0).optional(),
+    location: zod_1.z
+        .object({
+        city: zod_1.z.string().optional(),
+        area: zod_1.z.string().optional(),
+        pincode: zod_1.z.string().optional(),
+        radiusKm: zod_1.z.number().positive().optional(),
+    })
+        .optional(),
+    interests: zod_1.z.array(zod_1.z.string()).optional(),
+    institution: zod_1.z.string().optional(),
+    keyword: zod_1.z.string().optional(),
+    estimatedCount: zod_1.z.number().int().min(0).optional(),
+})
+    .strict();
+const CampaignMetadataSchema = zod_1.z.record(zod_1.z.string(), zod_1.z.union([
+    zod_1.z.string(),
+    zod_1.z.number(),
+    zod_1.z.boolean(),
+    zod_1.z.null(),
+    zod_1.z.array(zod_1.z.string()),
+    zod_1.z.array(zod_1.z.number()),
+]));
+exports.CampaignConditionSchema = zod_1.z
+    .object({
+    field: zod_1.z.string().min(1),
+    operator: zod_1.z.enum([
+        'eq',
+        'neq',
+        'gt',
+        'gte',
+        'lt',
+        'lte',
+        'in',
+        'not_in',
+        'contains',
+        'exists',
+    ]),
+    value: zod_1.z
+        .union([
+        zod_1.z.string(),
+        zod_1.z.number(),
+        zod_1.z.boolean(),
+        zod_1.z.null(),
+        zod_1.z.array(zod_1.z.union([zod_1.z.string(), zod_1.z.number()])),
+    ])
+        .optional(),
+})
+    .strict();
+exports.CampaignActionSchema = zod_1.z
+    .object({
+    kind: zod_1.z.enum([
+        'credit_coins',
+        'grant_badge',
+        'send_notification',
+        'award_voucher',
+        'issue_coupon',
+    ]),
+    params: CampaignMetadataSchema.optional(),
+})
+    .strict();
+exports.CampaignTriggerSchema = zod_1.z
+    .object({
+    event: zod_1.z.enum([
+        'order.placed',
+        'order.delivered',
+        'visit.completed',
+        'signup',
+        'referral.invite',
+        'cron',
+        'manual',
+    ]),
+    filters: zod_1.z.array(exports.CampaignConditionSchema).optional(),
+})
+    .strict();
 exports.BaseCampaignSchema = zod_1.z.object({
     name: zod_1.z.string().min(1, 'Campaign name is required'),
     description: zod_1.z.string().optional(),
     status: exports.CAMPAIGN_STATUS,
-    startDate: zod_1.z.date(),
-    endDate: zod_1.z.date().optional(),
+    startDate: DateOrString,
+    endDate: DateOrString.optional(),
     channel: exports.CAMPAIGN_CHANNEL.optional(),
-    targetAudience: zod_1.z.record(zod_1.z.any()).optional(),
+    targetAudience: exports.AudienceTargetingSchema.optional(),
     budget: zod_1.z.number().min(0).optional(),
     spent: zod_1.z.number().min(0).optional(),
     createdBy: zod_1.z.string().optional(),
@@ -47,16 +127,17 @@ exports.CreateMarketingCampaignSchema = exports.BaseCampaignSchema.extend({
     imageUrl: zod_1.z.string().url('Invalid image URL').optional(),
     ctaUrl: zod_1.z.string().url('Invalid CTA URL').optional(),
     ctaText: zod_1.z.string().optional(),
-    audience: zod_1.z.record(zod_1.z.any()).optional(),
-    scheduledAt: zod_1.z.date().optional(),
+    audience: exports.AudienceTargetingSchema.optional(),
+    scheduledAt: DateOrString.optional(),
     dailyBudget: zod_1.z.number().min(0).optional(),
     attributionWindowDays: zod_1.z.number().int().positive().optional(),
 });
 exports.UpdateMarketingCampaignSchema = exports.CreateMarketingCampaignSchema.partial();
 exports.MarketingCampaignResponseSchema = exports.CreateMarketingCampaignSchema.extend({
     _id: zod_1.z.string().optional(),
-    sentAt: zod_1.z.date().optional(),
-    stats: zod_1.z.object({
+    sentAt: DateOrString.optional(),
+    stats: zod_1.z
+        .object({
         sent: zod_1.z.number().optional(),
         delivered: zod_1.z.number().optional(),
         failed: zod_1.z.number().optional(),
@@ -64,11 +145,12 @@ exports.MarketingCampaignResponseSchema = exports.CreateMarketingCampaignSchema.
         opened: zod_1.z.number().optional(),
         clicked: zod_1.z.number().optional(),
         converted: zod_1.z.number().optional(),
-    }).optional(),
+    })
+        .optional(),
     errorMessage: zod_1.z.string().optional(),
     totalSpent: zod_1.z.number().min(0).optional(),
-    createdAt: zod_1.z.date().optional(),
-    updatedAt: zod_1.z.date().optional(),
+    createdAt: DateOrString.optional(),
+    updatedAt: DateOrString.optional(),
 });
 exports.CreateAdCampaignSchema = exports.BaseCampaignSchema.extend({
     type: zod_1.z.literal('ad').optional(),
@@ -79,17 +161,16 @@ exports.CreateAdCampaignSchema = exports.BaseCampaignSchema.extend({
     ctaText: zod_1.z.string().optional(),
     ctaUrl: zod_1.z.string().url('Invalid CTA URL').optional(),
     imageUrl: zod_1.z.string().url('Invalid image URL').optional(),
-    placement: zod_1.z.enum([
-        'home_banner',
-        'explore_feed',
-        'store_listing',
-        'search_result',
-    ]).optional(),
+    placement: zod_1.z
+        .enum(['home_banner', 'explore_feed', 'store_listing', 'search_result'])
+        .optional(),
     targetSegment: zod_1.z.enum(['all', 'new', 'loyal', 'lapsed', 'nearby']).optional(),
-    targetLocation: zod_1.z.object({
+    targetLocation: zod_1.z
+        .object({
         city: zod_1.z.string().optional(),
         radiusKm: zod_1.z.number().positive().optional(),
-    }).optional(),
+    })
+        .optional(),
     targetInterests: zod_1.z.array(zod_1.z.string()).optional(),
     bidType: zod_1.z.enum(['CPC', 'CPM']).optional(),
     bidAmount: zod_1.z.number().min(0).optional(),
@@ -105,10 +186,10 @@ exports.AdCampaignResponseSchema = exports.CreateAdCampaignSchema.extend({
     clicks: zod_1.z.number().optional(),
     ctr: zod_1.z.number().optional(),
     reviewedBy: zod_1.z.string().optional(),
-    reviewedAt: zod_1.z.date().optional(),
+    reviewedAt: DateOrString.optional(),
     rejectionReason: zod_1.z.string().optional(),
-    createdAt: zod_1.z.date().optional(),
-    updatedAt: zod_1.z.date().optional(),
+    createdAt: DateOrString.optional(),
+    updatedAt: DateOrString.optional(),
 });
 exports.CreateMerchantCampaignSchema = exports.BaseCampaignSchema.extend({
     type: zod_1.z.literal('merchant').optional(),
@@ -121,9 +202,9 @@ exports.CreateMerchantCampaignSchema = exports.BaseCampaignSchema.extend({
     rewardValue: zod_1.z.number().min(0).optional(),
     rewardType: zod_1.z.string().optional(),
     durationDays: zod_1.z.number().int().positive().optional(),
-    conditions: zod_1.z.record(zod_1.z.any()).optional(),
-    actions: zod_1.z.array(zod_1.z.record(zod_1.z.any())).optional(),
-    triggers: zod_1.z.array(zod_1.z.record(zod_1.z.any())).optional(),
+    conditions: zod_1.z.array(exports.CampaignConditionSchema).optional(),
+    actions: zod_1.z.array(exports.CampaignActionSchema).optional(),
+    triggers: zod_1.z.array(exports.CampaignTriggerSchema).optional(),
     priority: zod_1.z.number().int().optional(),
     cooldownDays: zod_1.z.number().int().optional(),
 });
@@ -131,8 +212,8 @@ exports.UpdateMerchantCampaignSchema = exports.CreateMerchantCampaignSchema.part
 exports.MerchantCampaignResponseSchema = exports.CreateMerchantCampaignSchema.extend({
     _id: zod_1.z.string().optional(),
     redemptionCount: zod_1.z.number().optional(),
-    createdAt: zod_1.z.date().optional(),
-    updatedAt: zod_1.z.date().optional(),
+    createdAt: DateOrString.optional(),
+    updatedAt: DateOrString.optional(),
 });
 exports.CampaignResponseSchema = zod_1.z.union([
     exports.MarketingCampaignResponseSchema,

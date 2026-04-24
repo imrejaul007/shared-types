@@ -1,4 +1,5 @@
 import { EventType } from '../enums/index';
+export type IAnalyticsProperties = Record<string, string | number | boolean | null | string[] | number[]>;
 export interface IAnalyticsEventContext {
     userId?: string;
     sessionId?: string;
@@ -11,9 +12,9 @@ export interface IAnalyticsEvent {
     _id?: string;
     type: EventType;
     name: string;
-    timestamp: Date;
+    timestamp: Date | string;
     context: IAnalyticsEventContext;
-    properties?: Record<string, any>;
+    properties?: IAnalyticsProperties;
     metrics?: Record<string, number>;
     source?: string;
     version?: string;
