@@ -1,6 +1,6 @@
 export type KarmaLevel = 'L1' | 'L2' | 'L3' | 'L4';
 export type KarmaConversionRate = 0.25 | 0.5 | 0.75 | 1.0;
-export type EarnRecordStatus = 'APPROVED_PENDING_CONVERSION' | 'CONVERTED' | 'REJECTED' | 'ROLLED_BACK';
+export type EarnRecordStatus = 'APPROVED_PENDING_CONVERSION' | 'CONVERTED' | 'REJECTED' | 'ROLLED_BACK' | 'CONVERSION_FAILED';
 export type BatchStatus = 'DRAFT' | 'READY' | 'EXECUTED' | 'PARTIAL' | 'PAUSED';
 export type CSRPoolStatus = 'active' | 'depleted' | 'expired';
 export type KarmaVerificationStatus = 'pending' | 'partial' | 'verified' | 'rejected';
@@ -121,6 +121,8 @@ export interface ILevelInfo {
     maxKarma?: number;
     conversionRate: KarmaConversionRate;
     benefits: string[];
+    nextLevelAt: number | null;
+    activeKarma: number;
 }
 export interface IKarmaStats {
     lifetimeKarma: number;
