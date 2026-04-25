@@ -682,12 +682,12 @@ export declare const CreateProductSchema: z.ZodObject<{
     isActive: boolean;
     isFeatured: boolean;
     isDigital: boolean;
+    merchantId?: string | undefined;
     barcode?: string | undefined;
     slug?: string | undefined;
     description?: string | undefined;
     shortDescription?: string | undefined;
     subCategory?: string | undefined;
-    merchantId?: string | undefined;
     brand?: string | undefined;
     modifiers?: {
         name: string;
@@ -746,6 +746,7 @@ export declare const CreateProductSchema: z.ZodObject<{
         allowBackorder?: boolean | undefined;
         reservedStock?: number | undefined;
     };
+    merchantId?: string | undefined;
     images?: string[] | undefined;
     barcode?: string | undefined;
     slug?: string | undefined;
@@ -753,7 +754,6 @@ export declare const CreateProductSchema: z.ZodObject<{
     shortDescription?: string | undefined;
     productType?: "product" | "service" | undefined;
     subCategory?: string | undefined;
-    merchantId?: string | undefined;
     brand?: string | undefined;
     tags?: string[] | undefined;
     modifiers?: {
@@ -1024,6 +1024,7 @@ export declare const UpdateProductSchema: z.ZodObject<{
     visibility: z.ZodOptional<z.ZodOptional<z.ZodEnum<["public", "hidden", "featured"]>>>;
 }, "strict", z.ZodTypeAny, {
     store?: string | undefined;
+    merchantId?: string | undefined;
     name?: string | undefined;
     sku?: string | undefined;
     pricing?: {
@@ -1051,7 +1052,6 @@ export declare const UpdateProductSchema: z.ZodObject<{
     productType?: "product" | "service" | undefined;
     category?: string | undefined;
     subCategory?: string | undefined;
-    merchantId?: string | undefined;
     brand?: string | undefined;
     inventory?: {
         stock: number;
@@ -1094,6 +1094,7 @@ export declare const UpdateProductSchema: z.ZodObject<{
     visibility?: "public" | "hidden" | "featured" | undefined;
 }, {
     store?: string | undefined;
+    merchantId?: string | undefined;
     name?: string | undefined;
     sku?: string | undefined;
     pricing?: {
@@ -1121,7 +1122,6 @@ export declare const UpdateProductSchema: z.ZodObject<{
     productType?: "product" | "service" | undefined;
     category?: string | undefined;
     subCategory?: string | undefined;
-    merchantId?: string | undefined;
     brand?: string | undefined;
     inventory?: {
         stock: number;
@@ -1483,9 +1483,9 @@ export declare const ProductResponseSchema: z.ZodObject<{
         };
     };
     isDeleted: boolean;
+    merchantId?: string | undefined;
     _id?: string | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
     visibility?: "public" | "hidden" | "featured" | undefined;
 }, {
     store: string;
@@ -1553,9 +1553,9 @@ export declare const ProductResponseSchema: z.ZodObject<{
         };
     };
     isDeleted: boolean;
+    merchantId?: string | undefined;
     _id?: string | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
     visibility?: "public" | "hidden" | "featured" | undefined;
 }>;
 export declare const ProductListResponseSchema: z.ZodArray<z.ZodObject<{
@@ -1878,9 +1878,9 @@ export declare const ProductListResponseSchema: z.ZodArray<z.ZodObject<{
         };
     };
     isDeleted: boolean;
+    merchantId?: string | undefined;
     _id?: string | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
     visibility?: "public" | "hidden" | "featured" | undefined;
 }, {
     store: string;
@@ -1948,9 +1948,9 @@ export declare const ProductListResponseSchema: z.ZodArray<z.ZodObject<{
         };
     };
     isDeleted: boolean;
+    merchantId?: string | undefined;
     _id?: string | undefined;
     description?: string | undefined;
-    merchantId?: string | undefined;
     visibility?: "public" | "hidden" | "featured" | undefined;
 }>, "many">;
 export type CreateProductRequest = z.infer<typeof CreateProductSchema>;

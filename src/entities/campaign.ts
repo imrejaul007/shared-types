@@ -1,45 +1,127 @@
 /**
- * Campaign entity types — Unified base campaign interface
+ * Campaign entity types — unified surface across three services:
  *
- * Canonical types for all 3 campaign services:
- * - rez-marketing-service/src/models/MarketingCampaign.ts
- * - rez-merchant-service/src/models/AdCampaign.ts
- * - rez-ads-service/src/models/AdCampaign.ts
+ *   - rez-marketing-service/src/models/MarketingCampaign.ts
+ *   - rez-merchant-service/src/models/AdCampaign.ts
+ *   - rez-ads-service/src/models/AdCampaign.ts
  *
- * Each service extends IBaseCampaign with domain-specific fields.
+ * Each service extends `IBaseCampaign` with domain-specific fields. The
+ * disc union `ICampaign` lets callers narrow by the `type` literal.
+ *
+ * v2 hardening: `any` and `Record<string, any>` replaced with typed
+ * shapes (`IAudienceTargeting`, `ICampaignCondition`, `ICampaignAction`,
+ * `ICampaignTrigger`). Anything still truly opaque uses the
+ * `ICampaignMetadata` scalar-only catchall.
  */
 
 import { CampaignStatus, CampaignChannel } from '../enums/index';
 
 /**
- * Base campaign interface — minimal shared fields across all 3 services
+ * Scalar-only metadata bag — primitives and arrays of primitives. For
+ * anything richer, give it its own field or a typed interface.
  */
+export type ICampaignMetadata = Record<
+  string,
+  string | number | boolean | null | string[] | number[]
+>;
+
+/**
+ * Audience targeting — union of the five supported segment rules plus
+ * location / interest overlays. Extend with a new variant rather than
+ * widening existing ones.
+ */
+export interface IAudienceTargeting {
+  segment?: 'all' | 'recent' | 'lapsed' | 'high_value' | 'stamp_card';
+  /** Used with `segment: 'lapsed'`. */
+  daysInactive?: number;
+  /** Used with `segment: 'high_value'`. */
+  minSpend?: number;
+  location?: {
+    city?: string;
+    area?: string;
+    pincode?: string;
+    radiusKm?: number;
+  };
+  interests?: string[];
+  institution?: string;
+  /** Arbitrary keyword match on product / order history. */
+  keyword?: string;
+  /** Estimated reachable count (populated at dispatch time). */
+  estimatedCount?: number;
+}
+
+export interface ICampaignStats {
+  sent?: number;
+  delivered?: number;
+  failed?: number;
+  deduped?: number;
+  opened?: number;
+  clicked?: number;
+  converted?: number;
+}
+
+/**
+ * Condition row for rules-engine campaigns. `field` is a dotted path
+ * into the evaluation context (e.g. "user.age", "order.total").
+ */
+export interface ICampaignCondition {
+  field: string;
+  operator:
+    | 'eq'
+    | 'neq'
+    | 'gt'
+    | 'gte'
+    | 'lt'
+    | 'lte'
+    | 'in'
+    | 'not_in'
+    | 'contains'
+    | 'exists';
+  value?: string | number | boolean | null | Array<string | number>;
+}
+
+export interface ICampaignAction {
+  kind:
+    | 'credit_coins'
+    | 'grant_badge'
+    | 'send_notification'
+    | 'award_voucher'
+    | 'issue_coupon';
+  params?: ICampaignMetadata;
+}
+
+export interface ICampaignTrigger {
+  event:
+    | 'order.placed'
+    | 'order.delivered'
+    | 'visit.completed'
+    | 'signup'
+    | 'referral.invite'
+    | 'cron'
+    | 'manual';
+  /** Only fire if these conditions all match at trigger time. */
+  filters?: ICampaignCondition[];
+}
+
+/** Base campaign — minimal fields shared by all three services. */
 export interface IBaseCampaign {
   _id?: string;
   name: string;
   description?: string;
   status: CampaignStatus;
-  startDate: Date;
-  endDate?: Date;
+  startDate: Date | string;
+  endDate?: Date | string;
   channel?: CampaignChannel;
-  targetAudience?: any;
+  targetAudience?: IAudienceTargeting;
   budget?: number;
   spent?: number;
   createdBy?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
 }
 
 /**
- * Marketing campaign — rez-marketing-service
- *
- * Supports advanced audience targeting:
- * - segments (all, recent, lapsed, high_value, stamp_card)
- * - location (city, area, pincode, radius)
- * - interests (derived from purchase history)
- * - birthday, purchase_history, institution, keyword, custom filters
- *
- * Channels: whatsapp | push | sms | email | in_app
+ * Marketing campaign — rez-marketing-service.
  */
 export interface IMarketingCampaign extends IBaseCampaign {
   type?: 'marketing';
@@ -50,18 +132,10 @@ export interface IMarketingCampaign extends IBaseCampaign {
   imageUrl?: string;
   ctaUrl?: string;
   ctaText?: string;
-  audience?: Record<string, any>;
-  scheduledAt?: Date;
-  sentAt?: Date;
-  stats?: {
-    sent?: number;
-    delivered?: number;
-    failed?: number;
-    deduped?: number;
-    opened?: number;
-    clicked?: number;
-    converted?: number;
-  };
+  audience?: IAudienceTargeting;
+  scheduledAt?: Date | string;
+  sentAt?: Date | string;
+  stats?: ICampaignStats;
   errorMessage?: string;
   dailyBudget?: number;
   totalSpent?: number;
@@ -69,11 +143,7 @@ export interface IMarketingCampaign extends IBaseCampaign {
 }
 
 /**
- * Ad campaign — rez-ads-service & rez-merchant-service (shared collection)
- *
- * Placements: home_banner | explore_feed | store_listing | search_result
- * Target segments: all | new | loyal | lapsed | nearby
- * Bidding: CPC or CPM
+ * Ad campaign — rez-ads-service and rez-merchant-service share this collection.
  */
 export interface IAdCampaign extends IBaseCampaign {
   type?: 'ad';
@@ -86,10 +156,7 @@ export interface IAdCampaign extends IBaseCampaign {
   imageUrl?: string;
   placement?: 'home_banner' | 'explore_feed' | 'store_listing' | 'search_result';
   targetSegment?: 'all' | 'new' | 'loyal' | 'lapsed' | 'nearby';
-  targetLocation?: {
-    city?: string;
-    radiusKm?: number;
-  };
+  targetLocation?: { city?: string; radiusKm?: number };
   targetInterests?: string[];
   bidType?: 'CPC' | 'CPM';
   bidAmount?: number;
@@ -101,15 +168,14 @@ export interface IAdCampaign extends IBaseCampaign {
   clicks?: number;
   ctr?: number;
   reviewedBy?: string;
-  reviewedAt?: Date;
+  reviewedAt?: Date | string;
   rejectionReason?: string;
 }
 
 /**
- * Merchant loyalty/promotion campaign — rez-merchant-service
+ * Merchant loyalty / promotion campaign — rez-merchant-service.
  *
- * Used for loyalty programs, promotional rules, and broadcast campaigns.
- * Supports condition-based triggers, reward types, and audience targeting.
+ * Rules-engine shaped: array of triggers + conditions + actions.
  */
 export interface IMerchantCampaign extends IBaseCampaign {
   type?: 'merchant';
@@ -123,9 +189,9 @@ export interface IMerchantCampaign extends IBaseCampaign {
   rewardValue?: number;
   rewardType?: string;
   durationDays?: number;
-  conditions?: Record<string, any>;
-  actions?: Array<Record<string, any>>;
-  triggers?: Array<Record<string, any>>;
+  conditions?: ICampaignCondition[];
+  actions?: ICampaignAction[];
+  triggers?: ICampaignTrigger[];
   priority?: number;
   cooldownDays?: number;
 }

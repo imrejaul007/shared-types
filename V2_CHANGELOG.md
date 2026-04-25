@@ -99,10 +99,46 @@ One field-level contract break shipping to prod:
   stricter-at-ingress-only (request schemas reject unknown fields;
   response schemas strip them).
 
+## Post-review additions (same commit)
+
+After an independent review flagged three coverage gaps and one FSM drift
+to verify, this followup round landed in the same commit:
+
+1. **Added `src/__tests__/coinType.test.ts`** — 31 tests covering
+   `normalizeCoinType`, `isCanonicalCoinType`, `normalizeCoinTypeAs`,
+   `getValidNextWalletDebitCoin`, and `COIN_TYPE_VALUES`. Brings total
+   to **125 tests across 5 suites**, all green.
+
+2. **Canonicalized the remaining 4 entities** (Campaign, Notification,
+   Finance, Analytics). Replaced every `Record<string, any>` and bare
+   `any` with typed shapes — `IAudienceTargeting`, `ICampaignCondition`,
+   `ICampaignAction`, `ICampaignTrigger`, `INotificationPayload`,
+   `IFinanceTransactionMetadata`, `IAnalyticsProperties`. Updated
+   `campaign.schema.ts` + `notification.schema.ts` zod to match.
+
+3. **Verified FSM parity with rezbackend** — discovered one intentional
+   drift: canonical PAYMENT_STATE_TRANSITIONS adds a
+   `partially_refunded → [refund_initiated]` edge that the backend's
+   v1 PAYMENT_TRANSITIONS was missing (even though its Mongoose enum
+   accepted the value, meaning any save transitioning out of
+   `partially_refunded` would throw at the pre-save hook). Documented
+   in MIGRATION.md Appendix B as an intentional bug-fix-by-adoption.
+
+4. **Shipped the Week 2 cutover** — rewrote
+   `rezbackend/src/config/financialStateMachine.ts` as a re-export
+   shim that delegates to `@rez/shared-types` for Payment + Order-payment
+   FSMs. Legacy export names (`PAYMENT_TRANSITIONS`,
+   `ORDER_PAYMENT_TRANSITIONS`, `assertValidTransition`,
+   `transitionPaymentStatus`, `validatePaymentTransition`, etc.) all
+   stay wire-compatible so no caller needs to change imports. Runtime
+   smoke test confirms the partially_refunded fix is live via the shim.
+   Added `"@rez/shared-types": "file:../../packages/shared-types"` to
+   rezbackend `package.json`.
+
 ## Follow-ups (out of scope for this task)
 
 - Publish to the private registry (@rez namespace)
 - Add ESLint `no-explicit-any` ratchet to CI so shared-types v2 discipline
   spreads to other packages
-- Finish Record<string, any> cleanup in campaign/notification/finance/analytics entities
-- Re-run arch-fitness across rezbackend after Week 2 shim lands
+- ~~Finish Record<string, any> cleanup in campaign/notification/finance/analytics entities~~ — **DONE** (2026-04-25)
+- ~~Re-run arch-fitness across rezbackend after Week 2 shim lands~~ — **DONE** (2026-04-25, PASS)

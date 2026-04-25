@@ -29,7 +29,9 @@ export const NotificationEventSchema = z.object({
   type: NOTIFICATION_TYPE,
   entityId: z.string().optional(),
   entityType: z.string().optional(),
-  data: z.record(z.any()).optional(),
+  data: z
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()]))
+    .optional(),
 });
 
 // Notification Recipient schema
@@ -48,7 +50,9 @@ export const SendNotificationSchema = z.object({
   channel: NOTIFICATION_CHANNEL,
   title: z.string().optional(),
   message: z.string().min(1, 'Message is required'),
-  payload: z.record(z.any()).optional(),
+  payload: z
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()]))
+    .optional(),
   scheduledFor: z.date().optional(),
 });
 
@@ -61,7 +65,9 @@ export const NotificationResponseSchema = z.object({
   channel: NOTIFICATION_CHANNEL,
   title: z.string().optional(),
   message: z.string(),
-  payload: z.record(z.any()).optional(),
+  payload: z
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()]))
+    .optional(),
   isRead: z.boolean().optional(),
   readAt: z.date().optional(),
   sentAt: z.date().optional(),

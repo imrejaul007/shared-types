@@ -1,9 +1,18 @@
 import { NotificationType, NotificationChannel } from '../enums/index';
+export interface INotificationPayload {
+    deepLinkUrl?: string;
+    orderId?: string;
+    paymentId?: string;
+    merchantId?: string;
+    ctaText?: string;
+    imageUrl?: string;
+    [key: string]: string | number | boolean | null | undefined;
+}
 export interface INotificationEvent {
     type: NotificationType;
     entityId?: string;
     entityType?: string;
-    data?: Record<string, any>;
+    data?: INotificationPayload;
 }
 export interface INotificationRecipient {
     userId: string;
@@ -19,12 +28,12 @@ export interface INotification {
     channel: NotificationChannel;
     title?: string;
     message: string;
-    payload?: Record<string, any>;
+    payload?: INotificationPayload;
     isRead?: boolean;
-    readAt?: Date;
-    sentAt?: Date;
+    readAt?: Date | string;
+    sentAt?: Date | string;
     failureReason?: string;
-    createdAt: Date;
-    updatedAt?: Date;
+    createdAt: Date | string;
+    updatedAt?: Date | string;
 }
 //# sourceMappingURL=notification.d.ts.map

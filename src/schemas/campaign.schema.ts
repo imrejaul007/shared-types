@@ -1,14 +1,22 @@
 /**
- * Campaign API validation schemas
- * Unified validation for Marketing, Ad, and Merchant campaigns across all 3 services:
- * - rez-marketing-service
- * - rez-merchant-service
- * - rez-ads-service
+ * Campaign zod schemas — unified surface for three services:
+ *
+ *   - rez-marketing-service
+ *   - rez-merchant-service
+ *   - rez-ads-service
+ *
+ * v2 hardening: `z.record(z.any())` replaced with typed audience /
+ * condition / action / trigger sub-schemas so drift can't hide here
+ * either. Anything still opaque rides on `ICampaignMetadata` —
+ * scalar-only index signature.
  */
 
 import { z } from 'zod';
 
-// Campaign status enum (unified across all services)
+const DateOrString = z.union([z.date(), z.string()]);
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
 export const CAMPAIGN_STATUS = z.enum([
   'draft',
   'scheduled',
@@ -24,7 +32,6 @@ export const CAMPAIGN_STATUS = z.enum([
   'cancelled',
 ]);
 
-// Campaign channel enum (unified across all services)
 export const CAMPAIGN_CHANNEL = z.enum([
   'email',
   'sms',
@@ -36,21 +43,112 @@ export const CAMPAIGN_CHANNEL = z.enum([
   'api',
 ]);
 
-// Base Campaign schema
+// ─── Typed shapes (replacing `any`) ───────────────────────────────────────────
+
+export const AudienceTargetingSchema = z
+  .object({
+    segment: z.enum(['all', 'recent', 'lapsed', 'high_value', 'stamp_card']).optional(),
+    daysInactive: z.number().int().positive().optional(),
+    minSpend: z.number().min(0).optional(),
+    location: z
+      .object({
+        city: z.string().optional(),
+        area: z.string().optional(),
+        pincode: z.string().optional(),
+        radiusKm: z.number().positive().optional(),
+      })
+      .optional(),
+    interests: z.array(z.string()).optional(),
+    institution: z.string().optional(),
+    keyword: z.string().optional(),
+    estimatedCount: z.number().int().min(0).optional(),
+  })
+  .strict();
+
+const CampaignMetadataSchema = z.record(
+  z.string(),
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(z.string()),
+    z.array(z.number()),
+  ]),
+);
+
+export const CampaignConditionSchema = z
+  .object({
+    field: z.string().min(1),
+    operator: z.enum([
+      'eq',
+      'neq',
+      'gt',
+      'gte',
+      'lt',
+      'lte',
+      'in',
+      'not_in',
+      'contains',
+      'exists',
+    ]),
+    value: z
+      .union([
+        z.string(),
+        z.number(),
+        z.boolean(),
+        z.null(),
+        z.array(z.union([z.string(), z.number()])),
+      ])
+      .optional(),
+  })
+  .strict();
+
+export const CampaignActionSchema = z
+  .object({
+    kind: z.enum([
+      'credit_coins',
+      'grant_badge',
+      'send_notification',
+      'award_voucher',
+      'issue_coupon',
+    ]),
+    params: CampaignMetadataSchema.optional(),
+  })
+  .strict();
+
+export const CampaignTriggerSchema = z
+  .object({
+    event: z.enum([
+      'order.placed',
+      'order.delivered',
+      'visit.completed',
+      'signup',
+      'referral.invite',
+      'cron',
+      'manual',
+    ]),
+    filters: z.array(CampaignConditionSchema).optional(),
+  })
+  .strict();
+
+// ─── Base Campaign ────────────────────────────────────────────────────────────
+
 export const BaseCampaignSchema = z.object({
   name: z.string().min(1, 'Campaign name is required'),
   description: z.string().optional(),
   status: CAMPAIGN_STATUS,
-  startDate: z.date(),
-  endDate: z.date().optional(),
+  startDate: DateOrString,
+  endDate: DateOrString.optional(),
   channel: CAMPAIGN_CHANNEL.optional(),
-  targetAudience: z.record(z.any()).optional(),
+  targetAudience: AudienceTargetingSchema.optional(),
   budget: z.number().min(0).optional(),
   spent: z.number().min(0).optional(),
   createdBy: z.string().optional(),
 });
 
-// Marketing Campaign schema — for rez-marketing-service
+// ─── Marketing Campaign ───────────────────────────────────────────────────────
+
 export const CreateMarketingCampaignSchema = BaseCampaignSchema.extend({
   type: z.literal('marketing').optional(),
   merchantId: z.string().optional(),
@@ -60,35 +158,36 @@ export const CreateMarketingCampaignSchema = BaseCampaignSchema.extend({
   imageUrl: z.string().url('Invalid image URL').optional(),
   ctaUrl: z.string().url('Invalid CTA URL').optional(),
   ctaText: z.string().optional(),
-  audience: z.record(z.any()).optional(),
-  scheduledAt: z.date().optional(),
+  audience: AudienceTargetingSchema.optional(),
+  scheduledAt: DateOrString.optional(),
   dailyBudget: z.number().min(0).optional(),
   attributionWindowDays: z.number().int().positive().optional(),
 });
 
-// Update Marketing Campaign schema
 export const UpdateMarketingCampaignSchema = CreateMarketingCampaignSchema.partial();
 
-// Marketing Campaign Response
 export const MarketingCampaignResponseSchema = CreateMarketingCampaignSchema.extend({
   _id: z.string().optional(),
-  sentAt: z.date().optional(),
-  stats: z.object({
-    sent: z.number().optional(),
-    delivered: z.number().optional(),
-    failed: z.number().optional(),
-    deduped: z.number().optional(),
-    opened: z.number().optional(),
-    clicked: z.number().optional(),
-    converted: z.number().optional(),
-  }).optional(),
+  sentAt: DateOrString.optional(),
+  stats: z
+    .object({
+      sent: z.number().optional(),
+      delivered: z.number().optional(),
+      failed: z.number().optional(),
+      deduped: z.number().optional(),
+      opened: z.number().optional(),
+      clicked: z.number().optional(),
+      converted: z.number().optional(),
+    })
+    .optional(),
   errorMessage: z.string().optional(),
   totalSpent: z.number().min(0).optional(),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
+  createdAt: DateOrString.optional(),
+  updatedAt: DateOrString.optional(),
 });
 
-// Ad Campaign schema — for rez-ads-service & rez-merchant-service
+// ─── Ad Campaign ──────────────────────────────────────────────────────────────
+
 export const CreateAdCampaignSchema = BaseCampaignSchema.extend({
   type: z.literal('ad').optional(),
   merchantId: z.string().optional(),
@@ -98,17 +197,16 @@ export const CreateAdCampaignSchema = BaseCampaignSchema.extend({
   ctaText: z.string().optional(),
   ctaUrl: z.string().url('Invalid CTA URL').optional(),
   imageUrl: z.string().url('Invalid image URL').optional(),
-  placement: z.enum([
-    'home_banner',
-    'explore_feed',
-    'store_listing',
-    'search_result',
-  ]).optional(),
+  placement: z
+    .enum(['home_banner', 'explore_feed', 'store_listing', 'search_result'])
+    .optional(),
   targetSegment: z.enum(['all', 'new', 'loyal', 'lapsed', 'nearby']).optional(),
-  targetLocation: z.object({
-    city: z.string().optional(),
-    radiusKm: z.number().positive().optional(),
-  }).optional(),
+  targetLocation: z
+    .object({
+      city: z.string().optional(),
+      radiusKm: z.number().positive().optional(),
+    })
+    .optional(),
   targetInterests: z.array(z.string()).optional(),
   bidType: z.enum(['CPC', 'CPM']).optional(),
   bidAmount: z.number().min(0).optional(),
@@ -117,10 +215,8 @@ export const CreateAdCampaignSchema = BaseCampaignSchema.extend({
   frequencyCapDays: z.number().int().positive().optional(),
 });
 
-// Update Ad Campaign schema
 export const UpdateAdCampaignSchema = CreateAdCampaignSchema.partial();
 
-// Ad Campaign Response
 export const AdCampaignResponseSchema = CreateAdCampaignSchema.extend({
   _id: z.string().optional(),
   totalSpent: z.number().min(0).optional(),
@@ -128,13 +224,14 @@ export const AdCampaignResponseSchema = CreateAdCampaignSchema.extend({
   clicks: z.number().optional(),
   ctr: z.number().optional(),
   reviewedBy: z.string().optional(),
-  reviewedAt: z.date().optional(),
+  reviewedAt: DateOrString.optional(),
   rejectionReason: z.string().optional(),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
+  createdAt: DateOrString.optional(),
+  updatedAt: DateOrString.optional(),
 });
 
-// Merchant Campaign schema — for rez-merchant-service (loyalty/promotion)
+// ─── Merchant Campaign (rules-engine shaped) ──────────────────────────────────
+
 export const CreateMerchantCampaignSchema = BaseCampaignSchema.extend({
   type: z.literal('merchant').optional(),
   merchantId: z.string().optional(),
@@ -146,35 +243,32 @@ export const CreateMerchantCampaignSchema = BaseCampaignSchema.extend({
   rewardValue: z.number().min(0).optional(),
   rewardType: z.string().optional(),
   durationDays: z.number().int().positive().optional(),
-  conditions: z.record(z.any()).optional(),
-  actions: z.array(z.record(z.any())).optional(),
-  triggers: z.array(z.record(z.any())).optional(),
+  conditions: z.array(CampaignConditionSchema).optional(),
+  actions: z.array(CampaignActionSchema).optional(),
+  triggers: z.array(CampaignTriggerSchema).optional(),
   priority: z.number().int().optional(),
   cooldownDays: z.number().int().optional(),
 });
 
-// Update Merchant Campaign schema
 export const UpdateMerchantCampaignSchema = CreateMerchantCampaignSchema.partial();
 
-// Merchant Campaign Response
 export const MerchantCampaignResponseSchema = CreateMerchantCampaignSchema.extend({
   _id: z.string().optional(),
   redemptionCount: z.number().optional(),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
+  createdAt: DateOrString.optional(),
+  updatedAt: DateOrString.optional(),
 });
 
-// Unified Campaign Response (union type)
 export const CampaignResponseSchema = z.union([
   MarketingCampaignResponseSchema,
   AdCampaignResponseSchema,
   MerchantCampaignResponseSchema,
 ]);
 
-// Campaign List Response
 export const CampaignListResponseSchema = z.array(CampaignResponseSchema);
 
-// Infer TypeScript types
+// ─── Inferred types ───────────────────────────────────────────────────────────
+
 export type CreateMarketingCampaignRequest = z.infer<typeof CreateMarketingCampaignSchema>;
 export type UpdateMarketingCampaignRequest = z.infer<typeof UpdateMarketingCampaignSchema>;
 export type MarketingCampaignResponse = z.infer<typeof MarketingCampaignResponseSchema>;

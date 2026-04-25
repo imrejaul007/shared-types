@@ -57,8 +57,8 @@ export declare const BrandedCoinSchema: z.ZodObject<{
     expiresAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     isActive: z.ZodBoolean;
 }, "strict", z.ZodTypeAny, {
-    amount: number;
     merchantId: string;
+    amount: number;
     isActive: boolean;
     earnedDate: string | Date;
     merchantName: string;
@@ -67,8 +67,8 @@ export declare const BrandedCoinSchema: z.ZodObject<{
     merchantLogo?: string | undefined;
     merchantColor?: string | undefined;
 }, {
-    amount: number;
     merchantId: string;
+    amount: number;
     isActive: boolean;
     earnedDate: string | Date;
     merchantName: string;
@@ -92,8 +92,8 @@ export declare const WalletDebitSchema: z.ZodObject<{
     idempotencyKey: string;
     description: string;
     source: string;
-    metadata?: Record<string, string | number | boolean | null> | undefined;
     merchantId?: string | undefined;
+    metadata?: Record<string, string | number | boolean | null> | undefined;
     sourceId?: string | undefined;
 }, {
     user: string;
@@ -101,8 +101,8 @@ export declare const WalletDebitSchema: z.ZodObject<{
     idempotencyKey: string;
     description: string;
     source: string;
-    metadata?: Record<string, string | number | boolean | null> | undefined;
     merchantId?: string | undefined;
+    metadata?: Record<string, string | number | boolean | null> | undefined;
     sourceId?: string | undefined;
 }>;
 export declare const WalletCreditSchema: z.ZodObject<{
@@ -123,8 +123,8 @@ export declare const WalletCreditSchema: z.ZodObject<{
     description: string;
     source: string;
     coinType: "promo" | "branded" | "prive" | "cashback" | "referral" | "rez";
-    metadata?: Record<string, string | number | boolean | null> | undefined;
     merchantId?: string | undefined;
+    metadata?: Record<string, string | number | boolean | null> | undefined;
     expiryDate?: string | Date | undefined;
     sourceId?: string | undefined;
 }, {
@@ -134,8 +134,8 @@ export declare const WalletCreditSchema: z.ZodObject<{
     description: string;
     source: string;
     coinType: "promo" | "branded" | "prive" | "cashback" | "referral" | "rez";
-    metadata?: Record<string, string | number | boolean | null> | undefined;
     merchantId?: string | undefined;
+    metadata?: Record<string, string | number | boolean | null> | undefined;
     expiryDate?: string | Date | undefined;
     sourceId?: string | undefined;
 }>;
@@ -167,11 +167,11 @@ export declare const CoinTransactionResponseSchema: z.ZodObject<{
     coinType: "promo" | "branded" | "prive" | "cashback" | "referral" | "rez";
     balanceBefore: number;
     balanceAfter: number;
+    merchantId?: string | undefined;
     idempotencyKey?: string | undefined;
     metadata?: Record<string, string | number | boolean | null> | undefined;
     _id?: string | undefined;
     updatedAt?: string | Date | undefined;
-    merchantId?: string | undefined;
     sourceId?: string | undefined;
 }, {
     user: string;
@@ -184,11 +184,11 @@ export declare const CoinTransactionResponseSchema: z.ZodObject<{
     coinType: "promo" | "branded" | "prive" | "cashback" | "referral" | "rez";
     balanceBefore: number;
     balanceAfter: number;
+    merchantId?: string | undefined;
     idempotencyKey?: string | undefined;
     metadata?: Record<string, string | number | boolean | null> | undefined;
     _id?: string | undefined;
     updatedAt?: string | Date | undefined;
-    merchantId?: string | undefined;
     sourceId?: string | undefined;
 }>;
 export declare const CoinTransactionListResponseSchema: z.ZodArray<z.ZodObject<{
@@ -219,11 +219,11 @@ export declare const CoinTransactionListResponseSchema: z.ZodArray<z.ZodObject<{
     coinType: "promo" | "branded" | "prive" | "cashback" | "referral" | "rez";
     balanceBefore: number;
     balanceAfter: number;
+    merchantId?: string | undefined;
     idempotencyKey?: string | undefined;
     metadata?: Record<string, string | number | boolean | null> | undefined;
     _id?: string | undefined;
     updatedAt?: string | Date | undefined;
-    merchantId?: string | undefined;
     sourceId?: string | undefined;
 }, {
     user: string;
@@ -236,11 +236,11 @@ export declare const CoinTransactionListResponseSchema: z.ZodArray<z.ZodObject<{
     coinType: "promo" | "branded" | "prive" | "cashback" | "referral" | "rez";
     balanceBefore: number;
     balanceAfter: number;
+    merchantId?: string | undefined;
     idempotencyKey?: string | undefined;
     metadata?: Record<string, string | number | boolean | null> | undefined;
     _id?: string | undefined;
     updatedAt?: string | Date | undefined;
-    merchantId?: string | undefined;
     sourceId?: string | undefined;
 }>, "many">;
 export declare const WalletBalanceResponseSchema: z.ZodObject<{
@@ -300,8 +300,8 @@ export declare const WalletBalanceResponseSchema: z.ZodObject<{
         expiresAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
         isActive: z.ZodBoolean;
     }, "strict", z.ZodTypeAny, {
-        amount: number;
         merchantId: string;
+        amount: number;
         isActive: boolean;
         earnedDate: string | Date;
         merchantName: string;
@@ -310,8 +310,8 @@ export declare const WalletBalanceResponseSchema: z.ZodObject<{
         merchantLogo?: string | undefined;
         merchantColor?: string | undefined;
     }, {
-        amount: number;
         merchantId: string;
+        amount: number;
         isActive: boolean;
         earnedDate: string | Date;
         merchantName: string;
@@ -347,8 +347,8 @@ export declare const WalletBalanceResponseSchema: z.ZodObject<{
     isFrozen: boolean;
     updatedAt?: string | Date | undefined;
     brandedCoins?: {
-        amount: number;
         merchantId: string;
+        amount: number;
         isActive: boolean;
         earnedDate: string | Date;
         merchantName: string;
@@ -380,8 +380,8 @@ export declare const WalletBalanceResponseSchema: z.ZodObject<{
     isFrozen: boolean;
     updatedAt?: string | Date | undefined;
     brandedCoins?: {
-        amount: number;
         merchantId: string;
+        amount: number;
         isActive: boolean;
         earnedDate: string | Date;
         merchantName: string;

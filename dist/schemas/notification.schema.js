@@ -21,7 +21,9 @@ exports.NotificationEventSchema = zod_1.z.object({
     type: exports.NOTIFICATION_TYPE,
     entityId: zod_1.z.string().optional(),
     entityType: zod_1.z.string().optional(),
-    data: zod_1.z.record(zod_1.z.any()).optional(),
+    data: zod_1.z
+        .record(zod_1.z.string(), zod_1.z.union([zod_1.z.string(), zod_1.z.number(), zod_1.z.boolean(), zod_1.z.null()]))
+        .optional(),
 });
 exports.NotificationRecipientSchema = zod_1.z.object({
     userId: zod_1.z.string().min(1, 'User ID is required'),
@@ -36,7 +38,9 @@ exports.SendNotificationSchema = zod_1.z.object({
     channel: exports.NOTIFICATION_CHANNEL,
     title: zod_1.z.string().optional(),
     message: zod_1.z.string().min(1, 'Message is required'),
-    payload: zod_1.z.record(zod_1.z.any()).optional(),
+    payload: zod_1.z
+        .record(zod_1.z.string(), zod_1.z.union([zod_1.z.string(), zod_1.z.number(), zod_1.z.boolean(), zod_1.z.null()]))
+        .optional(),
     scheduledFor: zod_1.z.date().optional(),
 });
 exports.NotificationResponseSchema = zod_1.z.object({
@@ -47,7 +51,9 @@ exports.NotificationResponseSchema = zod_1.z.object({
     channel: exports.NOTIFICATION_CHANNEL,
     title: zod_1.z.string().optional(),
     message: zod_1.z.string(),
-    payload: zod_1.z.record(zod_1.z.any()).optional(),
+    payload: zod_1.z
+        .record(zod_1.z.string(), zod_1.z.union([zod_1.z.string(), zod_1.z.number(), zod_1.z.boolean(), zod_1.z.null()]))
+        .optional(),
     isRead: zod_1.z.boolean().optional(),
     readAt: zod_1.z.date().optional(),
     sentAt: zod_1.z.date().optional(),
