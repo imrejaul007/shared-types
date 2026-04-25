@@ -22,7 +22,8 @@ export type EarnRecordStatus =
   | 'APPROVED_PENDING_CONVERSION'
   | 'CONVERTED'
   | 'REJECTED'
-  | 'ROLLED_BACK';
+  | 'ROLLED_BACK'
+  | 'CONVERSION_FAILED';
 
 /** Batch status — lifecycle of a karma-to-coin conversion batch. */
 export type BatchStatus = 'DRAFT' | 'READY' | 'EXECUTED' | 'PARTIAL' | 'PAUSED';
@@ -248,6 +249,8 @@ export interface ILevelInfo {
   maxKarma?: number;
   conversionRate: KarmaConversionRate;
   benefits: string[];
+  nextLevelAt: number | null;
+  activeKarma: number;
 }
 
 // ─── IKarmaStats ───────────────────────────────────────────────────────────────
