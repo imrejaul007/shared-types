@@ -9,6 +9,27 @@ import { LoyaltyConnector } from './connectors/loyalty.connector';
 import { NotificationConnector } from './connectors/notification.connector';
 import { getIntegratedTools } from './tools/integrated-tools';
 import { DynamicKnowledgeProvider } from './knowledge/dynamic-provider';
+import {
+  HotelActionHandler,
+  MerchantActionHandler,
+  SupportActionHandler,
+  createActionHandlers,
+  executeAction,
+  type ActionContext,
+  type ActionResult,
+  type ActionRequest,
+  type ActionType,
+} from './socket/actionHandlers';
+import {
+  PLATFORM_CONFIGS,
+  buildPlatformContext,
+  getQuickActionResponse,
+  ROOM_SERVICE_MENU,
+  ROOM_SERVICE_INTENTS,
+  type ReZPlatform,
+  type PlatformConfig,
+  type RoomServiceItem,
+} from './platform/platforms';
 
 // ── Main Integration Class ──────────────────────────────────────────────────────
 
@@ -295,6 +316,25 @@ export {
   NotificationConnector,
   DynamicKnowledgeProvider,
   getIntegratedTools,
+  HotelActionHandler,
+  MerchantActionHandler,
+  SupportActionHandler,
+  createActionHandlers,
+  executeAction,
+  PLATFORM_CONFIGS,
+  buildPlatformContext,
+  getQuickActionResponse,
+  ROOM_SERVICE_MENU,
+  ROOM_SERVICE_INTENTS,
 } from './';
 
-export type { IntegrationConfig } from './index';
+export type {
+  IntegrationConfig,
+  ActionContext,
+  ActionResult,
+  ActionRequest,
+  ActionType,
+  ReZPlatform,
+  PlatformConfig,
+  RoomServiceItem,
+} from './';
