@@ -51,6 +51,12 @@ import {
 // ── Merchant API Routes ───────────────────────────────────────────────────────
 import merchantRouter from '../api/merchant.routes.js';
 
+// ── Monitoring API Routes ──────────────────────────────────────────────────────
+import monitoringRouter from '../api/monitoring.routes.js';
+
+// ── WebSocket Server ──────────────────────────────────────────────────────────
+import { wsServer } from '../websocket/server.js';
+
 const app = express();
 const PORT = process.env.AGENT_PORT || 3005;
 
@@ -62,6 +68,9 @@ app.use(express.json());
 
 // ── Merchant Demand API (Phase 5) ────────────────────────────────────────────────
 app.use('/api/merchant', merchantRouter);
+
+// ── Monitoring API (Phase 6) ────────────────────────────────────────────────────
+app.use('/api/monitoring', monitoringRouter);
 
 // ── Request logging ─────────────────────────────────────────────────────────────
 
@@ -654,12 +663,29 @@ export function startAgentServer(): void {
   const coordinator = getSwarmCoordinator();
 
   const server = app.listen(PORT, () => {
+    // Initialize WebSocket server
+    wsServer.initialize(server);
+    console.log('[Agent Server] WebSocket server initialized on /ws');
     console.log(`[Agent Server] Running on port ${PORT}`);
     console.log('[Agent Server] Starting swarm coordinator...');
 
     coordinator.start();
 
     console.log('[Agent Server] Swarm coordinator started');
+    console.log('');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('  PHASE 6: REAL-TIME & MONITORING');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('  WEBSOCKET: ws://localhost:' + PORT + '/ws');
+    console.log('  Channels: demand_signals, scarcity_alerts, nudge_events,');
+    console.log('           system_metrics, merchant_dashboard, user_intents');
+    console.log('');
+    console.log('  MONITORING:');
+    console.log('  GET  /api/monitoring/health           - Health check');
+    console.log('  GET  /api/monitoring/dashboard        - Dashboard metrics');
+    console.log('  GET  /api/monitoring/metrics         - All metrics');
+    console.log('  GET  /api/monitoring/alerts           - Active alerts');
+    console.log('  GET  /api/monitoring/websocket        - WS stats');
     console.log('');
     console.log('═══════════════════════════════════════════════════════════════');
     console.log('  PHASE 5: MERCHANT DEMAND SIGNALS');
