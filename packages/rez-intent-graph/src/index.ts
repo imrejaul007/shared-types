@@ -102,5 +102,22 @@ export { DormantIntentCronJob } from './jobs/dormantIntentCron.js';
 // Agent Server
 export { startAgentServer } from './server/agent-server.js';
 
+// Phase 4: Agent OS Integration
+export {
+  intentGraphMemory,
+  executeAgentTool,
+  listAgentTools,
+  INTENT_TOOLS,
+  type IntentGraphMemory,
+  type IntentSummary,
+  type DormantIntentSummary,
+  type CrossAppProfile,
+  type EnrichedContext,
+  type NudgeSuggestion,
+  type AffinityScores,
+  type ActivityEvent,
+  type AgentInsight,
+} from './integrations/agentOsIntegration.js';
+
 // Action Triggers (for testing)
 export { actionExecutor, handleDemandSignalAction, handleScarcitySignalAction, handleOptimizationAction, triggerAutoRevival } from './agents/action-trigger.js';

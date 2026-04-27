@@ -22,7 +22,7 @@ async function testNudgeQueue(): Promise<void> {
     message: 'Your Goa trip is waiting!',
     revivalScore: 0.75,
     channel: 'push',
-    triggerType: 'price_drop',
+    triggerType: 'price_drop_nudge',
     priority: 'high',
   });
 
@@ -87,7 +87,8 @@ async function testNudgeDelivery(): Promise<void> {
       message: 'Your Goa trip is waiting - book now!',
       channel: 'push',
     });
-    console.log('   Nudge sent:', nudge.success !== false ? '✅ success' : '⚠️ failed');
+    const success = nudge.status !== 'failed';
+    console.log('   Nudge sent:', success ? '✅ success' : '⚠️ failed');
     console.log('   Nudge ID:', nudge.id);
     console.log('   Channel:', nudge.channel);
     console.log('   Status:', nudge.status);

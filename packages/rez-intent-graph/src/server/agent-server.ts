@@ -40,6 +40,14 @@ import {
   type OrderResult,
 } from '../integrations/external-services.js';
 
+// ── Agent OS Integration ──────────────────────────────────────────────────────
+import {
+  intentGraphMemory,
+  executeAgentTool,
+  listAgentTools,
+  type EnrichedContext,
+} from '../integrations/agentOsIntegration.js';
+
 const app = express();
 const PORT = process.env.AGENT_PORT || 3005;
 
@@ -209,6 +217,103 @@ app.get('/api/trending/:category', async (req: Request, res: Response) => {
   } catch (error) {
     res.status(500).json({ error: String(error) });
   }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// PHASE 4: AGENT OS INTEGRATION ENDPOINTS
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+// ── Intent Graph Memory ─────────────────────────────────────────────────────────
+
+app.get('/api/agent/intents/:userId', async (req: Request, res: Response) => {
+  const { userId } = req.params;
+
+  try {
+    const intents = await intentGraphMemory.getActiveIntents(userId);
+    res.json(intents);
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+app.get('/api/agent/dormant/:userId', async (req: Request, res: Response) => {
+  const { userId } = req.params;
+
+  try {
+    const dormantIntents = await intentGraphMemory.getDormantIntents(userId);
+    res.json(dormantIntents);
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+app.get('/api/agent/profile/:userId', async (req: Request, res: Response) => {
+  const { userId } = req.params;
+
+  try {
+    const profile = await intentGraphMemory.getCrossAppProfile(userId);
+    res.json(profile);
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+app.get('/api/agent/enrich/:userId', async (req: Request, res: Response) => {
+  const { userId } = req.params;
+
+  try {
+    const context = await intentGraphMemory.enrichContext(userId);
+    res.json(context);
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+// ── Agent Tools ─────────────────────────────────────────────────────────────────
+
+app.get('/api/agent/tools', (_req: Request, res: Response) => {
+  const tools = listAgentTools();
+  res.json({ tools, count: tools.length });
+});
+
+app.post('/api/agent/tools/execute', async (req: Request, res: Response) => {
+  const { toolName, params } = req.body;
+
+  if (!toolName) {
+    res.status(400).json({ error: 'toolName is required' });
+    return;
+  }
+
+  try {
+    const result = await executeAgentTool(toolName, params || {});
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+app.post('/api/agent/insight', async (req: Request, res: Response) => {
+  const { userId, agentId, insight } = req.body;
+
+  if (!userId || !agentId || !insight) {
+    res.status(400).json({ error: 'userId, agentId, and insight are required' });
+    return;
+  }
+
+  try {
+    await intentGraphMemory.recordAgentInsight(userId, agentId, insight);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+// ── Invalidate Cache ─────────────────────────────────────────────────────────────
+
+app.post('/api/agent/cache/invalidate/:userId', (req: Request, res: Response) => {
+  const { userId } = req.params;
+  intentGraphMemory.invalidateCache(userId);
+  res.json({ success: true, message: `Cache invalidated for user ${userId}` });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════════
@@ -549,10 +654,24 @@ export function startAgentServer(): void {
     coordinator.start();
 
     console.log('[Agent Server] Swarm coordinator started');
-    console.log('[Agent Server] Swarm coordinator started');
     console.log('');
     console.log('═══════════════════════════════════════════════════════════════');
-    console.log('  PHASE 2: SERVICE INTEGRATION ENDPOINTS');
+    console.log('  PHASE 4: AGENT OS INTEGRATION');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('  AGENT TOOLS:');
+    console.log('  GET  /api/agent/tools           - List available tools');
+    console.log('  POST /api/agent/tools/execute   - Execute agent tool');
+    console.log('');
+    console.log('  INTENT MEMORY:');
+    console.log('  GET  /api/agent/intents/:userId  - Get active intents');
+    console.log('  GET  /api/agent/dormant/:userId - Get dormant intents');
+    console.log('  GET  /api/agent/profile/:userId - Get cross-app profile');
+    console.log('  GET  /api/agent/enrich/:userId  - Get enriched context');
+    console.log('  POST /api/agent/insight         - Record agent insight');
+    console.log('  POST /api/agent/cache/invalidate/:userId - Clear cache');
+    console.log('');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('  PHASE 2: SERVICE INTEGRATION');
     console.log('═══════════════════════════════════════════════════════════════');
     console.log('  SERVICE HEALTH:');
     console.log('  GET  /api/services/health           - All service health');
@@ -575,29 +694,13 @@ export function startAgentServer(): void {
     console.log('  POST /api/shopping/execute          - Shopping flow');
     console.log('');
     console.log('═══════════════════════════════════════════════════════════════');
-    console.log('  AUTONOMOUS MODE ENDPOINTS (DANGEROUS)');
+    console.log('  AUTONOMOUS MODE (DANGEROUS)');
     console.log('═══════════════════════════════════════════════════════════════');
     console.log('  POST /api/autonomous/start         - Enable full autonomy');
     console.log('  POST /api/autonomous/stop          - Disable autonomy');
     console.log('  POST /api/autonomous/action        - Execute dangerous action');
     console.log('  GET  /api/autonomous/status        - Get autonomy status');
     console.log('  POST /api/autonomous/emergency-stop - Emergency stop');
-    console.log('  POST /api/autonomous/agents/start  - Start all agents');
-    console.log('  POST /api/autonomous/agents/stop   - Stop all agents');
-    console.log('');
-    console.log('  STANDARD ENDPOINTS');
-    console.log('  GET  /health              - Health check');
-    console.log('  GET  /api/swarm/status    - Swarm status');
-    console.log('  POST /api/swarm/run/:name - Run single agent');
-    console.log('  POST /api/swarm/run-all   - Run all agents');
-    console.log('  GET  /api/memory/stats    - Memory statistics');
-    console.log('  GET  /api/demand/:m/:c    - Get demand signal');
-    console.log('  GET  /api/scarcity/:m/:c  - Get scarcity signal');
-    console.log('  GET  /api/scarcity/critical - Get critical scarcity');
-    console.log('  GET  /api/profiles/:uid    - Get user profile');
-    console.log('  GET  /api/revenue/latest   - Get latest revenue report');
-    console.log('  GET  /api/optimizations   - Get optimization recs');
-    console.log('  GET  /api/trending/:cat   - Get trending intents');
     console.log('═══════════════════════════════════════════════════════════════');
   });
 
