@@ -205,6 +205,22 @@ export declare function executeShoppingFlow(userId: string, storeId: string, mer
     total?: number;
     error?: string;
 }>;
+export interface UserValidationResult {
+    valid: boolean;
+    userId?: string;
+    error?: string;
+}
+/**
+ * Validate internal service token
+ */
+export declare function validateInternalToken(token: string): Promise<boolean>;
+/**
+ * Get user info from auth service
+ */
+export declare function getUserFromToken(token: string): Promise<{
+    userId: string;
+    phone?: string;
+} | null>;
 export interface ServiceHealthStatus {
     name: string;
     healthy: boolean;
@@ -212,7 +228,7 @@ export interface ServiceHealthStatus {
     failureCount: number;
     lastFailure: number | null;
 }
-export declare function checkServiceHealth(service: 'wallet' | 'order'): Promise<boolean>;
+export declare function checkServiceHealth(service: string): Promise<boolean>;
 export declare function getAllServiceHealth(): Promise<Record<string, boolean>>;
 /**
  * Get detailed circuit breaker status for all services

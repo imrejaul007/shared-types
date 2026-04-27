@@ -199,3 +199,23 @@ model NudgeSchedule {
   @@index([userId, active])
   @@index([category, triggerType])
 }
+
+// ── Merchant Knowledge ──────────────────────────────────────────────────────
+
+model MerchantKnowledge {
+  id          String    @id @default(cuid())
+  merchantId  String
+  type        String    // menu, policy, faq, offer, hours, contact, custom
+  title       String
+  content     String
+  tags        String[]
+  metadata    Json?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Indexes
+  @@index([merchantId, active])
+  @@index([type, merchantId])
+  @@index([merchantId, type])
+}

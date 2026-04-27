@@ -15,10 +15,14 @@ export { default as commerceMemoryRouter } from './api/commerce-memory.routes.js
 export { handleHotelSearch, handleHotelHold, handleHotelConfirm, handleRestaurantView, handleAddToCart, handleOrderPlaced, handleNudgeDelivered, handleNudgeClicked, handleNudgeConverted, handleBatchCapture, } from './api/webhooks.js';
 export { hotelOtaIntegration } from './integrations/hotelOtaIntegration.js';
 export { rezNowIntegration } from './integrations/rezNowIntegration.js';
-export { chargeWallet, creditWallet, getWalletBalance, createOrder, updateOrderStatus, executeRoomServiceFlow, executeShoppingFlow, getCircuitBreakerStatus, resetCircuitBreaker, forceOpenCircuitBreaker, checkServiceHealth, getAllServiceHealth, } from './integrations/external-services.js';
-export type { WalletTransaction, WalletBalance, OrderItem, CreateOrderParams, OrderResult, PMSGuestRequest, TaskAssignment, StaffNotification, MerchantOrder, ServiceHealthStatus, } from './integrations/external-services.js';
+export { chargeWallet, creditWallet, getWalletBalance, createOrder, updateOrderStatus, submitGuestRequest, createTask, sendStaffNotification, sendUserNotification, sendToMerchantOS, executeRoomServiceFlow, executeShoppingFlow, validateInternalToken, getUserFromToken, getCircuitBreakerStatus, resetCircuitBreaker, forceOpenCircuitBreaker, checkServiceHealth, getAllServiceHealth, } from './integrations/external-services.js';
+export type { WalletTransaction, WalletBalance, OrderItem, CreateOrderParams, OrderResult, PMSGuestRequest, TaskAssignment, StaffNotification, MerchantOrder, ServiceHealthStatus, UserValidationResult, } from './integrations/external-services.js';
 export { intentCaptureMiddleware } from './middleware/intentMiddleware.js';
 export { DormantIntentCronJob } from './jobs/dormantIntentCron.js';
 export { startAgentServer } from './server/agent-server.js';
+export { intentGraphMemory, executeAgentTool, listAgentTools, INTENT_TOOLS, type IntentGraphMemory, type IntentSummary, type DormantIntentSummary, type CrossAppProfile, type EnrichedContext, type NudgeSuggestion, type AffinityScores, type ActivityEvent, type AgentInsight, } from './integrations/agentOsIntegration.js';
+export { merchantKnowledgeService, type MerchantKnowledgeEntry, type MerchantKnowledgeBase, type KnowledgeType } from './integrations/merchantKnowledge.js';
+export { autonomousChatService, type ChatMessage, type ChatSession, type ChatContext, type ChatResponse, type MessageRole } from './chat/autonomousChat.js';
+export { default as chatRouter } from './api/chat.routes.js';
 export { actionExecutor, handleDemandSignalAction, handleScarcitySignalAction, handleOptimizationAction, triggerAutoRevival } from './agents/action-trigger.js';
 //# sourceMappingURL=index.d.ts.map

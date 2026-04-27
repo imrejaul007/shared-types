@@ -28,13 +28,19 @@ export { handleHotelSearch, handleHotelHold, handleHotelConfirm, handleRestauran
 export { hotelOtaIntegration } from './integrations/hotelOtaIntegration.js';
 export { rezNowIntegration } from './integrations/rezNowIntegration.js';
 // Phase 2: External Services Integration
-export { chargeWallet, creditWallet, getWalletBalance, createOrder, updateOrderStatus, executeRoomServiceFlow, executeShoppingFlow, getCircuitBreakerStatus, resetCircuitBreaker, forceOpenCircuitBreaker, checkServiceHealth, getAllServiceHealth, } from './integrations/external-services.js';
+export { chargeWallet, creditWallet, getWalletBalance, createOrder, updateOrderStatus, submitGuestRequest, createTask, sendStaffNotification, sendUserNotification, sendToMerchantOS, executeRoomServiceFlow, executeShoppingFlow, validateInternalToken, getUserFromToken, getCircuitBreakerStatus, resetCircuitBreaker, forceOpenCircuitBreaker, checkServiceHealth, getAllServiceHealth, } from './integrations/external-services.js';
 // Middleware
 export { intentCaptureMiddleware } from './middleware/intentMiddleware.js';
 // Jobs
 export { DormantIntentCronJob } from './jobs/dormantIntentCron.js';
 // Agent Server
 export { startAgentServer } from './server/agent-server.js';
+// Phase 4: Agent OS Integration
+export { intentGraphMemory, executeAgentTool, listAgentTools, INTENT_TOOLS, } from './integrations/agentOsIntegration.js';
+// Phase 7: Merchant Knowledge & Autonomous Chat
+export { merchantKnowledgeService } from './integrations/merchantKnowledge.js';
+export { autonomousChatService } from './chat/autonomousChat.js';
+export { default as chatRouter } from './api/chat.routes.js';
 // Action Triggers (for testing)
 export { actionExecutor, handleDemandSignalAction, handleScarcitySignalAction, handleOptimizationAction, triggerAutoRevival } from './agents/action-trigger.js';
 //# sourceMappingURL=index.js.map

@@ -49,9 +49,22 @@ export declare class NudgeDeliveryService {
      */
     sendNudge(candidate: any): Promise<Nudge>;
     /**
-     * Record nudge sent
+     * Record nudge sent to database
      */
-    private recordNudgeSent;
+    recordNudgeSent(dormantIntentId: string, userId: string, channel: string, message: string, nudgeId?: string): Promise<void>;
+    /**
+     * Update nudge status (delivered, clicked, converted)
+     */
+    updateNudgeStatus(nudgeId: string, status: 'delivered' | 'clicked' | 'converted' | 'failed', error?: string): Promise<void>;
+    /**
+     * Get nudge statistics
+     */
+    getNudgeStats(): Promise<{
+        total: number;
+        byStatus: Record<string, number>;
+        byChannel: Record<string, number>;
+        conversionRate: number;
+    }>;
     /**
      * Get user preferences for channel selection
      */

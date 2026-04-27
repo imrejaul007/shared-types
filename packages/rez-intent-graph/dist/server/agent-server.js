@@ -10,12 +10,28 @@ getAutonomousOrchestrator, startAutonomousMode, stopAutonomousMode, executeAuton
 enableDangerousMode, emergencyStop, } from '../agents/index.js';
 // ── External Services Integration ─────────────────────────────────────────────
 import { chargeWallet, creditWallet, getWalletBalance, createOrder, updateOrderStatus, executeRoomServiceFlow, executeShoppingFlow, getCircuitBreakerStatus, resetCircuitBreaker, forceOpenCircuitBreaker, checkServiceHealth, getAllServiceHealth, } from '../integrations/external-services.js';
+// ── Agent OS Integration ──────────────────────────────────────────────────────
+import { intentGraphMemory, executeAgentTool, listAgentTools, } from '../integrations/agentOsIntegration.js';
+// ── Merchant API Routes ───────────────────────────────────────────────────────
+import merchantRouter from '../api/merchant.routes.js';
+// ── Monitoring API Routes ──────────────────────────────────────────────────────
+import monitoringRouter from '../api/monitoring.routes.js';
+// ── Chat & Knowledge API Routes (Phase 7) ─────────────────────────────────────
+import chatRouter from '../api/chat.routes.js';
+// ── WebSocket Server ──────────────────────────────────────────────────────────
+import { wsServer } from '../websocket/server.js';
 const app = express();
 const PORT = process.env.AGENT_PORT || 3005;
 // ── Enable Dangerous Mode on Server Start ──────────────────────────────────────
 console.log('🚨 DANGEROUS MODE: Enabling skip-permission capabilities on server startup');
 enableDangerousMode();
 app.use(express.json());
+// ── Merchant Demand API (Phase 5) ────────────────────────────────────────────────
+app.use('/api/merchant', merchantRouter);
+// ── Monitoring API (Phase 6) ────────────────────────────────────────────────────
+app.use('/api/monitoring', monitoringRouter);
+// ── Chat & Knowledge API (Phase 7) ─────────────────────────────────────────────
+app.use('/api', chatRouter);
 // ── Request logging ─────────────────────────────────────────────────────────────
 app.use((req, _res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
@@ -158,6 +174,89 @@ app.get('/api/trending/:category', async (req, res) => {
     catch (error) {
         res.status(500).json({ error: String(error) });
     }
+});
+// ═══════════════════════════════════════════════════════════════════════════════════
+// PHASE 4: AGENT OS INTEGRATION ENDPOINTS
+// ═══════════════════════════════════════════════════════════════════════════════════
+// ── Intent Graph Memory ─────────────────────────────────────────────────────────
+app.get('/api/agent/intents/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const intents = await intentGraphMemory.getActiveIntents(userId);
+        res.json(intents);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+app.get('/api/agent/dormant/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const dormantIntents = await intentGraphMemory.getDormantIntents(userId);
+        res.json(dormantIntents);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+app.get('/api/agent/profile/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const profile = await intentGraphMemory.getCrossAppProfile(userId);
+        res.json(profile);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+app.get('/api/agent/enrich/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const context = await intentGraphMemory.enrichContext(userId);
+        res.json(context);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Agent Tools ─────────────────────────────────────────────────────────────────
+app.get('/api/agent/tools', (_req, res) => {
+    const tools = listAgentTools();
+    res.json({ tools, count: tools.length });
+});
+app.post('/api/agent/tools/execute', async (req, res) => {
+    const { toolName, params } = req.body;
+    if (!toolName) {
+        res.status(400).json({ error: 'toolName is required' });
+        return;
+    }
+    try {
+        const result = await executeAgentTool(toolName, params || {});
+        res.json(result);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+app.post('/api/agent/insight', async (req, res) => {
+    const { userId, agentId, insight } = req.body;
+    if (!userId || !agentId || !insight) {
+        res.status(400).json({ error: 'userId, agentId, and insight are required' });
+        return;
+    }
+    try {
+        await intentGraphMemory.recordAgentInsight(userId, agentId, insight);
+        res.json({ success: true });
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Invalidate Cache ─────────────────────────────────────────────────────────────
+app.post('/api/agent/cache/invalidate/:userId', (req, res) => {
+    const { userId } = req.params;
+    intentGraphMemory.invalidateCache(userId);
+    res.json({ success: true, message: `Cache invalidated for user ${userId}` });
 });
 // ═══════════════════════════════════════════════════════════════════════════════════
 // AUTONOMOUS MODE API ENDPOINTS - DANGEROUS OPERATIONS
@@ -456,59 +555,83 @@ app.post('/api/shopping/execute', async (req, res) => {
 export function startAgentServer() {
     const coordinator = getSwarmCoordinator();
     const server = app.listen(PORT, () => {
+        // Initialize WebSocket server
+        wsServer.initialize(server);
+        console.log('[Agent Server] WebSocket server initialized on /ws');
         console.log(`[Agent Server] Running on port ${PORT}`);
         console.log('[Agent Server] Starting swarm coordinator...');
         coordinator.start();
         console.log('[Agent Server] Swarm coordinator started');
-        console.log('[Agent Server] Swarm coordinator started');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════════');
-        console.log('  PHASE 2: SERVICE INTEGRATION ENDPOINTS');
+        console.log('  PHASE 7: MERCHANT KNOWLEDGE & AUTONOMOUS CHAT');
         console.log('═══════════════════════════════════════════════════════════════');
-        console.log('  SERVICE HEALTH:');
-        console.log('  GET  /api/services/health           - All service health');
-        console.log('  GET  /api/services/health/:service  - Single service');
-        console.log('  GET  /api/services/circuit-breaker/status');
-        console.log('  POST /api/services/circuit-breaker/reset/:service');
-        console.log('  POST /api/services/circuit-breaker/open/:service');
+        console.log('  MERCHANT KNOWLEDGE:');
+        console.log('  POST /api/knowledge/merchant/:id/entries  - Add knowledge entry');
+        console.log('  POST /api/knowledge/merchant/:id/bulk    - Bulk import');
+        console.log('  GET  /api/knowledge/merchant/:id         - Get knowledge base');
+        console.log('  GET  /api/knowledge/merchant/:id/search - Search knowledge');
+        console.log('  POST /api/knowledge/merchant/:id/menu    - Upload menu');
+        console.log('  POST /api/knowledge/merchant/:id/policy  - Upload policies');
+        console.log('  POST /api/knowledge/merchant/:id/faq     - Upload FAQs');
         console.log('');
-        console.log('  WALLET:');
-        console.log('  GET  /api/wallet/:userId/balance   - Get balance');
-        console.log('  POST /api/wallet/charge            - Charge wallet');
-        console.log('  POST /api/wallet/credit            - Credit wallet');
-        console.log('');
-        console.log('  ORDERS:');
-        console.log('  POST /api/orders/create            - Create order');
-        console.log('  PATCH /api/orders/:id/status       - Update status');
-        console.log('');
-        console.log('  FLOWS:');
-        console.log('  POST /api/room-service/execute      - Room QR flow');
-        console.log('  POST /api/shopping/execute          - Shopping flow');
+        console.log('  AUTONOMOUS CHAT:');
+        console.log('  POST /api/chat/message           - Send chat message');
+        console.log('  GET  /api/chat/history/:userId  - Get chat history');
+        console.log('  POST /api/chat/end-session      - End chat session');
+        console.log('  GET  /api/chat/context/:userId  - Get chat context');
         console.log('');
         console.log('═══════════════════════════════════════════════════════════════');
-        console.log('  AUTONOMOUS MODE ENDPOINTS (DANGEROUS)');
+        console.log('  PHASE 6: REAL-TIME & MONITORING');
         console.log('═══════════════════════════════════════════════════════════════');
-        console.log('  POST /api/autonomous/start         - Enable full autonomy');
-        console.log('  POST /api/autonomous/stop          - Disable autonomy');
-        console.log('  POST /api/autonomous/action        - Execute dangerous action');
-        console.log('  GET  /api/autonomous/status        - Get autonomy status');
-        console.log('  POST /api/autonomous/emergency-stop - Emergency stop');
-        console.log('  POST /api/autonomous/agents/start  - Start all agents');
-        console.log('  POST /api/autonomous/agents/stop   - Stop all agents');
+        console.log('  WEBSOCKET: ws://localhost:' + PORT + '/ws');
+        console.log('  Channels: demand_signals, scarcity_alerts, nudge_events,');
+        console.log('           system_metrics, merchant_dashboard, user_intents');
         console.log('');
-        console.log('  STANDARD ENDPOINTS');
-        console.log('  GET  /health              - Health check');
-        console.log('  GET  /api/swarm/status    - Swarm status');
-        console.log('  POST /api/swarm/run/:name - Run single agent');
-        console.log('  POST /api/swarm/run-all   - Run all agents');
-        console.log('  GET  /api/memory/stats    - Memory statistics');
-        console.log('  GET  /api/demand/:m/:c    - Get demand signal');
-        console.log('  GET  /api/scarcity/:m/:c  - Get scarcity signal');
-        console.log('  GET  /api/scarcity/critical - Get critical scarcity');
-        console.log('  GET  /api/profiles/:uid    - Get user profile');
-        console.log('  GET  /api/revenue/latest   - Get latest revenue report');
-        console.log('  GET  /api/optimizations   - Get optimization recs');
-        console.log('  GET  /api/trending/:cat   - Get trending intents');
+        console.log('  MONITORING:');
+        console.log('  GET  /api/monitoring/health           - Health check');
+        console.log('  GET  /api/monitoring/dashboard        - Dashboard metrics');
+        console.log('  GET  /api/monitoring/metrics         - All metrics');
+        console.log('  GET  /api/monitoring/alerts           - Active alerts');
+        console.log('  GET  /api/monitoring/websocket        - WS stats');
+        console.log('');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('  PHASE 5: MERCHANT DEMAND SIGNALS');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('  MERCHANT DASHBOARD:');
+        console.log('  GET  /api/merchant/:id/demand/dashboard - Demand overview');
+        console.log('  GET  /api/merchant/:id/demand/signal   - Real-time signal');
+        console.log('  GET  /api/merchant/:id/procurement     - Procurement signals');
+        console.log('  GET  /api/merchant/:id/intents/top     - Top performing intents');
+        console.log('  GET  /api/merchant/:id/trends          - Demand trends');
+        console.log('  GET  /api/merchant/:id/locations       - City insights');
+        console.log('  GET  /api/merchant/:id/pricing        - Price expectations');
+        console.log('  POST /api/merchant/:id/alerts          - Configure alerts');
+        console.log('');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('  PHASE 4: AGENT OS INTEGRATION');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('  GET  /api/agent/tools            - List available tools');
+        console.log('  POST /api/agent/tools/execute    - Execute agent tool');
+        console.log('  GET  /api/agent/intents/:userId  - Get active intents');
+        console.log('  GET  /api/agent/dormant/:userId - Get dormant intents');
+        console.log('  GET  /api/agent/enrich/:userId  - Get enriched context');
+        console.log('  POST /api/agent/insight         - Record agent insight');
+        console.log('');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('  PHASE 2: SERVICE INTEGRATION');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('  SERVICE HEALTH: GET /api/services/health');
+        console.log('  WALLET: GET /api/wallet/:userId/balance');
+        console.log('  ORDERS: POST /api/orders/create');
+        console.log('  FLOWS: POST /api/room-service/execute, /api/shopping/execute');
+        console.log('');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('  AUTONOMOUS MODE (DANGEROUS)');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('  POST /api/autonomous/start    - Enable full autonomy');
+        console.log('  POST /api/autonomous/stop     - Disable autonomy');
+        console.log('  POST /api/autonomous/action   - Execute dangerous action');
         console.log('═══════════════════════════════════════════════════════════════');
     });
     // Graceful shutdown

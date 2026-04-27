@@ -8,14 +8,23 @@ const logger = {
     warn: (msg, meta) => console.warn(`[ExternalServices] ${msg}`, meta || ''),
     error: (msg, meta) => console.error(`[ExternalServices] ${msg}`, meta || ''),
 };
-// ── Service URLs (from environment) ──────────────────────────────────────────────
+// ── Service URLs (from environment - SOURCE OF TRUTH) ──────────────────────────────
+// Production URLs from SOURCE-OF-TRUTH/ENV-VARS.md
 const SERVICES = {
-    wallet: process.env.WALLET_SERVICE_URL || 'http://localhost:4004',
-    order: process.env.ORDER_SERVICE_URL || 'http://localhost:3006',
-    payment: process.env.PAYMENT_SERVICE_URL || 'http://localhost:3004',
-    merchant: process.env.MERCHANT_SERVICE_URL || 'http://localhost:3005',
-    pms: process.env.PMS_SERVICE_URL || 'http://localhost:3006',
-    notification: process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3007',
+    wallet: process.env.WALLET_SERVICE_URL || 'https://rez-wallet-service-36vo.onrender.com',
+    monolith: process.env.MONOLITH_URL || 'https://rez-backend-8dfu.onrender.com',
+    order: process.env.ORDER_SERVICE_URL || 'https://rez-order-service-hz18.onrender.com',
+    payment: process.env.PAYMENT_SERVICE_URL || 'https://rez-payment-service.onrender.com',
+    merchant: process.env.MERCHANT_SERVICE_URL || 'https://rez-merchant-service-n3q2.onrender.com',
+    notification: process.env.NOTIFICATION_SERVICE_URL || 'https://rez-notification-events-mwdz.onrender.com',
+    auth: process.env.AUTH_SERVICE_URL || 'https://rez-auth-service.onrender.com',
+    catalog: process.env.CATALOG_SERVICE_URL || 'https://rez-catalog-service-1.onrender.com',
+    search: process.env.SEARCH_SERVICE_URL || 'https://rez-search-service.onrender.com',
+    marketing: process.env.MARKETING_SERVICE_URL || 'https://rez-marketing-service.onrender.com',
+    gamification: process.env.GAMIFICATION_SERVICE_URL || 'https://rez-gamification-service-3b5d.onrender.com',
+    ads: process.env.ADS_SERVICE_URL || 'https://rez-ads-service.onrender.com',
+    pms: process.env.PMS_SERVICE_URL || 'https://rez-pms-service.onrender.com',
+    analytics: process.env.ANALYTICS_SERVICE_URL || 'https://analytics-events-37yy.onrender.com',
 };
 const circuitBreakers = new Map();
 const CIRCUIT_BREAKER_CONFIG = {
@@ -160,9 +169,10 @@ export async function chargeWallet(userId, amount, description, options = {}) {
             refund: 'refund',
             bonus: 'bonus',
         };
-        const result = await httpRequest(`${SERVICES.wallet}/api/wallet/coin-debit`, {
+        const result = await httpRequest(`${SERVICES.wallet}/wallet/debit`, {
             method: 'POST',
             body: {
+                userId,
                 amount,
                 coinType: options.coinType || 'rez',
                 source: sourceMap[options.referenceType || 'order'] || 'intent_graph',
@@ -221,10 +231,10 @@ export async function creditWallet(userId, amount, description, options = {}) {
             refund: 'refund',
             bonus: 'bonus',
         };
-        const result = await httpRequest(`${SERVICES.wallet}/api/wallet/credit`, {
+        const result = await httpRequest(`${SERVICES.wallet}/wallet/credit`, {
             method: 'POST',
             body: {
-                targetUserId: userId,
+                userId,
                 amount,
                 coinType: options.coinType || 'cashback',
                 source: sourceMap[options.referenceType || 'refund'] || 'intent_graph_refund',
@@ -278,7 +288,7 @@ export async function getWalletBalance(userId) {
         const cached = await sharedMemory.get(`wallet:balance:${userId}`);
         if (cached)
             return cached;
-        const result = await httpRequest(`${SERVICES.wallet}/internal/wallet/read/balance/${userId}`, { serviceName: 'wallet' });
+        const result = await httpRequest(`${SERVICES.wallet}/wallet/${userId}/balance`, { serviceName: 'wallet' });
         if (result.success && result.data) {
             const balance = {
                 userId,
@@ -328,9 +338,11 @@ export async function createOrder(params) {
             } : undefined,
             currency: params.currency || 'INR',
         };
-        const result = await httpRequest(`${SERVICES.order}/orders`, {
+        const result = await httpRequest(`${SERVICES.monolith}/api/orders/create`, {
             method: 'POST',
             body: orderPayload,
+            serviceName: 'order',
+            retries: 3,
         });
         if (result.success && result.data) {
             const orderId = result.data.orderId || result.data._id;
@@ -376,9 +388,11 @@ export async function createOrder(params) {
  */
 export async function updateOrderStatus(orderId, status) {
     try {
-        const result = await httpRequest(`${SERVICES.order}/orders/${orderId}/status`, {
-            method: 'PATCH',
+        const result = await httpRequest(`${SERVICES.monolith}/api/orders/${orderId}/status`, {
+            method: 'PUT',
             body: { status },
+            serviceName: 'order',
+            retries: 3,
         });
         if (result.success) {
             logger.info('[Order] Status updated', { orderId, status });
@@ -717,13 +731,67 @@ export async function executeShoppingFlow(userId, storeId, merchantId, items) {
         return { success: false, error: String(error) };
     }
 }
-export async function checkServiceHealth(service) {
-    const urls = {
-        wallet: `${SERVICES.wallet}/health`,
-        order: `${SERVICES.order}/health`,
-    };
+/**
+ * Validate internal service token
+ */
+export async function validateInternalToken(token) {
     try {
-        const result = await httpRequest(urls[service], {
+        const result = await httpRequest(`${SERVICES.auth}/auth/validate`, {
+            method: 'GET',
+            headers: {
+                'X-Internal-Token': token,
+            },
+            serviceName: 'auth',
+            retries: 1,
+            timeout: 3000,
+        });
+        return result.success && result.data?.valid === true;
+    }
+    catch {
+        return false;
+    }
+}
+/**
+ * Get user info from auth service
+ */
+export async function getUserFromToken(token) {
+    try {
+        const result = await httpRequest(`${SERVICES.auth}/auth/me`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+            serviceName: 'auth',
+            retries: 2,
+            timeout: 5000,
+        });
+        return result.success ? result.data || null : null;
+    }
+    catch {
+        return null;
+    }
+}
+export async function checkServiceHealth(service) {
+    const healthEndpoints = {
+        wallet: `${SERVICES.wallet}/health`,
+        monolith: `${SERVICES.monolith}/api/health`,
+        order: `${SERVICES.order}/health`,
+        payment: `${SERVICES.payment}/health`,
+        merchant: `${SERVICES.merchant}/health`,
+        notification: `${SERVICES.notification}/health`,
+        auth: `${SERVICES.auth}/health`,
+        catalog: `${SERVICES.catalog}/health`,
+        search: `${SERVICES.search}/health`,
+        marketing: `${SERVICES.marketing}/health`,
+        gamification: `${SERVICES.gamification}/health`,
+        ads: `${SERVICES.ads}/health`,
+        analytics: `${SERVICES.analytics}/health`,
+    };
+    const url = healthEndpoints[service];
+    if (!url)
+        return false;
+    try {
+        const result = await httpRequest(url, {
             timeout: 3000,
             serviceName: service,
             retries: 1,
@@ -735,17 +803,25 @@ export async function checkServiceHealth(service) {
     }
 }
 export async function getAllServiceHealth() {
-    const [wallet, order] = await Promise.all([
-        checkServiceHealth('wallet'),
-        checkServiceHealth('order'),
-    ]);
-    return { wallet, order };
+    const services = ['wallet', 'monolith', 'payment', 'merchant', 'notification', 'auth', 'analytics'];
+    const results = await Promise.all(services.map(async (service) => ({
+        service,
+        healthy: await checkServiceHealth(service),
+    })));
+    return results.reduce((acc, { service, healthy }) => {
+        acc[service] = healthy;
+        return acc;
+    }, {});
 }
 /**
  * Get detailed circuit breaker status for all services
  */
 export function getCircuitBreakerStatus() {
-    const services = ['wallet', 'order', 'payment', 'merchant', 'pms', 'notification'];
+    const services = [
+        'wallet', 'monolith', 'order', 'payment', 'merchant',
+        'notification', 'auth', 'catalog', 'search', 'marketing',
+        'gamification', 'ads', 'pms', 'analytics'
+    ];
     return services.map(name => {
         const cb = getCircuitBreaker(name);
         return {

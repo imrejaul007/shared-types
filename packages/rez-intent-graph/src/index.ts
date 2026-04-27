@@ -119,5 +119,10 @@ export {
   type AgentInsight,
 } from './integrations/agentOsIntegration.js';
 
+// Phase 7: Merchant Knowledge & Autonomous Chat
+export { merchantKnowledgeService, type MerchantKnowledgeEntry, type MerchantKnowledgeBase, type KnowledgeType } from './integrations/merchantKnowledge.js';
+export { autonomousChatService, type ChatMessage, type ChatSession, type ChatContext, type ChatResponse, type MessageRole } from './chat/autonomousChat.js';
+export { default as chatRouter } from './api/chat.routes.js';
+
 // Action Triggers (for testing)
 export { actionExecutor, handleDemandSignalAction, handleScarcitySignalAction, handleOptimizationAction, triggerAutoRevival } from './agents/action-trigger.js';
