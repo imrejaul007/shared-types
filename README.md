@@ -1,139 +1,155 @@
-# @rez/shared-types
+# ReZ Commerce Platform
 
-The canonical cross-repo type surface for REZ / RuFlo. One source of truth for
-entity shapes, enums, FSM rules, branded IDs, zod schemas, and runtime guards.
+**Powered by ReZ Mind** - AI-powered commerce intelligence
 
-**v2.0 — read `MIGRATION.md` before updating consumers.**
+---
 
-## Install
+## What is ReZ Mind?
+
+**ReZ Mind** is the unified intelligence layer for the ReZ commerce ecosystem. It combines:
+
+| Component | Purpose |
+|-----------|---------|
+| **RTMN Commerce Memory** | Tracks user intent across all apps |
+| **ReZ Agent OS** | 8 autonomous AI agents that act on the data |
+| **Chat Intelligence** | Conversational AI for customer support |
+
+---
+
+## Package Structure
+
+```
+ReZ Full App/
+├── packages/
+│ ├── rez-intent-graph/ ← ReZ Mind (Commerce Intelligence)
+│ ├── rez-chat-ai/ ← Chat AI Engine
+│ ├── rez-chat-service/ ← Chat Backend
+│ ├── rez-chat-integration/ ← Chat Integrations
+│ ├── rez-agent-memory/ ← Agent Memory
+│ ├── shared-types/ ← Shared Types
+│ └── rez-ui/ ← Shared UI
+├── services/
+│ ├── rez-wallet-service/
+│ ├── rez-order-service/
+│ ├── rez-payment-service/
+│ └── ... (15+ services)
+└── apps/
+ ├── Hotel OTA
+ ├── Rendez
+ ├── adBazaar
+ └── ...
+```
+
+---
+
+## ReZ Mind - Commerce Intelligence
 
 ```bash
-# Inside the workspace
-npm install @rez/shared-types@workspace:*
-
-# External services
-npm install @rez/shared-types
+npm install @rez/intent-graph
 ```
 
-## What's inside
+### Features
 
-| Path | What it exports | Who imports it |
-|---|---|---|
-| `@rez/shared-types` | Root export — everything below | every repo |
-| `@rez/shared-types/fsm` | FSM helpers (Payment / Order / Order.payment) | backend, merchant, admin |
-| `@rez/shared-types/guards` | Runtime guards — **no zod dep** | rez-app-consumer |
-| `@rez/shared-types/branded` | Branded ID types + constructors | backend, merchant |
+- **Intent Capture** - Track search → view → cart → purchase
+- **Dormant Revival** - Reactivate abandoned intents
+- **8 Autonomous Agents** - Self-operating AI agents
+- **45 Support Scenarios** - Across 9 apps
+- **100% Test Coverage** - 93 tests passing
 
-## Quick start
+### Quick Start
 
-### Backend / services — full surface
+```typescript
+import { startAutonomousMode } from '@rez/intent-graph';
 
-```ts
-import {
-  // Entity types
-  type IOrder,
-  type IPayment,
-  type IWallet,
-  // Enums
-  OrderStatus,
-  PaymentStatus,
-  CoinType,
-  // FSM
-  assertValidPaymentTransition,
-  canOrderBeCancelled,
-  // Zod
-  CreateOrderSchema,
-  WalletDebitSchema,
-  // Branded IDs
-  toOrderId,
-  type OrderId,
-} from '@rez/shared-types';
-
-// At your controller boundary:
-router.post('/orders', (req, res) => {
-  const parsed = CreateOrderSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
-  // parsed.data is fully typed — no `as any`
-});
+// Enable full autonomy
+await startAutonomousMode();
 ```
 
-### Consumer app (React Native, no zod)
+---
 
-```ts
-import type { IOrder, IPayment } from '@rez/shared-types';
-import {
-  OrderStatus,
-  isOrderResponse,
-  asPaymentStatus,
-  isArrayOf,
-} from '@rez/shared-types/guards';
+## Connected Apps
 
-// At your api client:
-export async function fetchOrder(id: string): Promise<IOrder> {
-  const res = await fetch(`/api/orders/${id}`);
-  const data = await res.json();
-  if (!isOrderResponse(data)) throw new Error('Bad order payload');
-  return data;
-}
+| App | Type | ReZ Mind Integration |
+|-----|------|---------------------|
+| Hotel OTA | Booking | Travel intent tracking |
+| Room QR | Guest Services | Service request memory |
+| ReZ Consumer | E-commerce | Purchase prediction |
+| Web Menu | Restaurant | Dining intent |
+| Merchant OS | Business Dashboard | Demand signals |
+| Karma | Gamification | Engagement memory |
+| Rendez | Social | Profile intelligence |
+| AdBazaar | Advertising | Attribution |
+| NextaBiZ | Enterprise | Business insights |
+
+---
+
+## Backend Services
+
+| Service | Purpose |
+|---------|---------|
+| Wallet | Multi-coin wallet management |
+| Order | Order lifecycle (11 states) |
+| Payment | Payment gateway integration |
+| Merchant | Merchant operations |
+| Auth | Authentication & authorization |
+| Notification | Push, email, SMS |
+| Search | Product search |
+| Catalog | Product catalog |
+| Karma | Gamification points |
+| Finance | Financial operations |
+
+---
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Build packages
+npm run build
+
+# Run tests
+npm test
+
+# Start agent server
+npx tsx packages/rez-intent-graph/src/server/agent-server.ts
 ```
 
-### Branded IDs — compile-time typo safety
+---
 
-```ts
-import { toOrderId, toUserId, type OrderId, type UserId } from '@rez/shared-types';
+## Architecture
 
-const orderId: OrderId = toOrderId(req.params.id);  // throws if not 24-hex
-const userId: UserId = toUserId(req.user.id);
-
-// Fails at compile time:
-// Argument of type 'UserId' is not assignable to parameter of type 'OrderId'.
-await cancelOrder(userId);
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         Apps                                │
+│    Hotel OTA | Consumer | Merchant | Rendez | etc.         │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    ReZ Mind                                │
+│  ┌──────────────────┐    ┌──────────────────┐            │
+│  │ Commerce Memory  │ +  │   Agent OS       │            │
+│  │ • Intent Graph   │    │ • 8 Super Agents │            │
+│  │ • Dormant Revival│    │ • Swarm Coord.  │            │
+│  │ • Demand Signals │    │ • Action Trigger│            │
+│  └──────────────────┘    └──────────────────┘            │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  Backend Services                          │
+│  Wallet | Orders | Payments | Auth | Notifications | etc.  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Entities covered (canonical)
+---
 
-- **IUser** — auth, profile, preferences, 8 verification zones, referral, fraud flags, push tokens, patch tests, soft-delete
-- **IOrder** — 11-state FSM, totals (platformFee / merchantPayout), delivery, fulfillment, timeline, analytics
-- **IPayment** — 11-state FSM, discriminated gateway response (razorpay / stripe / paypal / upi / wallet / cod)
-- **IProduct** — pricing (selling ≤ original), inventory, variants, modifiers, GST, serviceDetails, ratings distribution, 86'd-item flag
-- **IWallet** — 6 coin types (with priority order), branded coins, category balances, statistics (6 counters), savings insights, settings
-- **ICoinTransaction** — ledger row (balanceBefore / balanceAfter for reconciliation)
+## License
 
-## FSM helpers
+Proprietary - ReZ / RuFlo
 
-```ts
-// Validate before saving
-assertValidPaymentTransition('processing', 'completed');    // ok
-assertValidPaymentTransition('completed', 'processing');    // throws
+---
 
-// Branching on terminal states
-if (isTerminalPaymentStatus(p.status)) return;
-
-// Cross-entity mapping
-const orderPaymentStatus = mapPaymentStatusToOrderPaymentStatus('completed');
-// → 'paid'
-```
-
-See `src/fsm/` for the full transition graph.
-
-## Design principles
-
-1. **No `.passthrough()`** — schemas either reject unknown fields (requests)
-   or strip them (responses). No silent forwarding.
-2. **No `Record<string, any>`** — typed index signatures or discriminated unions only.
-3. **No `as any`** — if the type-hole is worth keeping, declare it with a
-   typed `unknown` + narrowing.
-4. **Dates tolerated as string or Date** — services serialize differently;
-   callers normalize on ingress.
-5. **Branded IDs don't leak brands at runtime** — so you can still log / stringify / persist them.
-
-## Version & release notes
-
-**v2.0** (this release) — full rewrite. See `MIGRATION.md`.
-**v1.x** — superseded; reserved only for legacy services that haven't migrated.
-
-## Where to file issues
-
-See the HANDOFF_FOR_DEVELOPER.md in the repo root for the wider architecture
-context. For type-surface changes, open a PR editing `src/entities/` or
-`src/schemas/` and update `MIGRATION.md` with a diff row.
+**Powered by ReZ Mind** 🤖

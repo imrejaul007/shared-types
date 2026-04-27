@@ -1,0 +1,72 @@
+import type { DemandSignal, ScarcitySignal, UserResponseProfile, AttributionRecord, ScoredIntent, OptimizationRecommendation, CollaborativeSignal, RevenueReport, AgentHealth, AgentMessage } from './types.js';
+export declare class SharedMemory {
+    private static instance;
+    private constructor();
+    static getInstance(): SharedMemory;
+    set<T>(key: string, value: T, ttlSeconds?: number): Promise<void>;
+    get<T>(key: string): Promise<T | null>;
+    delete(key: string): Promise<void>;
+    exists(key: string): Promise<boolean>;
+    keys(pattern: string): Promise<string[]>;
+    mget<T>(pattern: string): Promise<Map<string, T>>;
+    setDemandSignal(signal: DemandSignal): Promise<void>;
+    getDemandSignal(merchantId: string, category: string): Promise<DemandSignal | null>;
+    getAllDemandSignals(): Promise<DemandSignal[]>;
+    updateGlobalDemandIndex(signal: DemandSignal): Promise<void>;
+    getGlobalDemand(category: string): Promise<Record<string, number>>;
+    getTopDemandedMerchants(category: string, limit?: number): Promise<Array<{
+        merchantId: string;
+        demand: number;
+    }>>;
+    setScarcitySignal(signal: ScarcitySignal): Promise<void>;
+    getScarcitySignal(merchantId: string, category: string): Promise<ScarcitySignal | null>;
+    getAllScarcitySignals(): Promise<ScarcitySignal[]>;
+    getCriticalScarcity(): Promise<ScarcitySignal[]>;
+    setUserProfile(profile: UserResponseProfile): Promise<void>;
+    getUserProfile(userId: string): Promise<UserResponseProfile | null>;
+    getUserProfiles(userIds: string[]): Promise<Map<string, UserResponseProfile>>;
+    recordAttribution(record: AttributionRecord): Promise<void>;
+    getAttributionRecord(id: string): Promise<AttributionRecord | null>;
+    getUserAttributions(userId: string): Promise<AttributionRecord[]>;
+    setScoredIntent(scored: ScoredIntent): Promise<void>;
+    getScoredIntent(intentId: string): Promise<ScoredIntent | null>;
+    getUserScoredIntents(userId: string): Promise<ScoredIntent[]>;
+    addOptimization(rec: OptimizationRecommendation): Promise<void>;
+    getLatestOptimization(agent: string): Promise<OptimizationRecommendation | null>;
+    getAllOptimizations(): Promise<OptimizationRecommendation[]>;
+    setCollaborativeSignal(signal: CollaborativeSignal): Promise<void>;
+    getCollaborativeSignal(userId: string): Promise<CollaborativeSignal | null>;
+    addTrendingIntent(intentKey: string, category: string): Promise<void>;
+    getTrendingIntents(category: string, limit?: number): Promise<Array<{
+        intentKey: string;
+        count: number;
+    }>>;
+    saveRevenueReport(report: RevenueReport): Promise<void>;
+    getLatestRevenueReport(): Promise<RevenueReport | null>;
+    getRevenueReports(since: Date): Promise<RevenueReport[]>;
+    updateAgentHealth(health: AgentHealth): Promise<void>;
+    getAgentHealth(agent: string): Promise<AgentHealth | null>;
+    getAllAgentHealth(): Promise<AgentHealth[]>;
+    publish(message: AgentMessage): Promise<void>;
+    subscribe(agent: string, callback: (msg: AgentMessage) => void): () => void;
+    setWalletTransaction(transactionId: string, data: Record<string, unknown>): Promise<void>;
+    getWalletTransaction(transactionId: string): Promise<Record<string, unknown> | null>;
+    setWalletBalance(userId: string, balance: Record<string, unknown>): Promise<void>;
+    getWalletBalance(userId: string): Promise<Record<string, unknown> | null>;
+    invalidateWalletBalance(userId: string): Promise<void>;
+    setOrder(orderId: string, data: Record<string, unknown>): Promise<void>;
+    getOrder(orderId: string): Promise<Record<string, unknown> | null>;
+    setPMSRequest(requestId: string, data: Record<string, unknown>): Promise<void>;
+    getPMSRequest(requestId: string): Promise<Record<string, unknown> | null>;
+    setTask(taskId: string, data: Record<string, unknown>): Promise<void>;
+    getTask(taskId: string): Promise<Record<string, unknown> | null>;
+    flush(): Promise<void>;
+    stats(): Promise<{
+        keys: number;
+        memoryUsage: string;
+        redisConnected: boolean;
+    }>;
+    isRedisAvailable(): boolean;
+}
+export declare const sharedMemory: SharedMemory;
+//# sourceMappingURL=shared-memory.d.ts.map
