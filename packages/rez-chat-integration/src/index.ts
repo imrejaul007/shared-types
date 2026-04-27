@@ -1,6 +1,7 @@
 // ── ReZ Chat Integration ──────────────────────────────────────────────────────────
 // Connects Chat AI to all ReZ ecosystem services
 
+import { logger } from './socket/logger';
 import { HotelOTAConnector } from './connectors/hotel.connector';
 import { MerchantConnector } from './connectors/merchant.connector';
 import { OrderConnector } from './connectors/order.connector';
@@ -308,6 +309,7 @@ export function getRezChatIntegration(): RezChatIntegration | null {
 // ── Exports ─────────────────────────────────────────────────────────────────────
 
 export {
+  logger,
   HotelOTAConnector,
   MerchantConnector,
   OrderConnector,

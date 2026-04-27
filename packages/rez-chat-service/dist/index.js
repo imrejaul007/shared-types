@@ -30,4 +30,6 @@ export { ChatProvider, useChatContext, useSupportChat, useAIMessage } from './pr
 export { CHAT_EVENTS } from './types';
 export { HOTEL_CHAT_EVENTS, HOTEL_CHAT_ENDPOINTS } from './types/hotel';
 export { STORE_CHAT_EVENTS, STORE_CHAT_ENDPOINTS } from './types/store';
+// ── Components ─────────────────────────────────────────────────────────────────
+export { AIFloatingChat } from './components/AIFloatingChat';
 //# sourceMappingURL=index.js.map
