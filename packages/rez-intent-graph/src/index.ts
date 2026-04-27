@@ -64,8 +64,15 @@ export {
   getWalletBalance,
   createOrder,
   updateOrderStatus,
+  submitGuestRequest,
+  createTask,
+  sendStaffNotification,
+  sendUserNotification,
+  sendToMerchantOS,
   executeRoomServiceFlow,
   executeShoppingFlow,
+  validateInternalToken,
+  getUserFromToken,
   getCircuitBreakerStatus,
   resetCircuitBreaker,
   forceOpenCircuitBreaker,
@@ -83,6 +90,7 @@ export type {
   StaffNotification,
   MerchantOrder,
   ServiceHealthStatus,
+  UserValidationResult,
 } from './integrations/external-services.js';
 
 // Middleware

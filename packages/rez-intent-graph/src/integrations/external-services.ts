@@ -11,15 +11,24 @@ const logger = {
   error: (msg: string, meta?: Record<string, unknown>) => console.error(`[ExternalServices] ${msg}`, meta || ''),
 };
 
-// ── Service URLs (from environment) ──────────────────────────────────────────────
+// ── Service URLs (from environment - SOURCE OF TRUTH) ──────────────────────────────
+// Production URLs from SOURCE-OF-TRUTH/ENV-VARS.md
 
 const SERVICES = {
-  wallet: process.env.WALLET_SERVICE_URL || 'http://localhost:4004',
-  order: process.env.ORDER_SERVICE_URL || 'http://localhost:3006',
-  payment: process.env.PAYMENT_SERVICE_URL || 'http://localhost:3004',
-  merchant: process.env.MERCHANT_SERVICE_URL || 'http://localhost:3005',
-  pms: process.env.PMS_SERVICE_URL || 'http://localhost:3006',
-  notification: process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3007',
+  wallet: process.env.WALLET_SERVICE_URL || 'https://rez-wallet-service-36vo.onrender.com',
+  monolith: process.env.MONOLITH_URL || 'https://rez-backend-8dfu.onrender.com',
+  order: process.env.ORDER_SERVICE_URL || 'https://rez-order-service-hz18.onrender.com',
+  payment: process.env.PAYMENT_SERVICE_URL || 'https://rez-payment-service.onrender.com',
+  merchant: process.env.MERCHANT_SERVICE_URL || 'https://rez-merchant-service-n3q2.onrender.com',
+  notification: process.env.NOTIFICATION_SERVICE_URL || 'https://rez-notification-events-mwdz.onrender.com',
+  auth: process.env.AUTH_SERVICE_URL || 'https://rez-auth-service.onrender.com',
+  catalog: process.env.CATALOG_SERVICE_URL || 'https://rez-catalog-service-1.onrender.com',
+  search: process.env.SEARCH_SERVICE_URL || 'https://rez-search-service.onrender.com',
+  marketing: process.env.MARKETING_SERVICE_URL || 'https://rez-marketing-service.onrender.com',
+  gamification: process.env.GAMIFICATION_SERVICE_URL || 'https://rez-gamification-service-3b5d.onrender.com',
+  ads: process.env.ADS_SERVICE_URL || 'https://rez-ads-service.onrender.com',
+  pms: process.env.PMS_SERVICE_URL || 'https://rez-pms-service.onrender.com',
+  analytics: process.env.ANALYTICS_SERVICE_URL || 'https://analytics-events-37yy.onrender.com',
 };
 
 // ── Circuit Breaker Configuration ───────────────────────────────────────────────
@@ -253,10 +262,11 @@ export async function chargeWallet(
     };
 
     const result = await httpRequest<{ transactionId: string }>(
-      `${SERVICES.wallet}/api/wallet/coin-debit`,
+      `${SERVICES.wallet}/wallet/debit`,
       {
         method: 'POST',
         body: {
+          userId,
           amount,
           coinType: options.coinType || 'rez',
           source: sourceMap[options.referenceType || 'order'] || 'intent_graph',
@@ -336,11 +346,11 @@ export async function creditWallet(
     };
 
     const result = await httpRequest<{ transactionId: string }>(
-      `${SERVICES.wallet}/api/wallet/credit`,
+      `${SERVICES.wallet}/wallet/credit`,
       {
         method: 'POST',
         body: {
-          targetUserId: userId,
+          userId,
           amount,
           coinType: options.coinType || 'cashback',
           source: sourceMap[options.referenceType || 'refund'] || 'intent_graph_refund',
@@ -408,7 +418,7 @@ export async function getWalletBalance(userId: string): Promise<WalletBalance | 
       coins: Array<{ coinType: string; amount: number }>;
       pending: number;
       total: number;
-    }>(`${SERVICES.wallet}/internal/wallet/read/balance/${userId}`, { serviceName: 'wallet' });
+    }>(`${SERVICES.wallet}/wallet/${userId}/balance`, { serviceName: 'wallet' });
 
     if (result.success && result.data) {
       const balance: WalletBalance = {
@@ -492,10 +502,12 @@ export async function createOrder(params: CreateOrderParams): Promise<OrderResul
     };
 
     const result = await httpRequest<{ _id: string; orderId: string; status: string }>(
-      `${SERVICES.order}/orders`,
+      `${SERVICES.monolith}/api/orders/create`,
       {
         method: 'POST',
         body: orderPayload,
+        serviceName: 'order',
+        retries: 3,
       }
     );
 
@@ -556,10 +568,12 @@ export async function updateOrderStatus(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const result = await httpRequest(
-      `${SERVICES.order}/orders/${orderId}/status`,
+      `${SERVICES.monolith}/api/orders/${orderId}/status`,
       {
-        method: 'PATCH',
+        method: 'PUT',
         body: { status },
+        serviceName: 'order',
+        retries: 3,
       }
     );
 
@@ -1050,6 +1064,60 @@ export async function executeShoppingFlow(
   }
 }
 
+// ── Auth Service Integration ─────────────────────────────────────────────────────
+
+export interface UserValidationResult {
+  valid: boolean;
+  userId?: string;
+  error?: string;
+}
+
+/**
+ * Validate internal service token
+ */
+export async function validateInternalToken(token: string): Promise<boolean> {
+  try {
+    const result = await httpRequest<{ valid: boolean }>(
+      `${SERVICES.auth}/auth/validate`,
+      {
+        method: 'GET',
+        headers: {
+          'X-Internal-Token': token,
+        },
+        serviceName: 'auth',
+        retries: 1,
+        timeout: 3000,
+      }
+    );
+    return result.success && result.data?.valid === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Get user info from auth service
+ */
+export async function getUserFromToken(token: string): Promise<{ userId: string; phone?: string } | null> {
+  try {
+    const result = await httpRequest<{ userId: string; phone?: string }>(
+      `${SERVICES.auth}/auth/me`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        serviceName: 'auth',
+        retries: 2,
+        timeout: 5000,
+      }
+    );
+    return result.success ? result.data || null : null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Service Health Checks ──────────────────────────────────────────────────────
 
 export interface ServiceHealthStatus {
@@ -1060,14 +1128,28 @@ export interface ServiceHealthStatus {
   lastFailure: number | null;
 }
 
-export async function checkServiceHealth(service: 'wallet' | 'order'): Promise<boolean> {
-  const urls: Record<string, string> = {
+export async function checkServiceHealth(service: string): Promise<boolean> {
+  const healthEndpoints: Record<string, string> = {
     wallet: `${SERVICES.wallet}/health`,
+    monolith: `${SERVICES.monolith}/api/health`,
     order: `${SERVICES.order}/health`,
+    payment: `${SERVICES.payment}/health`,
+    merchant: `${SERVICES.merchant}/health`,
+    notification: `${SERVICES.notification}/health`,
+    auth: `${SERVICES.auth}/health`,
+    catalog: `${SERVICES.catalog}/health`,
+    search: `${SERVICES.search}/health`,
+    marketing: `${SERVICES.marketing}/health`,
+    gamification: `${SERVICES.gamification}/health`,
+    ads: `${SERVICES.ads}/health`,
+    analytics: `${SERVICES.analytics}/health`,
   };
 
+  const url = healthEndpoints[service];
+  if (!url) return false;
+
   try {
-    const result = await httpRequest<{ status: string }>(urls[service], {
+    const result = await httpRequest<{ status: string }>(url, {
       timeout: 3000,
       serviceName: service,
       retries: 1,
@@ -1079,19 +1161,30 @@ export async function checkServiceHealth(service: 'wallet' | 'order'): Promise<b
 }
 
 export async function getAllServiceHealth(): Promise<Record<string, boolean>> {
-  const [wallet, order] = await Promise.all([
-    checkServiceHealth('wallet'),
-    checkServiceHealth('order'),
-  ]);
+  const services = ['wallet', 'monolith', 'payment', 'merchant', 'notification', 'auth', 'analytics'];
 
-  return { wallet, order };
+  const results = await Promise.all(
+    services.map(async (service) => ({
+      service,
+      healthy: await checkServiceHealth(service),
+    }))
+  );
+
+  return results.reduce((acc, { service, healthy }) => {
+    acc[service] = healthy;
+    return acc;
+  }, {} as Record<string, boolean>);
 }
 
 /**
  * Get detailed circuit breaker status for all services
  */
 export function getCircuitBreakerStatus(): ServiceHealthStatus[] {
-  const services = ['wallet', 'order', 'payment', 'merchant', 'pms', 'notification'];
+  const services = [
+    'wallet', 'monolith', 'order', 'payment', 'merchant',
+    'notification', 'auth', 'catalog', 'search', 'marketing',
+    'gamification', 'ads', 'pms', 'analytics'
+  ];
 
   return services.map(name => {
     const cb = getCircuitBreaker(name);

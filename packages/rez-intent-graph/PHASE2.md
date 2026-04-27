@@ -44,14 +44,21 @@ Phase 2 connects **ReZ Mind** to the actual backend services in the ReZ ecosyste
 ## Service URLs
 
 ```bash
-# Environment Variables
-WALLET_SERVICE_URL=http://localhost:4004
-ORDER_SERVICE_URL=http://localhost:3006
-PAYMENT_SERVICE_URL=http://localhost:3004
-MERCHANT_SERVICE_URL=http://localhost:3005
-PMS_SERVICE_URL=http://localhost:3006
-NOTIFICATION_SERVICE_URL=http://localhost:3007
-INTERNAL_SERVICE_TOKEN=your-internal-token
+# Environment Variables (from SOURCE-OF-TRUTH/ENV-VARS.md)
+WALLET_SERVICE_URL=https://rez-wallet-service-36vo.onrender.com
+MONOLITH_URL=https://rez-backend-8dfu.onrender.com
+ORDER_SERVICE_URL=https://rez-order-service-hz18.onrender.com
+PAYMENT_SERVICE_URL=https://rez-payment-service.onrender.com
+MERCHANT_SERVICE_URL=https://rez-merchant-service-n3q2.onrender.com
+NOTIFICATION_SERVICE_URL=https://rez-notification-events-mwdz.onrender.com
+AUTH_SERVICE_URL=https://rez-auth-service.onrender.com
+CATALOG_SERVICE_URL=https://rez-catalog-service-1.onrender.com
+SEARCH_SERVICE_URL=https://rez-search-service.onrender.com
+MARKETING_SERVICE_URL=https://rez-marketing-service.onrender.com
+GAMIFICATION_SERVICE_URL=https://rez-gamification-service-3b5d.onrender.com
+ADS_SERVICE_URL=https://rez-ads-service.onrender.com
+ANALYTICS_SERVICE_URL=https://analytics-events-37yy.onrender.com
+INTERNAL_SERVICE_TOKEN=<GET FROM RENDER>
 ```
 
 ## API Endpoints Added
@@ -158,11 +165,14 @@ Attempt 4: 400ms delay (max)
 ## Testing
 
 ```bash
-# Run Phase 2 integration tests
-npm run test:phase2
+# Run Phase 2 integration tests (tests against production services)
+npx tsx src/test/phase2-integration-test.ts
 
-# Run with real services (requires services running)
-npm run test:integration
+# Run smoke tests
+npm run test:smoke
+
+# Run agent tests
+npm run test:agents
 ```
 
 ## Service Availability
@@ -173,14 +183,23 @@ When a service is unavailable:
 3. Fallback to cached data where available
 4. Error logged for monitoring
 
+## Authentication
+
+All service-to-service calls require the `X-Internal-Token` header:
+```bash
+X-Internal-Token: <INTERNAL_SERVICE_TOKEN>
+```
+
+This token is configured in the `rez-core` Render environment group and must be set for ReZ Mind to communicate with other services.
+
 ## Monitoring
 
 ```bash
-# Check all service health
-curl http://localhost:3005/api/services/health
+# Check all service health (via agent server)
+curl https://rez-intent-graph.onrender.com/api/services/health
 
 # Check circuit breaker status
-curl http://localhost:3005/api/services/circuit-breaker/status
+curl https://rez-intent-graph.onrender.com/api/services/circuit-breaker/status
 ```
 
 ## Next Steps
