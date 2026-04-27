@@ -54,6 +54,9 @@ import merchantRouter from '../api/merchant.routes.js';
 // ── Monitoring API Routes ──────────────────────────────────────────────────────
 import monitoringRouter from '../api/monitoring.routes.js';
 
+// ── Chat & Knowledge API Routes (Phase 7) ─────────────────────────────────────
+import chatRouter from '../api/chat.routes.js';
+
 // ── WebSocket Server ──────────────────────────────────────────────────────────
 import { wsServer } from '../websocket/server.js';
 
@@ -71,6 +74,9 @@ app.use('/api/merchant', merchantRouter);
 
 // ── Monitoring API (Phase 6) ────────────────────────────────────────────────────
 app.use('/api/monitoring', monitoringRouter);
+
+// ── Chat & Knowledge API (Phase 7) ─────────────────────────────────────────────
+app.use('/api', chatRouter);
 
 // ── Request logging ─────────────────────────────────────────────────────────────
 
@@ -672,6 +678,24 @@ export function startAgentServer(): void {
     coordinator.start();
 
     console.log('[Agent Server] Swarm coordinator started');
+    console.log('');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('  PHASE 7: MERCHANT KNOWLEDGE & AUTONOMOUS CHAT');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('  MERCHANT KNOWLEDGE:');
+    console.log('  POST /api/knowledge/merchant/:id/entries  - Add knowledge entry');
+    console.log('  POST /api/knowledge/merchant/:id/bulk    - Bulk import');
+    console.log('  GET  /api/knowledge/merchant/:id         - Get knowledge base');
+    console.log('  GET  /api/knowledge/merchant/:id/search - Search knowledge');
+    console.log('  POST /api/knowledge/merchant/:id/menu    - Upload menu');
+    console.log('  POST /api/knowledge/merchant/:id/policy  - Upload policies');
+    console.log('  POST /api/knowledge/merchant/:id/faq     - Upload FAQs');
+    console.log('');
+    console.log('  AUTONOMOUS CHAT:');
+    console.log('  POST /api/chat/message           - Send chat message');
+    console.log('  GET  /api/chat/history/:userId  - Get chat history');
+    console.log('  POST /api/chat/end-session      - End chat session');
+    console.log('  GET  /api/chat/context/:userId  - Get chat context');
     console.log('');
     console.log('═══════════════════════════════════════════════════════════════');
     console.log('  PHASE 6: REAL-TIME & MONITORING');
