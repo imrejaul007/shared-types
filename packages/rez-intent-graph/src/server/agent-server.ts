@@ -21,6 +21,25 @@ import {
   emergencyStop,
 } from '../agents/index.js';
 
+// ── External Services Integration ─────────────────────────────────────────────
+import {
+  chargeWallet,
+  creditWallet,
+  getWalletBalance,
+  createOrder,
+  updateOrderStatus,
+  executeRoomServiceFlow,
+  executeShoppingFlow,
+  getCircuitBreakerStatus,
+  resetCircuitBreaker,
+  forceOpenCircuitBreaker,
+  checkServiceHealth,
+  getAllServiceHealth,
+  type WalletBalance,
+  type CreateOrderParams,
+  type OrderResult,
+} from '../integrations/external-services.js';
+
 const app = express();
 const PORT = process.env.AGENT_PORT || 3005;
 
@@ -339,6 +358,185 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: err.message });
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════════
+// PHASE 2: REAL SERVICE INTEGRATION ENDPOINTS
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+// ── Service Health & Circuit Breaker ───────────────────────────────────────────
+
+app.get('/api/services/health', async (_req: Request, res: Response) => {
+  try {
+    const health = await getAllServiceHealth();
+    const circuitBreaker = getCircuitBreakerStatus();
+    res.json({
+      services: health,
+      circuitBreakers: circuitBreaker,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+app.get('/api/services/health/:service', async (req: Request, res: Response) => {
+  const { service } = req.params;
+  try {
+    const healthy = await checkServiceHealth(service as 'wallet' | 'order');
+    const cbStatus = getCircuitBreakerStatus().find(s => s.name === service);
+    res.json({
+      service,
+      healthy,
+      circuitBreaker: cbStatus,
+    });
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+app.get('/api/services/circuit-breaker/status', (_req: Request, res: Response) => {
+  const status = getCircuitBreakerStatus();
+  res.json({ services: status });
+});
+
+app.post('/api/services/circuit-breaker/reset/:service', (req: Request, res: Response) => {
+  const { service } = req.params;
+  const success = resetCircuitBreaker(service);
+  res.json({ success, service, message: success ? 'Circuit breaker reset' : 'Service not found' });
+});
+
+app.post('/api/services/circuit-breaker/open/:service', (req: Request, res: Response) => {
+  const { service } = req.params;
+  const success = forceOpenCircuitBreaker(service);
+  res.json({ success, service, message: success ? 'Circuit breaker forced open' : 'Service not found' });
+});
+
+// ── Wallet Operations ─────────────────────────────────────────────────────────
+
+app.get('/api/wallet/:userId/balance', async (req: Request, res: Response) => {
+  const { userId } = req.params;
+  try {
+    const balance = await getWalletBalance(userId);
+    if (!balance) {
+      res.status(404).json({ error: 'Balance not found' });
+      return;
+    }
+    res.json(balance);
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+app.post('/api/wallet/charge', async (req: Request, res: Response) => {
+  const { userId, amount, description, coinType, referenceId, referenceType } = req.body;
+
+  if (!userId || !amount) {
+    res.status(400).json({ error: 'Missing required fields: userId, amount' });
+    return;
+  }
+
+  try {
+    const result = await chargeWallet(userId, amount, description || 'Charge', {
+      coinType,
+      referenceId,
+      referenceType,
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+app.post('/api/wallet/credit', async (req: Request, res: Response) => {
+  const { userId, amount, description, coinType, referenceId, referenceType } = req.body;
+
+  if (!userId || !amount) {
+    res.status(400).json({ error: 'Missing required fields: userId, amount' });
+    return;
+  }
+
+  try {
+    const result = await creditWallet(userId, amount, description || 'Credit', {
+      coinType,
+      referenceId,
+      referenceType,
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+// ── Order Operations ───────────────────────────────────────────────────────────
+
+app.post('/api/orders/create', async (req: Request, res: Response) => {
+  const params: CreateOrderParams = req.body;
+
+  if (!params.userId || !params.storeId || !params.items?.length) {
+    res.status(400).json({ error: 'Missing required fields: userId, storeId, items' });
+    return;
+  }
+
+  try {
+    const result = await createOrder(params);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+app.patch('/api/orders/:orderId/status', async (req: Request, res: Response) => {
+  const { orderId } = req.params;
+  const { status } = req.body;
+
+  if (!status) {
+    res.status(400).json({ error: 'Missing status field' });
+    return;
+  }
+
+  try {
+    const result = await updateOrderStatus(orderId, status);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+// ── Complete Flows ─────────────────────────────────────────────────────────────
+
+app.post('/api/room-service/execute', async (req: Request, res: Response) => {
+  const { guestId, roomNumber, hotelId, items, complimentaryItems } = req.body;
+
+  if (!guestId || !roomNumber || !hotelId || !items?.length) {
+    res.status(400).json({ error: 'Missing required fields: guestId, roomNumber, hotelId, items' });
+    return;
+  }
+
+  try {
+    console.log('[API] Executing room service flow', { guestId, roomNumber, hotelId });
+    const result = await executeRoomServiceFlow(guestId, roomNumber, hotelId, items, complimentaryItems);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+app.post('/api/shopping/execute', async (req: Request, res: Response) => {
+  const { userId, storeId, merchantId, items } = req.body;
+
+  if (!userId || !storeId || !merchantId || !items?.length) {
+    res.status(400).json({ error: 'Missing required fields: userId, storeId, merchantId, items' });
+    return;
+  }
+
+  try {
+    console.log('[API] Executing shopping flow', { userId, storeId, merchantId });
+    const result = await executeShoppingFlow(userId, storeId, merchantId, items);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
 // ── Start server ───────────────────────────────────────────────────────────────
 
 export function startAgentServer(): void {
@@ -352,6 +550,29 @@ export function startAgentServer(): void {
 
     console.log('[Agent Server] Swarm coordinator started');
     console.log('[Agent Server] Swarm coordinator started');
+    console.log('');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('  PHASE 2: SERVICE INTEGRATION ENDPOINTS');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('  SERVICE HEALTH:');
+    console.log('  GET  /api/services/health           - All service health');
+    console.log('  GET  /api/services/health/:service  - Single service');
+    console.log('  GET  /api/services/circuit-breaker/status');
+    console.log('  POST /api/services/circuit-breaker/reset/:service');
+    console.log('  POST /api/services/circuit-breaker/open/:service');
+    console.log('');
+    console.log('  WALLET:');
+    console.log('  GET  /api/wallet/:userId/balance   - Get balance');
+    console.log('  POST /api/wallet/charge            - Charge wallet');
+    console.log('  POST /api/wallet/credit            - Credit wallet');
+    console.log('');
+    console.log('  ORDERS:');
+    console.log('  POST /api/orders/create            - Create order');
+    console.log('  PATCH /api/orders/:id/status       - Update status');
+    console.log('');
+    console.log('  FLOWS:');
+    console.log('  POST /api/room-service/execute      - Room QR flow');
+    console.log('  POST /api/shopping/execute          - Shopping flow');
     console.log('');
     console.log('═══════════════════════════════════════════════════════════════');
     console.log('  AUTONOMOUS MODE ENDPOINTS (DANGEROUS)');
