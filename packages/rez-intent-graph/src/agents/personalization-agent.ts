@@ -1,9 +1,11 @@
 // ── Personalization Agent ─────────────────────────────────────────────────────────
 // Agent 3: Learn from user response patterns
 // Updates user profiles after each nudge, A/B tests variants, optimizes send times
+// DANGEROUS: Auto-adjusts channel preferences and send times
 
 import { PrismaClient } from '@prisma/client';
 import { sharedMemory } from './shared-memory.js';
+import { actionExecutor } from './action-trigger.js';
 import type { AgentConfig, AgentResult, UserResponseProfile } from './types.js';
 
 const prisma = new PrismaClient();
@@ -257,6 +259,142 @@ export async function processNudgeEvent(event: NudgeEvent): Promise<void> {
   if (event.eventType === 'converted' && event.metadata?.intentKey) {
     const category = (event.metadata.category as string) || 'GENERAL';
     await sharedMemory.addTrendingIntent(event.metadata.intentKey as string, category);
+  }
+
+  // DANGEROUS: Trigger autonomous actions based on conversion patterns
+  if (event.eventType === 'converted') {
+    await triggerPersonalizationAction(event);
+  }
+}
+
+// ── Autonomous Personalization Actions ──────────────────────────────────────────
+
+async function triggerPersonalizationAction(event: NudgeEvent): Promise<void> {
+  const profile = await sharedMemory.getUserProfile(event.userId);
+  if (!profile) return;
+
+  // Check for low-performing channels
+  for (const channel of ['push', 'email', 'sms', 'in_app'] as const) {
+    const convertRate = profile.convertRates[channel] || 0;
+    const clickRate = profile.clickRates[channel] || 0;
+
+    // Auto-pause low-performing channels
+    if (convertRate < 0.02 && clickRate < 0.05) {
+      logger.info('[PersonalizationAgent] DANGEROUS: Auto-pausing low-performing channel', {
+        userId: event.userId,
+        channel,
+        convertRate,
+        clickRate,
+      });
+
+      await actionExecutor.execute({
+        type: 'pause_strategy',
+        target: channel,
+        payload: {
+          strategyId: `personalization:${event.userId}:${channel}`,
+          reason: `Low conversion rate ${convertRate.toFixed(3)} and click rate ${clickRate.toFixed(3)}`,
+        },
+        agent: 'personalization-agent',
+        skipPermission: true,
+        risk: 'medium',
+      });
+    }
+  }
+
+  // Optimize send time based on conversion
+  if (profile.optimalSendTimes.length > 0) {
+    await actionExecutor.execute({
+      type: 'send_nudge',
+      target: event.userId,
+      payload: {
+        userId: event.userId,
+        intentKey: event.metadata?.intentKey as string || 'personalization_update',
+        message: `Optimal send time: ${profile.optimalSendTimes[0]}`,
+        channel: 'in_app',
+      },
+      agent: 'personalization-agent',
+      skipPermission: true,
+      risk: 'low',
+    });
+  }
+}
+
+// ── A/B Test Result Analysis ──────────────────────────────────────────────────
+
+export async function analyzeABTestResults(): Promise<void> {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  // Get A/B test results
+  const testResults = await prisma.$queryRaw<Array<{
+    variant_id: string;
+    channel: string;
+    tone: string;
+    sends: number;
+    conversions: number;
+  }>>`
+    SELECT
+      variant_id,
+      channel,
+      tone,
+      COUNT(*) as sends,
+      COUNT(CASE WHEN status = 'FULFILLED' THEN 1 END) as conversions
+    FROM nudge_events
+    WHERE sent_at >= ${sevenDaysAgo}
+    AND variant_id IS NOT NULL
+    GROUP BY variant_id, channel, tone
+  `;
+
+  // Find winning variant per channel
+  const channelVariants = new Map<string, typeof testResults>();
+  for (const result of testResults) {
+    if (!channelVariants.has(result.channel)) {
+      channelVariants.set(result.channel, []);
+    }
+    channelVariants.get(result.channel)!.push(result);
+  }
+
+  for (const [channel, variants] of channelVariants) {
+    if (variants.length < 2) continue;
+
+    // Find best variant
+    let bestVariant = variants[0];
+    let bestRate = 0;
+
+    for (const v of variants) {
+      const rate = v.sends > 0 ? v.conversions / v.sends : 0;
+      if (rate > bestRate) {
+        bestRate = rate;
+        bestVariant = v;
+      }
+    }
+
+    // DANGEROUS: Auto-adopt winning variant
+    if (bestRate > 0.05) {
+      logger.info('[PersonalizationAgent] DANGEROUS: Adopting winning variant', {
+        channel,
+        variantId: bestVariant.variant_id,
+        rate: bestRate,
+      });
+
+      await actionExecutor.execute({
+        type: 'pause_strategy',
+        target: channel,
+        payload: {
+          strategyId: `ab_test:${channel}:losers`,
+          reason: `Variant ${bestVariant.variant_id} wins with ${(bestRate * 100).toFixed(1)}% conversion`,
+        },
+        agent: 'personalization-agent',
+        skipPermission: true,
+        risk: 'medium',
+      });
+
+      // Store winning variant
+      await sharedMemory.set(
+        `personalization:winning_variant:${channel}`,
+        bestVariant.variant_id,
+        86400 * 7
+      );
+    }
   }
 }
 

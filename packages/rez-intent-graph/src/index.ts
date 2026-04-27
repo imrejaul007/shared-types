@@ -1,5 +1,6 @@
 // ── RTMN Commerce Memory - Intent Graph ────────────────────────────────────────
 // Public exports for @rez/intent-graph package
+// DANGEROUS: Full autonomous mode with skip-permission capabilities
 
 // Types
 export * from './types/intent.js';
@@ -13,6 +14,10 @@ export { IntentCaptureService, intentCaptureService } from './services/IntentCap
 export { IntentScoringService, intentScoringService } from './services/IntentScoringService.js';
 export { DormantIntentService, dormantIntentService } from './services/DormantIntentService.js';
 export { CrossAppAggregationService, crossAppAggregationService } from './services/CrossAppAggregationService.js';
+export { nudgeQueue, createNudgeJob } from './services/nudge-queue.js';
+
+// Prisma Client
+export { prismaClient } from './services/prisma-client.js';
 
 // Nudge Delivery
 export { NudgeDeliveryService, nudgeDeliveryService } from './nudge/NudgeDeliveryService.js';
@@ -31,6 +36,7 @@ export type { TriggerType, TriggerResult } from './triggers/revivalTriggers.js';
 
 // API Routes
 export { default as intentRouter } from './api/intent.routes.js';
+export { default as commerceMemoryRouter } from './api/commerce-memory.routes.js';
 
 // Webhooks
 export {
@@ -58,3 +64,6 @@ export { DormantIntentCronJob } from './jobs/dormantIntentCron.js';
 
 // Agent Server
 export { startAgentServer } from './server/agent-server.js';
+
+// Action Triggers (for testing)
+export { actionExecutor, handleDemandSignalAction, handleScarcitySignalAction, handleOptimizationAction, triggerAutoRevival } from './agents/action-trigger.js';

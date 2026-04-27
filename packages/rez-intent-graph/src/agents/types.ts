@@ -138,7 +138,7 @@ export interface RevenueReport {
 export interface AgentMessage {
   from: string;
   to: string;
-  type: 'signal' | 'request' | 'response' | 'alert';
+  type: 'signal' | 'request' | 'response' | 'alert' | 'transaction' | 'order' | 'task' | 'status_update' | 'notification';
   payload: unknown;
   timestamp: Date;
 }

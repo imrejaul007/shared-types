@@ -1,9 +1,11 @@
 // ── Attribution Agent ─────────────────────────────────────────────────────────────
 // Agent 4: Full-funnel attribution tracking
 // Tracks nudge → impression → click → convert, handles multi-touch attribution
+// DANGEROUS: Auto-pauses underperforming campaigns and reallocates budget
 
 import { PrismaClient } from '@prisma/client';
 import { sharedMemory } from './shared-memory.js';
+import { actionExecutor } from './action-trigger.js';
 import type { AgentConfig, AgentResult, AttributionRecord, Touchpoint, ScoredIntent } from './types.js';
 
 const prisma = new PrismaClient();
@@ -257,6 +259,73 @@ export async function calculateIncrementality(
   return { nudgeGMV, organicGMV, incrementality, lift };
 }
 
+// ── Autonomous Attribution Actions ────────────────────────────────────────────────
+
+async function analyzeChannelAttribution(): Promise<void> {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  // Get channel performance
+  const channelStats = await prisma.$queryRaw<Array<{
+    channel: string;
+    revenue: number;
+    cost: number;
+    conversions: number;
+  }>>`
+    SELECT
+      channel,
+      COALESCE(SUM(attributed_revenue), 0) as revenue,
+      COALESCE(SUM(cost), 0) as cost,
+      COUNT(*) as conversions
+    FROM attribution_records
+    WHERE created_at >= ${sevenDaysAgo}
+    GROUP BY channel
+  `;
+
+  for (const stats of channelStats) {
+    const roi = Number(stats.cost) > 0 ? Number(stats.revenue) / Number(stats.cost) : 0;
+    const conversionRate = Number(stats.conversions) > 0 ? 1 / Number(stats.conversions) : 0;
+
+    // DANGEROUS: Auto-pause underperforming channels
+    if (roi < 0.5 && Number(stats.conversions) > 20) {
+      logger.warn('[AttributionAgent] DANGEROUS: Pausing underperforming channel', {
+        channel: stats.channel,
+        roi,
+        conversions: stats.conversions,
+      });
+
+      await actionExecutor.execute({
+        type: 'pause_strategy',
+        target: stats.channel,
+        payload: {
+          strategyId: `attribution:${stats.channel}`,
+          reason: `Low ROI ${roi.toFixed(2)} after 7 days`,
+        },
+        agent: 'attribution-agent',
+        skipPermission: true,
+        risk: 'medium',
+      });
+    }
+
+    // DANGEROUS: Reallocate budget from low to high performers
+    if (roi > 2.0) {
+      await actionExecutor.execute({
+        type: 'reallocate_budget',
+        target: 'marketing',
+        payload: {
+          channel: stats.channel,
+          newBudget: Math.round(Number(stats.cost) * 1.5), // Boost by 50%
+          reason: `High ROI ${roi.toFixed(2)} - increasing allocation`,
+        },
+        agent: 'attribution-agent',
+        skipPermission: true,
+        risk: 'high',
+      });
+    }
+  }
+}
+
+// ── Main execution ─────────────────────────────────────────────────────────
+
 // ── Main execution ─────────────────────────────────────────────────────────
 
 export async function runAttributionAgent(): Promise<AgentResult> {
@@ -277,6 +346,9 @@ export async function runAttributionAgent(): Promise<AgentResult> {
       );
       await markConversionProcessed(conversion.id);
     }
+
+    // DANGEROUS: Analyze channel performance and auto-adjust
+    await analyzeChannelAttribution();
 
     logger.info('Attribution processing complete', { conversions: pendingConversions.length });
 

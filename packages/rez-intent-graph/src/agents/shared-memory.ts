@@ -1,6 +1,7 @@
 // ── Shared Memory Hub ──────────────────────────────────────────────────────────
 // Redis-based inter-agent communication and state sharing
-// All agents read/write here for cross-agent visibility
+// DANGEROUS: This enables distributed state across all agent instances
+// Falls back to in-memory Map when Redis unavailable
 
 import type {
   DemandSignal,
@@ -15,14 +16,24 @@ import type {
   AgentMessage,
 } from './types.js';
 
-const logger = {
-  info: (msg: string, meta?: Record<string, unknown>) => console.log(`[SharedMemory] ${msg}`, meta || ''),
-  error: (msg: string, meta?: Record<string, unknown>) => console.error(`[SharedMemory] ${msg}`, meta || ''),
-};
+// ── Redis Configuration ─────────────────────────────────────────────────────────
 
-// In-memory store (would be Redis in production)
-const memoryStore = new Map<string, unknown>();
-const subscribers = new Map<string, Set<(msg: AgentMessage) => void>>();
+const REDIS_URL = process.env.REDIS_URL || process.env.INTENT_GRAPH_REDIS_URL || 'redis://localhost:6379';
+
+// Try to load IORedis, fall back to null if not available
+let IORedis: any = null;
+try {
+  // Dynamic import to avoid build errors when ioredis not installed
+  IORedis = require('ioredis');
+} catch {
+  // IORedis not available, will use in-memory fallback
+}
+
+const logger = {
+  info: (msg: string, meta?: unknown) => console.log(`[SharedMemory] ${msg}`, meta || ''),
+  warn: (msg: string, meta?: unknown) => console.warn(`[SharedMemory] ${msg}`, meta || ''),
+  error: (msg: string, meta?: unknown) => console.error(`[SharedMemory] ${msg}`, meta || ''),
+};
 
 // ── Key Prefixes ──────────────────────────────────────────────────────────────
 
@@ -39,6 +50,13 @@ const KEYS = {
   MESSAGE_QUEUE: 'messages:',
   GLOBAL_DEMAND: 'demand:global:',
   TRENDING: 'trending:',
+  WALLET_TXN: 'wallet:txn:',
+  WALLET_BALANCE: 'wallet:balance:',
+  ORDER: 'order:',
+  PMS_REQUEST: 'pms:request:',
+  TASK: 'task:',
+  MERCHANT_ORDER: 'merchant:order:',
+  CHANNEL: 'channel:',
 } as const;
 
 // ── TTL Configurations ─────────────────────────────────────────────────────────
@@ -53,7 +71,95 @@ const TTL = {
   COLLABORATIVE: 43200, // 12 hours
   REVENUE_REPORTS: 900, // 15 minutes
   HEALTH: 300, // 5 minutes
+  WALLET_TXN: 86400, // 24 hours
+  WALLET_BALANCE: 300, // 5 minutes
+  ORDER: 604800, // 7 days
+  PMS_REQUEST: 86400, // 24 hours
+  TASK: 86400, // 24 hours
+  MERCHANT_ORDER: 604800, // 7 days
 } as const;
+
+// ── Redis Client (Lazy Init) ──────────────────────────────────────────────────
+
+let redisClient: any = null;
+let redisSubscriber: any = null;
+let isRedisConnected = false;
+
+function getRedisClient(): any {
+  if (!IORedis) {
+    logger.warn('IORedis not available, using in-memory fallback');
+    return null;
+  }
+
+  if (redisClient && redisClient.status === 'ready') {
+    return redisClient;
+  }
+
+  try {
+    redisClient = new IORedis(REDIS_URL, {
+      maxRetriesPerRequest: 3,
+      enableReadyCheck: true,
+      retryStrategy: (times: number) => {
+        if (times > 3) return null; // Stop retrying
+        return Math.min(times * 200, 2000);
+      },
+      lazyConnect: true,
+    });
+
+    redisClient.on('connect', () => {
+      logger.info('[Redis] Connected');
+      isRedisConnected = true;
+    });
+
+    redisClient.on('error', (err: Error) => {
+      logger.warn('[Redis] Error:', err.message);
+      isRedisConnected = false;
+    });
+
+    redisClient.on('close', () => {
+      logger.warn('[Redis] Connection closed');
+      isRedisConnected = false;
+    });
+
+    // Connect lazily
+    redisClient.connect().catch((err: Error) => {
+      logger.warn('[Redis] Connection failed:', err.message);
+      isRedisConnected = false;
+    });
+
+    return redisClient;
+  } catch (err) {
+    logger.warn('[Redis] Failed to create client:', err);
+    return null;
+  }
+}
+
+function getRedisSubscriber(): any {
+  if (!IORedis) return null;
+
+  if (redisSubscriber && redisSubscriber.status === 'ready') {
+    return redisSubscriber;
+  }
+
+  try {
+    const client = getRedisClient();
+    if (!client) return null;
+
+    redisSubscriber = client.duplicate();
+    redisSubscriber.on('error', (err: Error) => {
+      logger.warn('[Redis Subscriber] Error:', err.message);
+    });
+
+    return redisSubscriber;
+  } catch {
+    return null;
+  }
+}
+
+// ── In-Memory Fallback ────────────────────────────────────────────────────────
+
+const memoryStore = new Map<string, { value: unknown; expiresAt: number | null }>();
+const subscribers = new Map<string, Set<(msg: AgentMessage) => void>>();
 
 // ── Shared Memory Class ────────────────────────────────────────────────────────
 
@@ -69,31 +175,84 @@ export class SharedMemory {
     return SharedMemory.instance;
   }
 
-  // ── Generic Operations ──────────────────────────────────────────────────────
+  // ── Generic Operations (Redis + In-Memory Fallback) ─────────────────────────
 
   async set<T>(key: string, value: T, ttlSeconds?: number): Promise<void> {
+    const redis = getRedisClient();
+
+    if (redis && isRedisConnected) {
+      try {
+        const expiresAt = ttlSeconds ? Date.now() + ttlSeconds * 1000 : null;
+        await redis.set(key, JSON.stringify({ value, expiresAt }), 'EX', ttlSeconds || 999999);
+        return;
+      } catch (err) {
+        logger.warn('[Redis] Set failed, using in-memory fallback:', err);
+      }
+    }
+
+    // In-memory fallback
     memoryStore.set(key, { value, expiresAt: ttlSeconds ? Date.now() + ttlSeconds * 1000 : null });
   }
 
   async get<T>(key: string): Promise<T | null> {
-    const entry = memoryStore.get(key) as { value: T; expiresAt: number | null } | undefined;
+    const redis = getRedisClient();
+
+    if (redis && isRedisConnected) {
+      try {
+        const data = await redis.get(key);
+        if (!data) return null;
+
+        const parsed = JSON.parse(data) as { value: T; expiresAt: number | null };
+        if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
+          await redis.del(key);
+          return null;
+        }
+        return parsed.value;
+      } catch (err) {
+        logger.warn('[Redis] Get failed, using in-memory fallback:', err);
+      }
+    }
+
+    // In-memory fallback
+    const entry = memoryStore.get(key);
     if (!entry) return null;
     if (entry.expiresAt && Date.now() > entry.expiresAt) {
       memoryStore.delete(key);
       return null;
     }
-    return entry.value;
+    return entry.value as T;
   }
 
   async delete(key: string): Promise<void> {
+    const redis = getRedisClient();
+
+    if (redis && isRedisConnected) {
+      try {
+        await redis.del(key);
+        return;
+      } catch (err) {
+        logger.warn('[Redis] Delete failed:', err);
+      }
+    }
+
     memoryStore.delete(key);
   }
 
   async exists(key: string): Promise<boolean> {
+    const redis = getRedisClient();
+
+    if (redis && isRedisConnected) {
+      try {
+        const result = await redis.exists(key);
+        return result === 1;
+      } catch {
+        // Fall through to in-memory
+      }
+    }
+
     const entry = memoryStore.get(key);
     if (!entry) return false;
-    const typed = entry as { expiresAt: number | null };
-    if (typed.expiresAt && Date.now() > typed.expiresAt) {
+    if (entry.expiresAt && Date.now() > entry.expiresAt) {
       memoryStore.delete(key);
       return false;
     }
@@ -101,20 +260,40 @@ export class SharedMemory {
   }
 
   async keys(pattern: string): Promise<string[]> {
-    const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
-    const keys: string[] = [];
-    for (const key of memoryStore.keys()) {
-      if (regex.test(key)) keys.push(key);
+    const redis = getRedisClient();
+
+    if (redis && isRedisConnected) {
+      try {
+        const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+        const allKeys = await redis.keys(pattern);
+        return allKeys.filter((k: string) => regex.test(k));
+      } catch {
+        // Fall through to in-memory
+      }
     }
-    return keys;
+
+    // In-memory fallback
+    const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+    const result: string[] = [];
+    for (const key of memoryStore.keys()) {
+      if (regex.test(key)) {
+        const entry = memoryStore.get(key);
+        if (entry && (!entry.expiresAt || Date.now() <= entry.expiresAt)) {
+          result.push(key);
+        }
+      }
+    }
+    return result;
   }
 
   async mget<T>(pattern: string): Promise<Map<string, T>> {
-    const keys = await this.keys(pattern);
     const result = new Map<string, T>();
+    const keys = await this.keys(pattern);
     for (const key of keys) {
       const value = await this.get<T>(key);
-      if (value !== null) result.set(key, value);
+      if (value !== null) {
+        result.set(key, value);
+      }
     }
     return result;
   }
@@ -124,8 +303,6 @@ export class SharedMemory {
   async setDemandSignal(signal: DemandSignal): Promise<void> {
     const key = `${KEYS.DEMAND_SIGNALS}${signal.merchantId}:${signal.category}`;
     await this.set(key, signal, TTL.DEMAND_SIGNALS);
-
-    // Also update global demand index
     await this.updateGlobalDemandIndex(signal);
   }
 
@@ -146,8 +323,7 @@ export class SharedMemory {
   }
 
   async getGlobalDemand(category: string): Promise<Record<string, number>> {
-    const result = await this.get<Record<string, number>>(`${KEYS.GLOBAL_DEMAND}${category}`);
-    return result ?? {};
+    return (await this.get<Record<string, number>>(`${KEYS.GLOBAL_DEMAND}${category}`)) ?? {};
   }
 
   async getTopDemandedMerchants(category: string, limit = 10): Promise<Array<{ merchantId: string; demand: number }>> {
@@ -205,7 +381,6 @@ export class SharedMemory {
     const key = `${KEYS.ATTRIBUTION}${record.id}`;
     await this.set(key, record, TTL.ATTRIBUTION);
 
-    // Also add to user's attribution list
     const userKey = `${KEYS.ATTRIBUTION}user:${record.userId}`;
     const existing = await this.get<string[]>(userKey) || [];
     existing.push(record.id);
@@ -233,7 +408,6 @@ export class SharedMemory {
     const key = `${KEYS.SCORED_INTENTS}${scored.intentId}`;
     await this.set(key, scored, TTL.SCORED_INTENTS);
 
-    // Also index by user
     const userKey = `${KEYS.SCORED_INTENTS}user:${scored.userId}`;
     const existing = await this.get<string[]>(userKey) || [];
     if (!existing.includes(scored.intentId)) {
@@ -262,8 +436,6 @@ export class SharedMemory {
   async addOptimization(rec: OptimizationRecommendation): Promise<void> {
     const key = `${KEYS.OPTIMIZATIONS}${rec.agent}:${Date.now()}`;
     await this.set(key, rec, TTL.OPTIMIZATIONS);
-
-    // Also set as latest for agent
     await this.set(`${KEYS.OPTIMIZATIONS}latest:${rec.agent}`, rec, TTL.OPTIMIZATIONS);
   }
 
@@ -273,7 +445,7 @@ export class SharedMemory {
 
   async getAllOptimizations(): Promise<OptimizationRecommendation[]> {
     const recs = await this.mget<OptimizationRecommendation>(`${KEYS.OPTIMIZATIONS}*`);
-    return Array.from(recs.values()).filter((r) => r.type); // Filter out non-rec objects
+    return Array.from(recs.values()).filter((r) => r.type);
   }
 
   // ── Collaborative Signals ────────────────────────────────────────────────────
@@ -291,7 +463,7 @@ export class SharedMemory {
     const key = `${KEYS.TRENDING}${category}`;
     const existing = await this.get<Record<string, number>>(key) || {};
     existing[intentKey] = (existing[intentKey] || 0) + 1;
-    await this.set(key, existing, 3600); // 1 hour
+    await this.set(key, existing, 3600);
   }
 
   async getTrendingIntents(category: string, limit = 10): Promise<Array<{ intentKey: string; count: number }>> {
@@ -307,8 +479,6 @@ export class SharedMemory {
   async saveRevenueReport(report: RevenueReport): Promise<void> {
     const key = `${KEYS.REVENUE_REPORTS}${report.period.start.getTime()}`;
     await this.set(key, report, TTL.REVENUE_REPORTS);
-
-    // Update latest
     await this.set(`${KEYS.REVENUE_REPORTS}latest`, report, TTL.REVENUE_REPORTS);
   }
 
@@ -336,47 +506,166 @@ export class SharedMemory {
 
   async getAllAgentHealth(): Promise<AgentHealth[]> {
     const health = await this.mget<AgentHealth>(`${KEYS.AGENT_HEALTH}*`);
-    return Array.from(health.values()).filter((h) => h.agent); // Filter valid health objects
+    return Array.from(health.values()).filter((h) => h.agent);
   }
 
-  // ── Pub/Sub Messaging ────────────────────────────────────────────────────────
+  // ── Pub/Sub Messaging (Redis + In-Memory Fallback) ─────────────────────────
 
   async publish(message: AgentMessage): Promise<void> {
-    const channel = `${KEYS.MESSAGE_QUEUE}${message.to}`;
-    const subscribersList = subscribers.get(channel) || new Set();
+    const channel = `${KEYS.CHANNEL}${message.to}`;
 
-    for (const callback of subscribersList) {
+    // Publish to Redis for distributed messaging
+    const redis = getRedisClient();
+    if (redis && isRedisConnected) {
+      try {
+        await redis.publish(channel, JSON.stringify(message));
+      } catch (err) {
+        logger.warn('[Redis] Publish failed:', err);
+      }
+    }
+
+    // Also call local subscribers
+    const localSubscribers = subscribers.get(channel) || new Set();
+    for (const callback of localSubscribers) {
       try {
         callback(message);
       } catch (err) {
-        logger.error('Subscriber callback failed', { error: err, channel });
+        logger.error('Local subscriber callback failed', { error: err, channel });
       }
     }
   }
 
   subscribe(agent: string, callback: (msg: AgentMessage) => void): () => void {
-    const channel = `${KEYS.MESSAGE_QUEUE}${agent}`;
+    const channel = `${KEYS.CHANNEL}${agent}`;
+
+    // Add to local subscribers
     if (!subscribers.has(channel)) {
       subscribers.set(channel, new Set());
     }
     subscribers.get(channel)!.add(callback);
 
+    // Subscribe to Redis channel if available
+    const redis = getRedisSubscriber();
+    if (redis && isRedisConnected) {
+      redis.subscribe(channel).catch((err: Error) => {
+        logger.warn('[Redis] Subscribe failed:', err.message);
+      });
+
+      redis.on('message', (ch: string, msg: string) => {
+        if (ch === channel) {
+          try {
+            const message = JSON.parse(msg) as AgentMessage;
+            callback(message);
+          } catch (err) {
+            logger.error('Failed to parse Redis message', { error: err, channel });
+          }
+        }
+      });
+    }
+
+    // Return unsubscribe function
     return () => {
       subscribers.get(channel)?.delete(callback);
     };
   }
 
+  // ── Wallet Integration Helpers ────────────────────────────────────────────────
+
+  async setWalletTransaction(transactionId: string, data: Record<string, unknown>): Promise<void> {
+    const key = `${KEYS.WALLET_TXN}${transactionId}`;
+    await this.set(key, data, TTL.WALLET_TXN);
+  }
+
+  async getWalletTransaction(transactionId: string): Promise<Record<string, unknown> | null> {
+    return this.get<Record<string, unknown>>(`${KEYS.WALLET_TXN}${transactionId}`);
+  }
+
+  async setWalletBalance(userId: string, balance: Record<string, unknown>): Promise<void> {
+    const key = `${KEYS.WALLET_BALANCE}${userId}`;
+    await this.set(key, balance, TTL.WALLET_BALANCE);
+  }
+
+  async getWalletBalance(userId: string): Promise<Record<string, unknown> | null> {
+    return this.get<Record<string, unknown>>(`${KEYS.WALLET_BALANCE}${userId}`);
+  }
+
+  async invalidateWalletBalance(userId: string): Promise<void> {
+    await this.delete(`${KEYS.WALLET_BALANCE}${userId}`);
+  }
+
+  // ── Order Integration Helpers ────────────────────────────────────────────────
+
+  async setOrder(orderId: string, data: Record<string, unknown>): Promise<void> {
+    const key = `${KEYS.ORDER}${orderId}`;
+    await this.set(key, data, TTL.ORDER);
+  }
+
+  async getOrder(orderId: string): Promise<Record<string, unknown> | null> {
+    return this.get<Record<string, unknown>>(`${KEYS.ORDER}${orderId}`);
+  }
+
+  // ── PMS Integration Helpers ──────────────────────────────────────────────────
+
+  async setPMSRequest(requestId: string, data: Record<string, unknown>): Promise<void> {
+    const key = `${KEYS.PMS_REQUEST}${requestId}`;
+    await this.set(key, data, TTL.PMS_REQUEST);
+  }
+
+  async getPMSRequest(requestId: string): Promise<Record<string, unknown> | null> {
+    return this.get<Record<string, unknown>>(`${KEYS.PMS_REQUEST}${requestId}`);
+  }
+
+  // ── Task Integration Helpers ────────────────────────────────────────────────
+
+  async setTask(taskId: string, data: Record<string, unknown>): Promise<void> {
+    const key = `${KEYS.TASK}${taskId}`;
+    await this.set(key, data, TTL.TASK);
+  }
+
+  async getTask(taskId: string): Promise<Record<string, unknown> | null> {
+    return this.get<Record<string, unknown>>(`${KEYS.TASK}${taskId}`);
+  }
+
   // ── Utility ───────────────────────────────────────────────────────────────────
 
   async flush(): Promise<void> {
+    const redis = getRedisClient();
+    if (redis && isRedisConnected) {
+      try {
+        const keys = await this.keys('*');
+        for (const key of keys) {
+          await redis.del(key);
+        }
+      } catch (err) {
+        logger.warn('[Redis] Flush failed:', err);
+      }
+    }
     memoryStore.clear();
   }
 
-  async stats(): Promise<{ keys: number; memoryUsage: string }> {
+  async stats(): Promise<{ keys: number; memoryUsage: string; redisConnected: boolean }> {
+    let inMemoryCount = memoryStore.size;
+    let redisCount = 0;
+
+    const redis = getRedisClient();
+    if (redis && isRedisConnected) {
+      try {
+        const keys = await redis.keys('*');
+        redisCount = keys.length;
+      } catch {
+        // Ignore
+      }
+    }
+
     return {
-      keys: memoryStore.size,
-      memoryUsage: '~' + Math.round(JSON.stringify([...memoryStore.values()]).length / 1024) + ' KB',
+      keys: inMemoryCount + redisCount,
+      memoryUsage: `~${Math.round(JSON.stringify([...memoryStore.values()]).length / 1024)} KB`,
+      redisConnected: isRedisConnected,
     };
+  }
+
+  isRedisAvailable(): boolean {
+    return isRedisConnected;
   }
 }
 

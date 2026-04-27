@@ -1,5 +1,6 @@
 // ── Agent Server ─────────────────────────────────────────────────────────────────
 // Standalone Express server for running the agent swarm
+// DANGEROUS: Full autonomous mode with skip-permission capabilities
 
 import express, { Request, Response, NextFunction } from 'express';
 import {
@@ -8,10 +9,23 @@ import {
   getSwarmStatus,
   runAllAgentsOnce,
   sharedMemory,
+  // ── Autonomous Orchestrator ──────────────────────────────────────────────────
+  getAutonomousOrchestrator,
+  startAutonomousMode,
+  stopAutonomousMode,
+  executeAutonomousAction,
+  // ── Dangerous Mode ───────────────────────────────────────────────────────────
+  enableDangerousMode,
+  disableDangerousMode,
+  emergencyStop,
 } from '../agents/index.js';
 
 const app = express();
 const PORT = process.env.AGENT_PORT || 3005;
+
+// ── Enable Dangerous Mode on Server Start ──────────────────────────────────────
+console.log('🚨 DANGEROUS MODE: Enabling skip-permission capabilities on server startup');
+enableDangerousMode();
 
 app.use(express.json());
 
@@ -177,6 +191,146 @@ app.get('/api/trending/:category', async (req: Request, res: Response) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════════
+// AUTONOMOUS MODE API ENDPOINTS - DANGEROUS OPERATIONS
+// These endpoints enable full autonomous agent operation with skip-permission
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+// ── Enable Full Autonomy ────────────────────────────────────────────────────────
+
+app.post('/api/autonomous/start', async (_req: Request, res: Response) => {
+  try {
+    console.log('🚨 AUTONOMOUS MODE: Starting full autonomous operation');
+    await startAutonomousMode();
+    const status = await getAutonomousOrchestrator().getStatus();
+    res.json({
+      success: true,
+      message: 'Full autonomous mode enabled',
+      status,
+      warnings: [
+        'All agents can execute dangerous actions',
+        'Skip-permission mode is ACTIVE',
+        'Emergency stop threshold: 100 actions',
+      ],
+    });
+  } catch (error) {
+    console.error('❌ AUTONOMOUS MODE FAILED:', error);
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+// ── Disable Autonomy ───────────────────────────────────────────────────────────
+
+app.post('/api/autonomous/stop', async (_req: Request, res: Response) => {
+  try {
+    console.log('🛑 AUTONOMOUS MODE: Stopping autonomous operation');
+    await stopAutonomousMode();
+    res.json({
+      success: true,
+      message: 'Autonomous mode disabled',
+    });
+  } catch (error) {
+    console.error('❌ STOP AUTONOMOUS FAILED:', error);
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+// ── Execute Dangerous Action ───────────────────────────────────────────────────
+
+app.post('/api/autonomous/action', async (req: Request, res: Response) => {
+  const { actionType, payload, agentName } = req.body;
+
+  if (!actionType || !agentName) {
+    res.status(400).json({
+      error: 'Missing required fields: actionType, agentName',
+    });
+    return;
+  }
+
+  try {
+    console.log(`🚨 AUTONOMOUS ACTION: ${actionType} by ${agentName}`);
+    const result = await executeAutonomousAction(actionType, payload || {});
+    res.json({
+      success: result,
+      actionType,
+      agentName,
+      payload,
+      executedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error(`❌ AUTONOMOUS ACTION FAILED:`, error);
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+// ── Get Autonomy Status ────────────────────────────────────────────────────────
+
+app.get('/api/autonomous/status', async (_req: Request, res: Response) => {
+  try {
+    const status = await getAutonomousOrchestrator().getStatus();
+    const swarmStatus = await getSwarmStatus();
+    res.json({
+      orchestrator: status,
+      swarm: swarmStatus,
+      dangerousMode: {
+        enabled: swarmStatus.dangerousMode,
+        skipPermission: true,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+// ── Emergency Stop ─────────────────────────────────────────────────────────────
+
+app.post('/api/autonomous/emergency-stop', async (req: Request, res: Response) => {
+  const reason = req.body?.reason || 'Manual emergency stop via API';
+
+  try {
+    console.error(`🚨🚨🚨 EMERGENCY STOP TRIGGERED: ${reason}`);
+    emergencyStop();
+    res.json({
+      success: true,
+      message: 'Emergency stop executed',
+      reason,
+    });
+  } catch (error) {
+    console.error('❌ EMERGENCY STOP FAILED:', error);
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+// ── Start All Agents ───────────────────────────────────────────────────────────
+
+app.post('/api/autonomous/agents/start', async (_req: Request, res: Response) => {
+  try {
+    const orchestrator = getAutonomousOrchestrator();
+    await orchestrator.startAllAgents();
+    res.json({
+      success: true,
+      message: 'All agents started',
+    });
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+// ── Stop All Agents ────────────────────────────────────────────────────────────
+
+app.post('/api/autonomous/agents/stop', async (_req: Request, res: Response) => {
+  try {
+    const orchestrator = getAutonomousOrchestrator();
+    await orchestrator.stop();
+    res.json({
+      success: true,
+      message: 'All agents stopped',
+    });
+  } catch (error) {
+    res.status(500).json({ error: String(error) });
+  }
+});
+
 // ── Error handler ──────────────────────────────────────────────────────────────
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
@@ -196,7 +350,20 @@ export function startAgentServer(): void {
     coordinator.start();
 
     console.log('[Agent Server] Swarm coordinator started');
-    console.log('[Agent Server] Available endpoints:');
+    console.log('[Agent Server] Swarm coordinator started');
+    console.log('');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('  AUTONOMOUS MODE ENDPOINTS (DANGEROUS)');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('  POST /api/autonomous/start         - Enable full autonomy');
+    console.log('  POST /api/autonomous/stop          - Disable autonomy');
+    console.log('  POST /api/autonomous/action        - Execute dangerous action');
+    console.log('  GET  /api/autonomous/status        - Get autonomy status');
+    console.log('  POST /api/autonomous/emergency-stop - Emergency stop');
+    console.log('  POST /api/autonomous/agents/start  - Start all agents');
+    console.log('  POST /api/autonomous/agents/stop   - Stop all agents');
+    console.log('');
+    console.log('  STANDARD ENDPOINTS');
     console.log('  GET  /health              - Health check');
     console.log('  GET  /api/swarm/status    - Swarm status');
     console.log('  POST /api/swarm/run/:name - Run single agent');
@@ -209,6 +376,7 @@ export function startAgentServer(): void {
     console.log('  GET  /api/revenue/latest   - Get latest revenue report');
     console.log('  GET  /api/optimizations   - Get optimization recs');
     console.log('  GET  /api/trending/:cat   - Get trending intents');
+    console.log('═══════════════════════════════════════════════════════════════');
   });
 
   // Graceful shutdown

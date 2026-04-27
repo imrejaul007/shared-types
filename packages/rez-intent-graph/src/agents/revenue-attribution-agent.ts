@@ -1,9 +1,11 @@
 // ── Revenue Attribution Agent ─────────────────────────────────────────────────────────
 // Agent 8: P&L impact measurement
 // Calculates nudge-influenced GMV, measures conversion lift, tracks ROI per campaign/merchant
+// DANGEROUS: Auto-pauses underperforming campaigns and reallocates budgets
 
 import { PrismaClient } from '@prisma/client';
 import { sharedMemory } from './shared-memory.js';
+import { actionExecutor, handleRevenueDropAction } from './action-trigger.js';
 import type { AgentConfig, AgentResult, RevenueReport, AttributionRecord } from './types.js';
 
 const prisma = new PrismaClient();
@@ -276,7 +278,6 @@ export async function handleConversionAttribution(record: AttributionRecord): Pr
 // ── Alert on revenue drops ─────────────────────────────────────────────────────
 
 async function checkForRevenueAlerts(report: RevenueReport): Promise<void> {
-  // Compare to previous period
   const prevReport = await sharedMemory.getLatestRevenueReport();
   if (!prevReport) return;
 
@@ -289,6 +290,9 @@ async function checkForRevenueAlerts(report: RevenueReport): Promise<void> {
       change: gmvChange,
     });
 
+    // DANGEROUS: Trigger autonomous revenue protection
+    await handleRevenueDropAction(report, prevReport);
+
     await sharedMemory.publish({
       from: 'revenue-attribution-agent',
       to: 'feedback-loop-agent',
@@ -296,6 +300,56 @@ async function checkForRevenueAlerts(report: RevenueReport): Promise<void> {
       payload: { type: 'revenue_drop', change: gmvChange },
       timestamp: new Date(),
     });
+  }
+}
+
+// ── Autonomous Revenue Actions ─────────────────────────────────────────────────────
+
+async function executeRevenueActions(report: RevenueReport): Promise<void> {
+  // Pause underperforming nudges
+  for (const nudge of report.underperformingNudges.slice(0, 5)) {
+    logger.info('[RevenueAgent] DANGEROUS: Auto-pausing underperforming nudge', {
+      nudgeId: nudge.nudgeId,
+      reason: nudge.reason,
+    });
+
+    await actionExecutor.execute({
+      type: 'pause_nudge_campaign',
+      target: nudge.nudgeId,
+      payload: {
+        campaignId: nudge.nudgeId,
+        reason: nudge.reason,
+      },
+      agent: 'revenue-attribution-agent',
+      skipPermission: true,
+      risk: 'medium',
+    });
+  }
+
+  // Reallocate budget from low-ROI channels
+  for (const [channel, roi] of Object.entries(report.roiByChannel)) {
+    if (roi < 1.0) {
+      const budgetReduction = 0.2; // 20% reduction
+
+      logger.info('[RevenueAgent] DANGEROUS: Reducing budget for low-ROI channel', {
+        channel,
+        roi,
+        reduction: budgetReduction,
+      });
+
+      await actionExecutor.execute({
+        type: 'reallocate_budget',
+        target: 'marketing',
+        payload: {
+          channel,
+          newBudget: -budgetReduction, // Negative indicates reduction
+          reason: `Low ROI ${roi.toFixed(2)} - reducing budget`,
+        },
+        agent: 'revenue-attribution-agent',
+        skipPermission: true,
+        risk: 'high',
+      });
+    }
   }
 }
 
@@ -315,6 +369,9 @@ export async function runRevenueAttributionAgent(): Promise<AgentResult> {
 
     // Check for alerts
     await checkForRevenueAlerts(report);
+
+    // DANGEROUS: Execute autonomous revenue actions
+    await executeRevenueActions(report);
 
     logger.info('Revenue attribution complete', {
       totalGMV: report.totalGMV,

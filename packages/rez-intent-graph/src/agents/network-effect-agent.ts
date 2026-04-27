@@ -1,9 +1,11 @@
 // ── Network Effect Agent ─────────────────────────────────────────────────────────
 // Agent 7: Collaborative filtering and user similarity clusters
 // Updates user clusters daily, generates trending signals, personalizes based on cohort
+// DANGEROUS: Auto-triggers cohort-based nudges and trending recommendations
 
 import { PrismaClient } from '@prisma/client';
 import { sharedMemory } from './shared-memory.js';
+import { actionExecutor } from './action-trigger.js';
 import type { AgentConfig, AgentResult, CollaborativeSignal } from './types.js';
 
 const prisma = new PrismaClient();
@@ -306,7 +308,113 @@ export async function generateCollaborativeSignal(userId: string): Promise<Colla
   };
 
   await sharedMemory.setCollaborativeSignal(signal);
+
+  // DANGEROUS: Trigger autonomous cohort-based nudges
+  await triggerCohortNudge(signal);
+
   return signal;
+}
+
+// ── Autonomous Network Effect Actions ────────────────────────────────────────────
+
+async function triggerCohortNudge(signal: CollaborativeSignal): Promise<void> {
+  // Only nudge if strong collaborative signal
+  if (signal.collaborativeFilterScore < 0.5) return;
+
+  // Send trending intent notification
+  if (signal.trendingIntents.length > 0) {
+    const topTrending = signal.trendingIntents[0];
+
+    logger.info('[NetworkEffectAgent] DANGEROUS: Sending cohort-based nudge', {
+      userId: signal.userId,
+      trendingIntent: topTrending,
+      score: signal.collaborativeFilterScore,
+    });
+
+    await actionExecutor.execute({
+      type: 'send_nudge',
+      target: signal.userId,
+      payload: {
+        userId: signal.userId,
+        intentKey: topTrending,
+        message: `Trending with similar users: ${topTrending}`,
+        channel: 'push',
+      },
+      agent: 'network-effect-agent',
+      skipPermission: true,
+      risk: 'medium',
+    });
+  }
+}
+
+// ── Trigger Cohort Campaign ───────────────────────────────────────────────────────
+
+export async function triggerCohortCampaign(category: string): Promise<void> {
+  const clusterKey = `${category}_high_value`;
+  const cluster = await sharedMemory.get<{ userIds: string[] }>(`cluster:${clusterKey}`);
+
+  if (!cluster || cluster.userIds.length === 0) {
+    logger.info('[NetworkEffectAgent] No cluster found for campaign', { category });
+    return;
+  }
+
+  // DANGEROUS: Send campaign to top 100 users in cluster
+  const topUsers = cluster.userIds.slice(0, 100);
+
+  logger.info('[NetworkEffectAgent] DANGEROUS: Triggering cohort campaign', {
+    category,
+    userCount: topUsers.length,
+  });
+
+  for (const userId of topUsers) {
+    await actionExecutor.execute({
+      type: 'send_nudge',
+      target: userId,
+      payload: {
+        userId,
+        intentKey: `cohort_campaign:${category}`,
+        message: `${category} trending! See what users like you are interested in.`,
+        channel: 'push',
+      },
+      agent: 'network-effect-agent',
+      skipPermission: true,
+      risk: 'medium',
+    });
+  }
+}
+
+// ── Analyze Trending Signals ────────────────────────────────────────────────────────
+
+async function analyzeTrendingSignals(): Promise<void> {
+  const categories = ['TRAVEL', 'DINING', 'RETAIL', 'GENERAL'];
+
+  for (const category of categories) {
+    const trending = await sharedMemory.getTrendingIntents(category, 10);
+
+    for (const trend of trending) {
+      if (trend.count > 100) {
+        logger.info('[NetworkEffectAgent] DANGEROUS: Viral intent detected', {
+          intentKey: trend.intentKey,
+          count: trend.count,
+          category,
+        });
+
+        // Publish alert for other agents
+        await sharedMemory.publish({
+          from: 'network-effect-agent',
+          to: 'scarcity-agent',
+          type: 'alert',
+          payload: {
+            type: 'viral_intent',
+            intentKey: trend.intentKey,
+            category,
+            count: trend.count,
+          },
+          timestamp: new Date(),
+        });
+      }
+    }
+  }
 }
 
 // ── Main execution ─────────────────────────────────────────────────────────────
@@ -336,6 +444,9 @@ export async function runNetworkEffectAgent(): Promise<AgentResult> {
       await generateCollaborativeSignal(row.user_id);
       signalsGenerated++;
     }
+
+    // DANGEROUS: Analyze and respond to trending signals
+    await analyzeTrendingSignals();
 
     logger.info('Network effect analysis complete', {
       clusters,

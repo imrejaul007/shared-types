@@ -1,9 +1,11 @@
 // ── Adaptive Scoring Agent ─────────────────────────────────────────────────────────
 // Agent 5: ML-based confidence scoring
 // Replaces naive formula with learned model, factors in user history, time-of-day, category, price
+// DANGEROUS: Auto-retrains models and adjusts scoring thresholds
 
 import { PrismaClient } from '@prisma/client';
 import { sharedMemory } from './shared-memory.js';
+import { actionExecutor } from './action-trigger.js';
 import type { AgentConfig, AgentResult, ScoredIntent, OptimizationRecommendation } from './types.js';
 
 const prisma = new PrismaClient();
@@ -369,6 +371,24 @@ export async function retrainModel(): Promise<void> {
 
   Object.assign(currentWeights, weights);
 
+  // DANGEROUS: Trigger model retraining action
+  logger.info('[AdaptiveScoringAgent] DANGEROUS: Model weights updated, notifying action trigger', {
+    version: weights.version,
+  });
+
+  await actionExecutor.execute({
+    type: 'retrain_model',
+    target: 'scoring-model',
+    payload: {
+      version: weights.version,
+      weights: currentWeights,
+      reason: 'Model retrained on latest data',
+    },
+    agent: 'adaptive-scoring-agent',
+    skipPermission: true,
+    risk: 'high',
+  });
+
   // Publish optimization recommendation
   await sharedMemory.addOptimization({
     type: 'rebalance_budget',
@@ -382,6 +402,58 @@ export async function retrainModel(): Promise<void> {
   });
 
   logger.info('Model retraining complete', { version: weights.version, weights });
+}
+
+// ── Autonomous Threshold Adjustments ────────────────────────────────────────────────
+
+async function monitorScoringAccuracy(): Promise<void> {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  // Get scored intents with outcomes
+  const scoredIntents = await prisma.$queryRaw<Array<{
+    predicted_prob: number;
+    status: string;
+  }>>`
+    SELECT
+      si.predicted_prob,
+      i.status
+    FROM scored_intents si
+    JOIN intents i ON i.id = si.intent_id
+    WHERE si.created_at >= ${sevenDaysAgo}
+    LIMIT 500
+  `;
+
+  if (scoredIntents.length < 50) return;
+
+  // Calculate accuracy
+  let correct = 0;
+  for (const row of scoredIntents) {
+    const predicted = row.predicted_prob > 0.5;
+    const actual = row.status === 'FULFILLED';
+    if (predicted === actual) correct++;
+  }
+
+  const accuracy = correct / scoredIntents.length;
+
+  // DANGEROUS: Auto-adjust thresholds if accuracy drops
+  if (accuracy < 0.6) {
+    logger.warn('[AdaptiveScoringAgent] DANGEROUS: Low scoring accuracy detected', { accuracy });
+
+    await actionExecutor.execute({
+      type: 'threshold_adjust',
+      target: 'scoring-threshold',
+      payload: {
+        currentThreshold: 0.5,
+        recommendedThreshold: 0.6,
+        reason: `Scoring accuracy dropped to ${(accuracy * 100).toFixed(1)}%`,
+      },
+      agent: 'adaptive-scoring-agent',
+      skipPermission: true,
+      risk: 'medium',
+    });
+  }
+
+  logger.info('[AdaptiveScoringAgent] Scoring accuracy', { accuracy, samples: scoredIntents.length });
 }
 
 // ── Main execution ─────────────────────────────────────────────────────────────
@@ -405,6 +477,9 @@ export async function runAdaptiveScoringAgent(): Promise<AgentResult> {
       const scored = await scoreIntentById(intent.userId, intent.id);
       if (scored) scoredCount++;
     }
+
+    // DANGEROUS: Monitor scoring accuracy and adjust thresholds
+    await monitorScoringAccuracy();
 
     logger.info('Adaptive scoring complete', { scored: scoredCount });
 

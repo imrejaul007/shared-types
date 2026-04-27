@@ -1,8 +1,33 @@
 // ── Swarm Coordinator ─────────────────────────────────────────────────────────
 // Orchestrates all 8 agents, manages their lifecycle and inter-agent communication
+// DANGEROUS: Enables fully autonomous operation with skip-permission capabilities
 
 import { sharedMemory } from './shared-memory.js';
 import type { AgentConfig, AgentResult, AgentHealth, AgentMessage } from './types.js';
+
+// Dangerous mode configuration
+export interface DangerousModeConfig {
+  enabled: boolean;
+  skipPermission: boolean;
+  allowWalletOperations: boolean;
+  allowPriceAdjustments: boolean;
+  allowStrategyPause: boolean;
+  allowBudgetReallocation: boolean;
+  allowAutoRevival: boolean;
+  maxConsecutiveActions: number;
+  emergencyStop: boolean;
+}
+
+// Swarm status with dangerous mode
+export interface SwarmStatus {
+  totalAgents: number;
+  healthy: number;
+  degraded: number;
+  failed: number;
+  agents: AgentHealth[];
+  dangerousMode?: DangerousModeConfig;
+  consecutiveActions?: number;
+}
 
 // Agent imports
 import {
@@ -248,13 +273,7 @@ export function stopAllAgents(): void {
 
 // ── Get swarm status ───────────────────────────────────────────────────────────
 
-export async function getSwarmStatus(): Promise<{
-  totalAgents: number;
-  healthy: number;
-  degraded: number;
-  failed: number;
-  agents: AgentHealth[];
-}> {
+export async function getSwarmStatus(): Promise<SwarmStatus> {
   const allHealth = await sharedMemory.getAllAgentHealth();
 
   const healthCounts = {
@@ -313,6 +332,20 @@ export async function runAllAgentsOnce(): Promise<AgentResult[]> {
 
 export class SwarmCoordinator {
   private running = false;
+  private consecutiveActions = 0;
+
+  // DANGEROUS MODE: Full autonomous control
+  private dangerousMode: DangerousModeConfig = {
+    enabled: false,
+    skipPermission: false,
+    allowWalletOperations: false,
+    allowPriceAdjustments: false,
+    allowStrategyPause: false,
+    allowBudgetReallocation: false,
+    allowAutoRevival: false,
+    maxConsecutiveActions: 100,
+    emergencyStop: false,
+  };
 
   start(): void {
     if (this.running) {
@@ -322,15 +355,23 @@ export class SwarmCoordinator {
 
     this.running = true;
     startAllAgents();
+    logger.info('Swarm started', { dangerousMode: this.dangerousMode.enabled });
   }
 
   stop(): void {
     this.running = false;
+    this.dangerousMode.emergencyStop = true;
     stopAllAgents();
+    logger.warn('Swarm stopped (emergency stop activated)');
   }
 
-  async status(): Promise<Awaited<ReturnType<typeof getSwarmStatus>>> {
-    return getSwarmStatus();
+  async status(): Promise<SwarmStatus> {
+    const baseStatus = await getSwarmStatus();
+    return {
+      ...baseStatus,
+      dangerousMode: this.dangerousMode,
+      consecutiveActions: this.consecutiveActions,
+    };
   }
 
   async runAgent(agentName: string): Promise<AgentResult | null> {
@@ -344,6 +385,157 @@ export class SwarmCoordinator {
   isRunning(): boolean {
     return this.running;
   }
+
+  // ── Dangerous Mode Controls ─────────────────────────────────────────────────
+
+  /**
+   * Enable dangerous mode with skip-permission capabilities
+   * DANGEROUS: Agents will execute actions without user confirmation
+   */
+  enableDangerousMode(config?: Partial<DangerousModeConfig>): void {
+    this.dangerousMode = {
+      ...this.dangerousMode,
+      enabled: true,
+      skipPermission: true,
+      ...config,
+    };
+    this.consecutiveActions = 0;
+
+    // Persist to shared memory
+    sharedMemory.set('swarm:dangerous_mode', this.dangerousMode, 86400).catch(() => {});
+
+    logger.warn('⚠️ DANGEROUS MODE ENABLED - Agents will skip permissions', {
+      config: this.dangerousMode,
+    });
+  }
+
+  /**
+   * Disable dangerous mode
+   */
+  disableDangerousMode(): void {
+    const wasEnabled = this.dangerousMode.enabled;
+    this.dangerousMode = {
+      enabled: false,
+      skipPermission: false,
+      allowWalletOperations: false,
+      allowPriceAdjustments: false,
+      allowStrategyPause: false,
+      allowBudgetReallocation: false,
+      allowAutoRevival: false,
+      maxConsecutiveActions: 100,
+      emergencyStop: false,
+    };
+    this.consecutiveActions = 0;
+
+    sharedMemory.set('swarm:dangerous_mode', this.dangerousMode, 86400).catch(() => {});
+
+    if (wasEnabled) {
+      logger.info('Dangerous mode disabled - agents will require permission');
+    }
+  }
+
+  /**
+   * Get current dangerous mode status
+   */
+  getDangerousMode(): DangerousModeConfig {
+    return { ...this.dangerousMode };
+  }
+
+  /**
+   * Check if agent can execute dangerous action
+   */
+  canExecuteDangerousAction(actionType: keyof DangerousModeConfig): boolean {
+    if (!this.dangerousMode.enabled) return false;
+    if (this.dangerousMode.emergencyStop) return false;
+    if (this.consecutiveActions >= this.dangerousMode.maxConsecutiveActions) {
+      logger.warn('Max consecutive actions reached, blocking dangerous action');
+      return false;
+    }
+
+    const actionMap: Record<string, keyof DangerousModeConfig> = {
+      wallet: 'allowWalletOperations',
+      price: 'allowPriceAdjustments',
+      pause: 'allowStrategyPause',
+      budget: 'allowBudgetReallocation',
+      revival: 'allowAutoRevival',
+    };
+
+    const requiredPermission = actionMap[actionType];
+    if (requiredPermission && !this.dangerousMode[requiredPermission]) {
+      logger.warn(`Dangerous action ${actionType} not allowed`, { config: this.dangerousMode });
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Record executed dangerous action
+   */
+  recordDangerousAction(): void {
+    this.consecutiveActions++;
+
+    // Log warning at thresholds
+    if (this.consecutiveActions === 10) {
+      logger.warn('⚠️ 10 consecutive dangerous actions executed');
+    }
+    if (this.consecutiveActions === 50) {
+      logger.error('🚨 50 consecutive dangerous actions - review needed');
+    }
+    if (this.consecutiveActions >= this.dangerousMode.maxConsecutiveActions) {
+      logger.error('🚨 Max consecutive actions reached - emergency stop triggered');
+      this.emergencyStop();
+    }
+  }
+
+  /**
+   * Emergency stop - halts all dangerous operations immediately
+   */
+  emergencyStop(): void {
+    this.dangerousMode.emergencyStop = true;
+    this.dangerousMode.enabled = false;
+    this.consecutiveActions = 0;
+
+    // Publish emergency stop to all agents
+    sharedMemory.publish({
+      from: 'swarm-coordinator',
+      to: '*',
+      type: 'alert',
+      payload: {
+        type: 'emergency_stop',
+        reason: 'Max consecutive actions or manual trigger',
+        timestamp: new Date(),
+      },
+      timestamp: new Date(),
+    }).catch(() => {});
+
+    logger.error('🚨 EMERGENCY STOP TRIGGERED - All dangerous operations halted');
+  }
+
+  /**
+   * Reset emergency stop and restore operations
+   */
+  resetEmergencyStop(): void {
+    this.dangerousMode.emergencyStop = false;
+    this.consecutiveActions = 0;
+    logger.info('Emergency stop reset - operations can resume');
+  }
+
+  /**
+   * Quick enable for autonomous operations
+   * Enables all dangerous capabilities at once
+   */
+  enableFullAutonomy(): void {
+    this.enableDangerousMode({
+      skipPermission: true,
+      allowWalletOperations: true,
+      allowPriceAdjustments: true,
+      allowStrategyPause: true,
+      allowBudgetReallocation: true,
+      allowAutoRevival: true,
+      maxConsecutiveActions: 1000,
+    });
+  }
 }
 
 // ── Singleton instance ─────────────────────────────────────────────────────────
@@ -355,4 +547,26 @@ export function getSwarmCoordinator(): SwarmCoordinator {
     swarmInstance = new SwarmCoordinator();
   }
   return swarmInstance;
+}
+
+// ── Quick accessor functions for dangerous mode ─────────────────────────────────
+
+export function enableDangerousMode(config?: Partial<DangerousModeConfig>): void {
+  getSwarmCoordinator().enableDangerousMode(config);
+}
+
+export function disableDangerousMode(): void {
+  getSwarmCoordinator().disableDangerousMode();
+}
+
+export function enableFullAutonomy(): void {
+  getSwarmCoordinator().enableFullAutonomy();
+}
+
+export function emergencyStop(): void {
+  getSwarmCoordinator().emergencyStop();
+}
+
+export function isDangerousModeEnabled(): boolean {
+  return getSwarmCoordinator().getDangerousMode().enabled;
 }

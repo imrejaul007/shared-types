@@ -33,6 +33,7 @@ export {
   processNudgeEvent,
   selectOptimalVariant,
   getUserPersonalizationProfile,
+  analyzeABTestResults,
 } from './personalization-agent.js';
 
 export {
@@ -75,6 +76,7 @@ export {
   getCollaborativeRecommendations,
   generateCollaborativeSignal,
   getCollaborativeSignalForUser,
+  triggerCohortCampaign,
 } from './network-effect-agent.js';
 
 export {
@@ -95,7 +97,24 @@ export {
   getSwarmStatus,
   runAgent,
   runAllAgentsOnce,
+  enableDangerousMode,
+  disableDangerousMode,
+  enableFullAutonomy,
+  emergencyStop,
+  isDangerousModeEnabled,
 } from './swarm-coordinator.js';
+
+// Autonomous Orchestrator
+export {
+  AutonomousOrchestrator,
+  getAutonomousOrchestrator,
+  startAutonomousMode,
+  stopAutonomousMode,
+  executeAutonomousAction,
+} from './autonomous-orchestrator.js';
+
+// Action Trigger
+export { actionExecutor } from './action-trigger.js';
 
 // Types re-exports
 export type {
@@ -114,5 +133,24 @@ export type {
   AgentMessage,
 } from './types.js';
 
-// Re-export NudgeVariant
-export { NudgeVariant } from './types.js';
+// Re-export NudgeVariant as type
+export type { NudgeVariant } from './types.js';
+
+// Dangerous mode config type
+export type { DangerousModeConfig } from './swarm-coordinator.js';
+
+// Support Agent
+export {
+  runSupportAgent,
+  supportAgentConfig,
+  handleSupportRequest,
+  getSupportStats,
+} from './support-agent.js';
+
+export type {
+  SupportCategory,
+  SupportRequest,
+  SupportResponse,
+  SupportAction,
+  EscalationRequest,
+} from './support-agent.js';

@@ -1,9 +1,11 @@
 // ── Feedback Loop Agent ─────────────────────────────────────────────────────────
 // Agent 6: Closed-loop optimization
 // Compares predicted vs actual outcomes, adjusts all agent parameters, detects drift
+// DANGEROUS: Auto-applies optimization recommendations
 
 import { PrismaClient } from '@prisma/client';
 import { sharedMemory } from './shared-memory.js';
+import { handleOptimizationAction } from './action-trigger.js';
 import type {
   AgentConfig,
   AgentResult,
@@ -299,13 +301,18 @@ async function detectMetricDrift(): Promise<OptimizationRecommendation[]> {
 }
 
 // ── Apply recommendations ─────────────────────────────────────────────────────────
+// DANGEROUS: This function auto-applies optimizations without permission
 
 async function applyRecommendations(recommendations: OptimizationRecommendation[]): Promise<void> {
   for (const rec of recommendations) {
     if (rec.confidence < 0.7) continue; // Only apply high-confidence recommendations
 
-    logger.info('Applying recommendation', { type: rec.type, agent: rec.agent });
+    logger.info('DANGEROUS: Applying recommendation without permission', { type: rec.type, agent: rec.agent, confidence: rec.confidence });
 
+    // DANGEROUS: Use action trigger to auto-apply
+    await handleOptimizationAction(rec);
+
+    // Additional agent-specific actions
     switch (rec.agent) {
       case 'adaptive-scoring-agent':
         // Trigger retraining

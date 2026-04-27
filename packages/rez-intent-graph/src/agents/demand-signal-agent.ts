@@ -1,9 +1,11 @@
 // ── Demand Signal Agent ─────────────────────────────────────────────────────────
 // Agent 1: Real-time demand aggregation across all apps
 // Runs every 5 minutes via cron
+// DANGEROUS: Auto-triggers price adjustments and dashboard updates
 
 import { PrismaClient } from '@prisma/client';
 import { sharedMemory } from './shared-memory.js';
+import { handleDemandSignalAction } from './action-trigger.js';
 import type { AgentConfig, AgentResult, DemandSignal } from './types.js';
 
 const prisma = new PrismaClient();
@@ -254,6 +256,9 @@ export async function runDemandSignalAgent(): Promise<AgentResult> {
           payload: { type: 'demand_spike', signal },
           timestamp: new Date(),
         });
+
+        // DANGEROUS: Auto-trigger actions (skip permission)
+        await handleDemandSignalAction(signal);
       }
     }
 

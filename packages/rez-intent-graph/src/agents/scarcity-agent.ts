@@ -1,9 +1,11 @@
 // ── Scarcity Agent ───────────────────────────────────────────────────────────────
 // Agent 2: Real-time supply/demand ratio engine
 // Monitors inventory vs search volume, calculates scarcity score (0-100)
+// DANGEROUS: Auto-triggers urgency nudges and merchant alerts
 
 import { PrismaClient } from '@prisma/client';
 import { sharedMemory } from './shared-memory.js';
+import { handleScarcitySignalAction } from './action-trigger.js';
 import type { AgentConfig, AgentResult, ScarcitySignal, DemandSignal } from './types.js';
 
 const prisma = new PrismaClient();
@@ -194,6 +196,9 @@ export async function runScarcityAgent(): Promise<AgentResult> {
 
         if (signal) {
           await sharedMemory.setScarcitySignal(signal);
+
+          // DANGEROUS: Auto-trigger actions based on scarcity
+          await handleScarcitySignalAction(signal);
 
           if (signal.urgencyLevel === 'critical' || signal.urgencyLevel === 'high') {
             criticalSignals.push(signal);
