@@ -3,12 +3,10 @@
 // Runs every 5 minutes via cron
 // DANGEROUS: Auto-triggers price adjustments and dashboard updates
 
-import { PrismaClient } from '@prisma/client';
+import { Intent, MerchantDemandSignal } from '../models/index.js';
 import { sharedMemory } from './shared-memory.js';
 import { handleDemandSignalAction } from './action-trigger.js';
 import type { AgentConfig, AgentResult, DemandSignal } from './types.js';
-
-const prisma = new PrismaClient();
 
 const logger = {
   info: (msg: string, meta?: Record<string, unknown>) => console.log(`[DemandSignalAgent] ${msg}`, meta || ''),
@@ -42,23 +40,28 @@ const baselines = new Map<string, DemandBaseline>();
 async function calculateDemand(merchantId: string, category: string): Promise<number> {
   const since = new Date(Date.now() - 60 * 60 * 1000); // Last hour
 
-  const intentCount = await prisma.intent.count({
-    where: {
-      merchantId,
-      category,
-      firstSeenAt: { gte: since },
-      status: { in: ['ACTIVE', 'DORMANT'] },
-    },
+  const intentCount = await Intent.countDocuments({
+    merchantId,
+    category,
+    firstSeenAt: { $gte: since },
+    status: { $in: ['ACTIVE', 'DORMANT'] },
   });
 
-  // Count related signals
-  const signalCount = await prisma.intentSignal.count({
-    where: {
-      intent: { merchantId, category },
-      capturedAt: { gte: since },
-      eventType: { in: ['search', 'view', 'wishlist', 'cart_add'] },
-    },
-  });
+  // Count related signals by aggregating embedded signals
+  const intents = await Intent.find({
+    merchantId,
+    category,
+    firstSeenAt: { $gte: since },
+    status: { $in: ['ACTIVE', 'DORMANT'] },
+  }).select('signals');
+
+  let signalCount = 0;
+  for (const intent of intents) {
+    signalCount += (intent.signals || []).filter(
+      (s) => s.capturedAt >= since &&
+        ['search', 'view', 'wishlist', 'cart_add'].includes(s.eventType)
+    ).length;
+  }
 
   // Weighted calculation: intents * 3 + signals
   return intentCount * 3 + signalCount;
@@ -69,21 +72,25 @@ async function calculateDemand(merchantId: string, category: string): Promise<nu
 async function calculateUnmetDemand(merchantId: string, category: string): Promise<number> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000); // Last 24 hours
 
-  const totalSearches = await prisma.intentSignal.count({
-    where: {
-      intent: { category },
-      eventType: 'search',
-      capturedAt: { gte: since },
-    },
-  });
+  // Aggregate signals across all merchants in category
+  const intents = await Intent.find({
+    category,
+    'signals.eventType': 'search',
+    'signals.capturedAt': { $gte: since },
+  }).select('signals status lastSeenAt');
 
-  const conversions = await prisma.intent.count({
-    where: {
-      category,
-      status: 'FULFILLED',
-      lastSeenAt: { gte: since },
-    },
-  });
+  let totalSearches = 0;
+  let conversions = 0;
+
+  for (const intent of intents) {
+    const searchSignals = (intent.signals || []).filter(
+      (s) => s.eventType === 'search' && s.capturedAt >= since
+    );
+    totalSearches += searchSignals.length;
+    if (intent.status === 'FULFILLED' && intent.lastSeenAt >= since) {
+      conversions++;
+    }
+  }
 
   if (totalSearches === 0) return 0;
   return Math.round(((totalSearches - conversions) / totalSearches) * 100);
@@ -133,19 +140,17 @@ function updateBaseline(merchantId: string, category: string, demand: number): v
 async function getTopCities(merchantId: string, category: string): Promise<string[]> {
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // Last 7 days
 
-  // Use raw query for JSON extraction
-  const intents = await prisma.$queryRaw<Array<{ metadata: Record<string, unknown> }>>`
-    SELECT metadata
-    FROM intents
-    WHERE merchant_id = ${merchantId}
-    AND category = ${category}
-    AND first_seen_at >= ${since}
-    AND metadata IS NOT NULL
-  `;
+  const intents = await Intent.find({
+    merchantId,
+    category,
+    firstSeenAt: { $gte: since },
+    metadata: { $ne: null },
+  }).select('metadata');
 
   const cityCounts = new Map<string, number>();
   for (const intent of intents) {
-    const city = intent.metadata?.city as string | undefined;
+    const metadata = intent.metadata as Record<string, unknown> | null;
+    const city = metadata?.city as string | undefined;
     if (city) {
       cityCounts.set(city, (cityCounts.get(city) || 0) + 1);
     }
@@ -174,17 +179,16 @@ async function generateProcurementSignals(): Promise<DemandSignal[]> {
   const signals: DemandSignal[] = [];
 
   for (const category of categories) {
-    // Get all merchants in category with demand
-    const merchants = await prisma.intent.groupBy({
-      by: ['merchantId'],
-      where: { category, status: { in: ['ACTIVE', 'DORMANT'] } },
-      _count: { id: true },
-      orderBy: { _count: { id: 'desc' } },
-      take: 50,
-    });
+    // Aggregate merchants by demand using MongoDB aggregation
+    const merchantGroups = await Intent.aggregate([
+      { $match: { category, status: { $in: ['ACTIVE', 'DORMANT'] } } },
+      { $group: { _id: '$merchantId', intentCount: { $sum: 1 } } },
+      { $sort: { intentCount: -1 } },
+      { $limit: 50 },
+    ]);
 
-    for (const merchant of merchants) {
-      const mid = merchant.merchantId;
+    for (const group of merchantGroups) {
+      const mid = group._id as string | undefined;
       if (!mid) continue;
       const signal = await buildSignal(mid, category);
       if (signal) signals.push(signal);
@@ -205,12 +209,41 @@ async function buildSignal(merchantId: string, category: string): Promise<Demand
     return null; // Skip low-volume merchants on first run
   }
 
-  const defaultBaseline: DemandBaseline = { category, merchantId, avgDailyDemand: baseline?.avgDailyDemand || 0, stdDev: baseline?.stdDev || 1, lastUpdated: baseline?.lastUpdated || new Date() };
+  const defaultBaseline: DemandBaseline = {
+    category,
+    merchantId,
+    avgDailyDemand: baseline?.avgDailyDemand || 0,
+    stdDev: baseline?.stdDev || 1,
+    lastUpdated: baseline?.lastUpdated || new Date(),
+  };
   const { spike, factor } = detectSpike(demand, defaultBaseline);
   const unmetDemand = await calculateUnmetDemand(merchantId, category);
   const topCities = await getTopCities(merchantId, category);
 
   updateBaseline(merchantId, category, demand);
+
+  // Persist to MongoDB
+  try {
+    await MerchantDemandSignal.findOneAndUpdate(
+      { merchantId, category },
+      {
+        $set: {
+          demandCount: demand,
+          unmetDemandPct: unmetDemand,
+          avgPriceExpectation: 0,
+          topCities,
+          trend: determineTrend(defaultBaseline, demand),
+          spikeDetected: spike,
+          spikeFactor: spike ? factor : undefined,
+          updatedAt: new Date(),
+        },
+        $setOnInsert: { createdAt: new Date() },
+      },
+      { upsert: true, new: true }
+    );
+  } catch (err) {
+    logger.warn('Failed to persist demand signal to MongoDB', { error: err, merchantId, category });
+  }
 
   return {
     merchantId,

@@ -1,20 +1,15 @@
 // ── Revival Trigger Handlers ─────────────────────────────────────────────────────
 // Handles different trigger types for dormant intent revival
-import { PrismaClient } from '@prisma/client';
+// MongoDB implementation
+import { DormantIntent } from '../models/index.js';
 import { intentScoringService } from '../services/IntentScoringService.js';
-const prisma = new PrismaClient();
 // ── Price Drop Trigger ─────────────────────────────────────────────────────────
 export async function handlePriceDropTrigger(dormantIntentId, priceDropPct = 10) {
-    // Price drop bonus: up to 0.25 for significant drops
     const priceBonus = Math.min(0.25, priceDropPct / 100);
     const baseScore = await intentScoringService.calculateRevivalScore(dormantIntentId);
     const newScore = Math.min(1.0, baseScore + priceBonus);
-    // Update dormant intent
-    await prisma.dormantIntent.update({
-        where: { id: dormantIntentId },
-        data: { revivalScore: newScore },
-    });
-    const dormant = await prisma.dormantIntent.findUnique({ where: { id: dormantIntentId } });
+    await DormantIntent.updateOne({ _id: dormantIntentId }, { $set: { revivalScore: newScore } });
+    const dormant = await DormantIntent.findById(dormantIntentId);
     const message = `Price alert! ${formatIntentKey(dormant?.intentKey || '')} just got ${priceDropPct}% cheaper!`;
     return {
         success: true,
@@ -25,7 +20,6 @@ export async function handlePriceDropTrigger(dormantIntentId, priceDropPct = 10)
 }
 // ── Return User Trigger ───────────────────────────────────────────────────────
 export async function handleReturnUserTrigger(dormantIntentId, daysSinceReturn) {
-    // Return user bonus: higher for longer absences
     let returnBonus = 0;
     if (daysSinceReturn >= 3)
         returnBonus = 0.15;
@@ -35,11 +29,8 @@ export async function handleReturnUserTrigger(dormantIntentId, daysSinceReturn) 
         returnBonus = 0.25;
     const baseScore = await intentScoringService.calculateRevivalScore(dormantIntentId);
     const newScore = Math.min(1.0, baseScore + returnBonus);
-    await prisma.dormantIntent.update({
-        where: { id: dormantIntentId },
-        data: { revivalScore: newScore },
-    });
-    const dormant = await prisma.dormantIntent.findUnique({ where: { id: dormantIntentId } });
+    await DormantIntent.updateOne({ _id: dormantIntentId }, { $set: { revivalScore: newScore } });
+    const dormant = await DormantIntent.findById(dormantIntentId);
     const message = `Welcome back! ${formatIntentKey(dormant?.intentKey || '')} is waiting for you.`;
     return {
         success: true,
@@ -50,7 +41,6 @@ export async function handleReturnUserTrigger(dormantIntentId, daysSinceReturn) 
 }
 // ── Seasonality Trigger ───────────────────────────────────────────────────────
 export async function handleSeasonalityTrigger(dormantIntentId, season) {
-    // Seasonality bonus based on category and season
     const seasonBonus = {
         TRAVEL: {
             weekend: 0.20,
@@ -67,18 +57,12 @@ export async function handleSeasonalityTrigger(dormantIntentId, season) {
             weekend: 0.10,
         },
     };
-    const dormant = await prisma.dormantIntent.findUnique({
-        where: { id: dormantIntentId },
-        include: { intent: true },
-    });
+    const dormant = await DormantIntent.findById(dormantIntentId);
     const category = dormant?.category || 'DINING';
     const bonus = seasonBonus[category]?.[season] || 0.10;
     const baseScore = await intentScoringService.calculateRevivalScore(dormantIntentId);
     const newScore = Math.min(1.0, baseScore + bonus);
-    await prisma.dormantIntent.update({
-        where: { id: dormantIntentId },
-        data: { revivalScore: newScore },
-    });
+    await DormantIntent.updateOne({ _id: dormantIntentId }, { $set: { revivalScore: newScore } });
     const seasonMessages = {
         weekend: "Perfect weekend for {intent}!",
         holiday: "Holiday special on {intent}!",
@@ -98,7 +82,6 @@ export async function handleSeasonalityTrigger(dormantIntentId, season) {
 }
 // ── Offer Match Trigger ───────────────────────────────────────────────────────
 export async function handleOfferMatchTrigger(dormantIntentId, offerType) {
-    // Offer match bonus: very high for matching user intent
     const offerBonus = {
         discount: 0.25,
         cashback: 0.20,
@@ -109,11 +92,8 @@ export async function handleOfferMatchTrigger(dormantIntentId, offerType) {
     const bonus = offerBonus[offerType] || 0.15;
     const baseScore = await intentScoringService.calculateRevivalScore(dormantIntentId);
     const newScore = Math.min(1.0, baseScore + bonus);
-    await prisma.dormantIntent.update({
-        where: { id: dormantIntentId },
-        data: { revivalScore: newScore },
-    });
-    const dormant = await prisma.dormantIntent.findUnique({ where: { id: dormantIntentId } });
+    await DormantIntent.updateOne({ _id: dormantIntentId }, { $set: { revivalScore: newScore } });
+    const dormant = await DormantIntent.findById(dormantIntentId);
     const offerMessages = {
         discount: `{intent} - special discount just for you!`,
         cashback: `{intent} + cashback offer!`,
@@ -133,14 +113,10 @@ export async function handleOfferMatchTrigger(dormantIntentId, offerType) {
 }
 // ── Manual Trigger ────────────────────────────────────────────────────────────
 export async function handleManualTrigger(dormantIntentId, agentId) {
-    // Manual trigger: small bonus, logs agent action
     const baseScore = await intentScoringService.calculateRevivalScore(dormantIntentId);
     const newScore = Math.min(1.0, baseScore + 0.05);
-    await prisma.dormantIntent.update({
-        where: { id: dormantIntentId },
-        data: { revivalScore: newScore },
-    });
-    const dormant = await prisma.dormantIntent.findUnique({ where: { id: dormantIntentId } });
+    await DormantIntent.updateOne({ _id: dormantIntentId }, { $set: { revivalScore: newScore } });
+    const dormant = await DormantIntent.findById(dormantIntentId);
     const message = `${formatIntentKey(dormant?.intentKey || '')} - recommended for you!`;
     console.log(`[RevivalTrigger] Manual trigger by agent ${agentId} for intent ${dormantIntentId}`);
     return {
@@ -152,8 +128,9 @@ export async function handleManualTrigger(dormantIntentId, agentId) {
 }
 // ── Bulk Trigger Handler ──────────────────────────────────────────────────────
 export async function handleBulkTrigger(userId, triggerType, triggerData) {
-    const dormantIntents = await prisma.dormantIntent.findMany({
-        where: { userId, status: 'active' },
+    const dormantIntents = await DormantIntent.find({
+        userId,
+        status: 'active',
     });
     let triggered = 0;
     let totalScore = 0;
@@ -161,19 +138,19 @@ export async function handleBulkTrigger(userId, triggerType, triggerData) {
         let result;
         switch (triggerType) {
             case 'price_drop':
-                result = await handlePriceDropTrigger(dormant.id, triggerData?.priceDropPct);
+                result = await handlePriceDropTrigger(dormant._id.toString(), triggerData?.priceDropPct);
                 break;
             case 'return_user':
-                result = await handleReturnUserTrigger(dormant.id, triggerData?.daysSinceReturn);
+                result = await handleReturnUserTrigger(dormant._id.toString(), triggerData?.daysSinceReturn);
                 break;
             case 'seasonality':
-                result = await handleSeasonalityTrigger(dormant.id, triggerData?.season);
+                result = await handleSeasonalityTrigger(dormant._id.toString(), triggerData?.season);
                 break;
             case 'offer_match':
-                result = await handleOfferMatchTrigger(dormant.id, triggerData?.offerType);
+                result = await handleOfferMatchTrigger(dormant._id.toString(), triggerData?.offerType);
                 break;
             default:
-                result = await handleManualTrigger(dormant.id);
+                result = await handleManualTrigger(dormant._id.toString());
         }
         if (result.success) {
             triggered++;

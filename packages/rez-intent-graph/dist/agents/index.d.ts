@@ -10,7 +10,7 @@ export { runNetworkEffectAgent, startNetworkEffectCron, stopNetworkEffectCron, n
 export { runRevenueAttributionAgent, startRevenueAttributionCron, stopRevenueAttributionCron, revenueAttributionAgentConfig, generateRevenueReport, getLatestReport, } from './revenue-attribution-agent.js';
 export { SwarmCoordinator, getSwarmCoordinator, startAllAgents, stopAllAgents, getSwarmStatus, runAgent, runAllAgentsOnce, enableDangerousMode, disableDangerousMode, enableFullAutonomy, emergencyStop, isDangerousModeEnabled, } from './swarm-coordinator.js';
 export { AutonomousOrchestrator, getAutonomousOrchestrator, startAutonomousMode, stopAutonomousMode, executeAutonomousAction, } from './autonomous-orchestrator.js';
-export { actionExecutor } from './action-trigger.js';
+export { actionExecutor, handleDemandSignalAction, handleScarcitySignalAction, handleOptimizationAction, triggerAutoRevival, } from './action-trigger.js';
 export type { DemandSignal, ScarcitySignal, UserResponseProfile, AttributionRecord, ScoredIntent, OptimizationRecommendation, CollaborativeSignal, RevenueReport, Touchpoint, AgentConfig, AgentResult, AgentHealth, AgentMessage, } from './types.js';
 export type { NudgeVariant } from './types.js';
 export type { DangerousModeConfig } from './swarm-coordinator.js';

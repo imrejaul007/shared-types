@@ -80,6 +80,7 @@ export interface AttributionRecord {
 export interface Touchpoint {
   type: 'impression' | 'click' | 'convert' | 'organic';
   channel: string;
+  nudgeId?: string;
   timestamp: Date;
   metadata?: Record<string, unknown>;
 }

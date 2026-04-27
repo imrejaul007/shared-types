@@ -2,10 +2,9 @@
 // Agent 2: Real-time supply/demand ratio engine
 // Monitors inventory vs search volume, calculates scarcity score (0-100)
 // DANGEROUS: Auto-triggers urgency nudges and merchant alerts
-import { PrismaClient } from '@prisma/client';
+import { Intent } from '../models/index.js';
 import { sharedMemory } from './shared-memory.js';
 import { handleScarcitySignalAction } from './action-trigger.js';
-const prisma = new PrismaClient();
 const logger = {
     info: (msg, meta) => console.log(`[ScarcityAgent] ${msg}`, meta || ''),
     warn: (msg, meta) => console.warn(`[ScarcityAgent] ${msg}`, meta || ''),
@@ -37,27 +36,22 @@ async function getMerchantInventory(merchantId) {
             totalAvailable += inv.available;
         }
     }
-    // Fallback to database
+    // Fallback: try sharedMemory inventory data
     if (totalAvailable === 0) {
-        const inventory = await prisma.$queryRaw `
-      SELECT COALESCE(SUM(available_count), 0) as available
-      FROM merchant_inventory
-      WHERE merchant_id = ${merchantId}
-    `;
-        totalAvailable = Number(inventory[0]?.available || 0);
+        const invKey = `inventory:${merchantId}`;
+        const inv = await sharedMemory.get(invKey);
+        totalAvailable = inv?.available || 0;
     }
     return totalAvailable;
 }
-// ── Calculate demand from recent searches ────────────────────────────────────────
+// ── Calculate demand from recent searches ─────────────────────────────────────
 async function getRecentDemand(merchantId, category) {
     const since = new Date(Date.now() - 30 * 60 * 1000); // Last 30 minutes
-    const count = await prisma.intent.count({
-        where: {
-            merchantId,
-            category,
-            lastSeenAt: { gte: since },
-            status: 'ACTIVE',
-        },
+    const count = await Intent.countDocuments({
+        merchantId,
+        category,
+        lastSeenAt: { $gte: since },
+        status: 'ACTIVE',
     });
     return count;
 }
@@ -131,16 +125,20 @@ export async function runScarcityAgent() {
         const categories = ['TRAVEL', 'DINING', 'RETAIL'];
         const criticalSignals = [];
         for (const category of categories) {
-            // Get top merchants by demand
-            const merchants = await prisma.intent.groupBy({
-                by: ['merchantId'],
-                where: { category, status: { in: ['ACTIVE', 'DORMANT'] } },
-                _count: { id: true },
-                orderBy: { _count: { id: 'desc' } },
-                take: 20,
-            });
-            for (const merchant of merchants) {
-                const mid = merchant.merchantId;
+            // Get top merchants by demand using MongoDB aggregation
+            const merchantGroups = await Intent.aggregate([
+                {
+                    $match: {
+                        category,
+                        status: { $in: ['ACTIVE', 'DORMANT'] },
+                    },
+                },
+                { $group: { _id: '$merchantId', intentCount: { $sum: 1 } } },
+                { $sort: { intentCount: -1 } },
+                { $limit: 20 },
+            ]);
+            for (const group of merchantGroups) {
+                const mid = group._id;
                 if (!mid)
                     continue;
                 const demandTrend = await getDemandTrend(mid, category);
@@ -192,21 +190,17 @@ async function getDemandTrend(merchantId, category) {
     const oneHourAgo = new Date(now - 60 * 60 * 1000);
     const twoHoursAgo = new Date(now - 2 * 60 * 60 * 1000);
     const [recent, older] = await Promise.all([
-        prisma.intent.count({
-            where: {
-                merchantId,
-                category,
-                lastSeenAt: { gte: oneHourAgo },
-                status: 'ACTIVE',
-            },
+        Intent.countDocuments({
+            merchantId,
+            category,
+            lastSeenAt: { $gte: oneHourAgo },
+            status: 'ACTIVE',
         }),
-        prisma.intent.count({
-            where: {
-                merchantId,
-                category,
-                lastSeenAt: { gte: twoHoursAgo, lt: oneHourAgo },
-                status: 'ACTIVE',
-            },
+        Intent.countDocuments({
+            merchantId,
+            category,
+            lastSeenAt: { $gte: twoHoursAgo, $lt: oneHourAgo },
+            status: 'ACTIVE',
         }),
     ]);
     if (recent > older * 1.2)

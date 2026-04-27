@@ -3,7 +3,7 @@
 // Compares predicted vs actual outcomes, adjusts all agent parameters, detects drift
 // DANGEROUS: Auto-applies optimization recommendations
 
-import { PrismaClient } from '@prisma/client';
+import { Intent, DormantIntent } from '../models/index.js';
 import { sharedMemory } from './shared-memory.js';
 import { handleOptimizationAction } from './action-trigger.js';
 import type {
@@ -14,8 +14,6 @@ import type {
   DemandSignal,
   ScarcitySignal,
 } from './types.js';
-
-const prisma = new PrismaClient();
 
 const logger = {
   info: (msg: string, meta?: Record<string, unknown>) => console.log(`[FeedbackLoopAgent] ${msg}`, meta || ''),
@@ -55,6 +53,7 @@ interface HealthMetrics {
 const healthMetrics = new Map<string, HealthMetrics>();
 
 // ── Compare predictions vs actuals ──────────────────────────────────────────────
+// Uses sharedMemory for scored intent data instead of raw SQL tables
 
 async function evaluateScoringAccuracy(): Promise<{
   accuracy: number;
@@ -63,22 +62,26 @@ async function evaluateScoringAccuracy(): Promise<{
 }> {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  // Get scored intents with outcomes
-  const scoredIntents = await prisma.$queryRaw<Array<{
-    intent_id: string;
-    predicted_prob: number;
-    actual_fulfilled: boolean;
-  }>>`
-    SELECT
-      si.intent_id,
-      si.predicted_prob,
-      CASE WHEN i.status = 'FULFILLED' THEN true ELSE false END as actual_fulfilled
-    FROM scored_intents si
-    JOIN intents i ON i.id = si.intent_id
-    WHERE si.created_at >= ${sevenDaysAgo}
-    AND i.last_seen_at >= ${sevenDaysAgo}
-    LIMIT 1000
-  `;
+  // Get scored intents from sharedMemory with actual outcomes from MongoDB
+  const scoredIntentKeys = await sharedMemory.keys('scored:intents:*');
+  const scoredIntents: Array<{ intentId: string; predictedProb: number; actualFulfilled: boolean }> = [];
+
+  for (const key of scoredIntentKeys) {
+    const scored = await sharedMemory.get<ScoredIntent>(key);
+    if (!scored) continue;
+
+    // Get actual outcome from MongoDB
+    const intent = await Intent.findById(scored.intentId).select('status lastSeenAt');
+    if (!intent || intent.lastSeenAt < sevenDaysAgo) continue;
+
+    scoredIntents.push({
+      intentId: scored.intentId,
+      predictedProb: scored.predictedConversionProb,
+      actualFulfilled: intent.status === 'FULFILLED',
+    });
+
+    if (scoredIntents.length >= 1000) break;
+  }
 
   if (scoredIntents.length < 50) {
     return { accuracy: 0, drift: 0, recommendations: [] };
@@ -90,11 +93,11 @@ async function evaluateScoringAccuracy(): Promise<{
   let negativeDrift = 0;
 
   for (const row of scoredIntents) {
-    const actual = row.actual_fulfilled ? 1 : 0;
-    brierScore += Math.pow(row.predicted_prob - actual, 2);
+    const actual = row.actualFulfilled ? 1 : 0;
+    brierScore += Math.pow(row.predictedProb - actual, 2);
 
     // Track drift direction
-    const drift = row.predicted_prob - (actual ? 0.1 : 0.9);
+    const drift = row.predictedProb - (actual ? 0.1 : 0.9);
     if (drift > 0.1) positiveDrift++;
     if (drift < -0.1) negativeDrift++;
   }
@@ -122,6 +125,7 @@ async function evaluateScoringAccuracy(): Promise<{
 }
 
 // ── Evaluate revival effectiveness ───────────────────────────────────────────────
+// Uses DormantIntent MongoDB model instead of raw SQL
 
 async function evaluateRevivalEffectiveness(): Promise<{
   effectiveness: number;
@@ -129,24 +133,16 @@ async function evaluateRevivalEffectiveness(): Promise<{
 }> {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  // Get revival stats
-  const revivalStats = await prisma.$queryRaw<Array<{
-    total_sent: number;
-    total_converted: number;
-    avg_score: number;
-  }>>`
-    SELECT
-      COUNT(*) as total_sent,
-      COUNT(CASE WHEN status = 'FULFILLED' THEN 1 END) as total_converted,
-      AVG(revival_score) as avg_score
-    FROM dormant_intents
-    WHERE last_nudge_sent >= ${sevenDaysAgo}
-  `;
+  // Get revival stats from MongoDB
+  const dormantIntents = await DormantIntent.find({
+    lastNudgeSent: { $gte: sevenDaysAgo },
+  });
 
-  const stats = revivalStats[0];
-  const totalSent = Number(stats?.total_sent || 0);
-  const totalConverted = Number(stats?.total_converted || 0);
-  const avgScore = Number(stats?.avg_score || 0);
+  const totalSent = dormantIntents.length;
+  const totalConverted = dormantIntents.filter((d) => d.status === 'revived').length;
+  const avgScore = totalSent > 0
+    ? dormantIntents.reduce((sum, d) => sum + d.revivalScore, 0) / totalSent
+    : 0;
 
   if (totalSent < 10) {
     return { effectiveness: 0, recommendations: [] };
@@ -158,6 +154,29 @@ async function evaluateRevivalEffectiveness(): Promise<{
   // Compare to threshold
   const threshold = 0.05; // 5% baseline
   if (effectiveness < threshold) {
+    // Find optimal timing from recent nudges
+    const timingByHour = new Map<number, { sent: number; converted: number }>();
+
+    for (const di of dormantIntents) {
+      if (di.lastNudgeSent) {
+        const hour = new Date(di.lastNudgeSent).getHours();
+        const existing = timingByHour.get(hour) || { sent: 0, converted: 0 };
+        existing.sent++;
+        if (di.status === 'revived') existing.converted++;
+        timingByHour.set(hour, existing);
+      }
+    }
+
+    let bestHour = 12;
+    let bestRate = 0;
+    for (const [hour, data] of timingByHour) {
+      const rate = data.sent > 0 ? data.converted / data.sent : 0;
+      if (rate > bestRate) {
+        bestRate = rate;
+        bestHour = hour;
+      }
+    }
+
     recommendations.push({
       type: 'timing_change',
       agent: 'feedback-loop-agent',
@@ -169,27 +188,15 @@ async function evaluateRevivalEffectiveness(): Promise<{
       timestamp: new Date(),
     });
 
-    // Check optimal timing
-    const timingStats = await prisma.$queryRaw<Array<{ hour: number; conv_rate: number }>>`
-      SELECT
-        EXTRACT(HOUR FROM last_nudge_sent) as hour,
-        COUNT(CASE WHEN status = 'FULFILLED' THEN 1 END)::float / COUNT(*) as conv_rate
-      FROM dormant_intents
-      WHERE last_nudge_sent >= ${sevenDaysAgo}
-      GROUP BY hour
-      ORDER BY conv_rate DESC
-      LIMIT 1
-    `;
-
-    if (timingStats.length > 0) {
+    if (bestRate > 0) {
       recommendations.push({
         type: 'timing_change',
         agent: 'personalization-agent',
         currentValue: 'distributed',
-        recommendedValue: `hour_${timingStats[0].hour}`,
+        recommendedValue: `hour_${bestHour}`,
         confidence: 0.8,
-        reason: `Hour ${timingStats[0].hour} has highest conversion rate`,
-        expectedImpact: timingStats[0].conv_rate * 50,
+        reason: `Hour ${bestHour} has highest conversion rate`,
+        expectedImpact: bestRate * 50,
         timestamp: new Date(),
       });
     }
@@ -211,15 +218,13 @@ async function evaluateScarcityEffectiveness(): Promise<{
 
   for (const signal of criticalSignals) {
     // Check if there was conversion spike after alert
-    const conversions = await prisma.intent.count({
-      where: {
-        merchantId: signal.merchantId,
-        category: signal.category,
-        status: 'FULFILLED',
-        lastSeenAt: {
-          gte: new Date(Date.now() - 30 * 60 * 1000),
-          lte: new Date(Date.now() - 5 * 60 * 1000),
-        },
+    const conversions = await Intent.countDocuments({
+      merchantId: signal.merchantId,
+      category: signal.category,
+      status: 'FULFILLED',
+      lastSeenAt: {
+        $gte: new Date(Date.now() - 30 * 60 * 1000),
+        $lte: new Date(Date.now() - 5 * 60 * 1000),
       },
     });
 
@@ -252,33 +257,47 @@ async function evaluateScarcityEffectiveness(): Promise<{
 }
 
 // ── Detect metric drift ─────────────────────────────────────────────────────────
+// Uses MongoDB aggregation instead of raw SQL
 
 async function detectMetricDrift(): Promise<OptimizationRecommendation[]> {
   const recommendations: OptimizationRecommendation[] = [];
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
 
-  // Compare yesterday vs day before
-  const [yesterday, dayBefore] = await Promise.all([
-    prisma.$queryRaw<Array<{ conversion_rate: number }>>`
-      SELECT
-        COUNT(CASE WHEN status = 'FULFILLED' THEN 1 END)::float /
-        NULLIF(COUNT(*), 0) as conversion_rate
-      FROM intents
-      WHERE last_seen_at >= ${oneDayAgo}
-    `,
-    prisma.$queryRaw<Array<{ conversion_rate: number }>>`
-      SELECT
-        COUNT(CASE WHEN status = 'FULFILLED' THEN 1 END)::float /
-        NULLIF(COUNT(*), 0) as conversion_rate
-      FROM intents
-      WHERE last_seen_at >= ${twoDaysAgo}
-      AND last_seen_at < ${oneDayAgo}
-    `,
+  // Compare yesterday vs day before using MongoDB aggregation
+  const [yesterdayResult, dayBeforeResult] = await Promise.all([
+    Intent.aggregate([
+      { $match: { lastSeenAt: { $gte: oneDayAgo } } },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          fulfilled: { $sum: { $cond: [{ $eq: ['$status', 'FULFILLED'] }, 1, 0] } },
+        },
+      },
+    ]),
+    Intent.aggregate([
+      {
+        $match: {
+          lastSeenAt: { $gte: twoDaysAgo, $lt: oneDayAgo },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          fulfilled: { $sum: { $cond: [{ $eq: ['$status', 'FULFILLED'] }, 1, 0] } },
+        },
+      },
+    ]),
   ]);
 
-  const yesterdayRate = Number(yesterday[0]?.conversion_rate || 0);
-  const dayBeforeRate = Number(dayBefore[0]?.conversion_rate || 0);
+  const yesterdayRate = yesterdayResult[0]?.total > 0
+    ? (yesterdayResult[0].fulfilled || 0) / yesterdayResult[0].total
+    : 0;
+  const dayBeforeRate = dayBeforeResult[0]?.total > 0
+    ? (dayBeforeResult[0].fulfilled || 0) / dayBeforeResult[0].total
+    : 0;
 
   if (yesterdayRate > 0 && dayBeforeRate > 0) {
     const change = Math.abs(yesterdayRate - dayBeforeRate) / dayBeforeRate;

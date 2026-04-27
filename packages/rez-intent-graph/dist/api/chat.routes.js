@@ -3,6 +3,8 @@
 import { Router } from 'express';
 import { merchantKnowledgeService, } from '../integrations/merchantKnowledge.js';
 import { autonomousChatService } from '../chat/autonomousChat.js';
+import { verifyInternalToken, requireUserOrAuth } from '../middleware/auth.js';
+import { strictLimiter } from '../middleware/rateLimit.js';
 const router = Router();
 // ═══════════════════════════════════════════════════════════════════════════════════
 // MERCHANT KNOWLEDGE MANAGEMENT
@@ -11,7 +13,7 @@ const router = Router();
  * POST /api/knowledge/merchant/:merchantId/entries
  * Add a knowledge entry for a merchant
  */
-router.post('/knowledge/merchant/:merchantId/entries', async (req, res) => {
+router.post('/knowledge/merchant/:merchantId/entries', verifyInternalToken, async (req, res) => {
     const { merchantId } = req.params;
     const { type, title, content, tags, metadata } = req.body;
     if (!type || !title || !content) {
@@ -38,7 +40,7 @@ router.post('/knowledge/merchant/:merchantId/entries', async (req, res) => {
  * POST /api/knowledge/merchant/:merchantId/bulk
  * Bulk import knowledge entries
  */
-router.post('/knowledge/merchant/:merchantId/bulk', async (req, res) => {
+router.post('/knowledge/merchant/:merchantId/bulk', verifyInternalToken, async (req, res) => {
     const { merchantId } = req.params;
     const { entries } = req.body;
     if (!Array.isArray(entries)) {
@@ -105,7 +107,7 @@ router.get('/knowledge/merchant/:merchantId/search', async (req, res) => {
  * PUT /api/knowledge/entries/:entryId
  * Update knowledge entry
  */
-router.put('/knowledge/entries/:entryId', async (req, res) => {
+router.put('/knowledge/entries/:entryId', verifyInternalToken, async (req, res) => {
     const { entryId } = req.params;
     const { title, content, tags, active } = req.body;
     try {
@@ -130,7 +132,7 @@ router.put('/knowledge/entries/:entryId', async (req, res) => {
  * DELETE /api/knowledge/entries/:entryId
  * Delete knowledge entry
  */
-router.delete('/knowledge/entries/:entryId', async (req, res) => {
+router.delete('/knowledge/entries/:entryId', verifyInternalToken, async (req, res) => {
     const { entryId } = req.params;
     try {
         const success = await merchantKnowledgeService.deleteEntry(entryId);
@@ -148,7 +150,7 @@ router.delete('/knowledge/entries/:entryId', async (req, res) => {
  * POST /api/chat/message
  * Send a chat message and get autonomous response
  */
-router.post('/chat/message', async (req, res) => {
+router.post('/chat/message', requireUserOrAuth, strictLimiter, async (req, res) => {
     const { userId, merchantId, message, sessionId } = req.body;
     if (!userId || !message) {
         res.status(400).json({ error: 'userId and message are required' });
@@ -172,7 +174,7 @@ router.post('/chat/message', async (req, res) => {
  * GET /api/chat/history/:userId
  * Get chat history for a user
  */
-router.get('/chat/history/:userId', async (req, res) => {
+router.get('/chat/history/:userId', requireUserOrAuth, async (req, res) => {
     const { userId } = req.params;
     const { limit } = req.query;
     try {
@@ -188,7 +190,7 @@ router.get('/chat/history/:userId', async (req, res) => {
  * POST /api/chat/end-session
  * End a chat session
  */
-router.post('/chat/end-session', async (req, res) => {
+router.post('/chat/end-session', requireUserOrAuth, async (req, res) => {
     const { sessionId } = req.body;
     if (!sessionId) {
         res.status(400).json({ error: 'sessionId is required' });
@@ -207,7 +209,7 @@ router.post('/chat/end-session', async (req, res) => {
  * GET /api/chat/context/:userId
  * Get chat context for a user (merchant knowledge + user intents)
  */
-router.get('/chat/context/:userId', async (req, res) => {
+router.get('/chat/context/:userId', requireUserOrAuth, async (req, res) => {
     const { userId } = req.params;
     const { merchantId, query } = req.query;
     if (!query) {
@@ -238,7 +240,7 @@ router.get('/chat/context/:userId', async (req, res) => {
  * POST /api/knowledge/merchant/:merchantId/menu
  * Upload menu items as knowledge entries
  */
-router.post('/knowledge/merchant/:merchantId/menu', async (req, res) => {
+router.post('/knowledge/merchant/:merchantId/menu', verifyInternalToken, async (req, res) => {
     const { merchantId } = req.params;
     const { items } = req.body;
     if (!Array.isArray(items)) {
@@ -267,7 +269,7 @@ router.post('/knowledge/merchant/:merchantId/menu', async (req, res) => {
  * POST /api/knowledge/merchant/:merchantId/policy
  * Upload policies as knowledge entries
  */
-router.post('/knowledge/merchant/:merchantId/policy', async (req, res) => {
+router.post('/knowledge/merchant/:merchantId/policy', verifyInternalToken, async (req, res) => {
     const { merchantId } = req.params;
     const { policies } = req.body;
     if (!Array.isArray(policies)) {
@@ -296,7 +298,7 @@ router.post('/knowledge/merchant/:merchantId/policy', async (req, res) => {
  * POST /api/knowledge/merchant/:merchantId/faq
  * Upload FAQs as knowledge entries
  */
-router.post('/knowledge/merchant/:merchantId/faq', async (req, res) => {
+router.post('/knowledge/merchant/:merchantId/faq', verifyInternalToken, async (req, res) => {
     const { merchantId } = req.params;
     const { faqs } = req.body;
     if (!Array.isArray(faqs)) {

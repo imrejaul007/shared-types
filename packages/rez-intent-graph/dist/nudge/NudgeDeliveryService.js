@@ -1,10 +1,9 @@
-// ── Nudge Delivery Service ──────────────────────────────────────────────────────
+// ── Nudge Delivery Service ─────────────────────────────────────────────────────
 // Handles delivery of intent revival nudges across channels
-// Phase 3: Integrated with notification service for real push/email/SMS delivery
+// MongoDB implementation
+import { Nudge } from '../models/index.js';
 import { dormantIntentService } from '../services/DormantIntentService.js';
 import { sendUserNotification } from '../integrations/external-services.js';
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
 // ── Nudge Templates ───────────────────────────────────────────────────────────
 const NUDGE_TEMPLATES = {
     TRAVEL: {
@@ -134,18 +133,11 @@ const NUDGE_TEMPLATES = {
 export class NudgeDeliveryService {
     channelHandlers = new Map();
     constructor() {
-        // Register channel handlers (these would be configured in production)
         this.registerDefaultHandlers();
     }
-    /**
-     * Register a channel handler
-     */
     registerChannelHandler(channel, handler) {
         this.channelHandlers.set(channel, handler);
     }
-    /**
-     * Send a nudge directly (for action trigger)
-     */
     async send(params) {
         const handler = this.channelHandlers.get(params.channel);
         if (!handler) {
@@ -154,9 +146,7 @@ export class NudgeDeliveryService {
         await handler.send({
             userId: params.userId,
             message: params.message,
-            data: {
-                intentKey: params.intentKey,
-            },
+            data: { intentKey: params.intentKey },
         });
         return {
             id: `nudge_${Date.now()}`,
@@ -168,9 +158,6 @@ export class NudgeDeliveryService {
             sentAt: new Date(),
         };
     }
-    /**
-     * Send nudges for scheduled revival candidates
-     */
     async processScheduledNudges() {
         const candidates = await dormantIntentService.getScheduledRevivals();
         let sent = 0;
@@ -189,19 +176,13 @@ export class NudgeDeliveryService {
         }
         return { processed: candidates.length, sent, failed };
     }
-    /**
-     * Send a nudge for a revival candidate
-     */
     async sendNudge(candidate) {
         const { dormantIntent, suggestedNudge } = candidate;
         const category = dormantIntent.category;
         const triggerType = this.inferTriggerType(dormantIntent);
         const template = this.getTemplate(category, triggerType);
-        // Determine best channel based on user preferences
-        const user = await this.getUserPreferences(dormantIntent.userId);
-        const channel = this.selectBestChannel(user);
+        const channel = 'push'; // Default channel
         const message = this.renderTemplate(template, channel, dormantIntent, suggestedNudge);
-        // Send via channel handler
         const handler = this.channelHandlers.get(channel);
         if (handler) {
             try {
@@ -211,23 +192,28 @@ export class NudgeDeliveryService {
                     data: {
                         intentKey: dormantIntent.intentKey,
                         category: dormantIntent.category,
-                        dormantIntentId: dormantIntent.id,
-                        userEmail: user?.email,
-                        userPhone: user?.phone,
+                        dormantIntentId: dormantIntent._id?.toString(),
                     },
                 });
-                const nudgeId = `nudge_${Date.now()}`;
                 // Record nudge sent
-                await this.recordNudgeSent(dormantIntent.id, dormantIntent.userId, channel, message, nudgeId);
-                return {
-                    id: nudgeId,
-                    dormantIntentId: dormantIntent.id,
+                const nudge = await Nudge.create({
+                    dormantIntentId: dormantIntent._id,
                     userId: dormantIntent.userId,
                     channel,
                     message,
                     status: result.success ? 'sent' : 'failed',
                     sentAt: new Date(),
-                    error: result.error,
+                    createdAt: new Date(),
+                });
+                await dormantIntentService.recordNudgeSent(dormantIntent._id.toString());
+                return {
+                    id: nudge._id.toString(),
+                    dormantIntentId: dormantIntent._id?.toString() || '',
+                    userId: dormantIntent.userId,
+                    channel,
+                    message,
+                    status: result.success ? 'sent' : 'failed',
+                    sentAt: new Date(),
                 };
             }
             catch (error) {
@@ -237,23 +223,17 @@ export class NudgeDeliveryService {
         }
         throw new Error(`No handler registered for channel: ${channel}`);
     }
-    /**
-     * Record nudge sent to database
-     */
     async recordNudgeSent(dormantIntentId, userId, channel, message, nudgeId) {
         try {
-            // Create nudge record in database
-            await prisma.nudge.create({
-                data: {
-                    dormantIntentId,
-                    userId,
-                    channel,
-                    message,
-                    status: 'sent',
-                    sentAt: new Date(),
-                },
+            await Nudge.create({
+                dormantIntentId,
+                userId,
+                channel: channel,
+                message,
+                status: 'sent',
+                sentAt: new Date(),
+                createdAt: new Date(),
             });
-            // Record in dormant intent service
             await dormantIntentService.recordNudgeSent(dormantIntentId);
             console.log('[NudgeDelivery] Nudge recorded:', { dormantIntentId, userId, channel, nudgeId });
         }
@@ -261,41 +241,26 @@ export class NudgeDeliveryService {
             console.error('[NudgeDelivery] Failed to record nudge:', error);
         }
     }
-    /**
-     * Update nudge status (delivered, clicked, converted)
-     */
     async updateNudgeStatus(nudgeId, status, error) {
         try {
             const updateData = { status };
-            switch (status) {
-                case 'delivered':
-                    updateData.deliveredAt = new Date();
-                    break;
-                case 'clicked':
-                    updateData.clickedAt = new Date();
-                    break;
-                case 'converted':
-                    updateData.convertedAt = new Date();
-                    break;
-                case 'failed':
-                    updateData.error = error;
-                    break;
-            }
-            await prisma.nudge.update({
-                where: { id: nudgeId },
-                data: updateData,
-            });
+            if (status === 'delivered')
+                updateData.deliveredAt = new Date();
+            if (status === 'clicked')
+                updateData.clickedAt = new Date();
+            if (status === 'converted')
+                updateData.convertedAt = new Date();
+            if (status === 'failed' && error)
+                updateData.error = error;
+            await Nudge.updateOne({ _id: nudgeId }, { $set: updateData });
             console.log('[NudgeDelivery] Nudge status updated:', { nudgeId, status });
         }
         catch (error) {
             console.error('[NudgeDelivery] Failed to update nudge status:', error);
         }
     }
-    /**
-     * Get nudge statistics
-     */
     async getNudgeStats() {
-        const nudges = await prisma.nudge.findMany();
+        const nudges = await Nudge.find();
         const byStatus = {};
         const byChannel = {};
         let converted = 0;
@@ -312,25 +277,8 @@ export class NudgeDeliveryService {
             conversionRate: nudges.length > 0 ? converted / nudges.length : 0,
         };
     }
-    /**
-     * Get user preferences for channel selection
-     */
-    async getUserPreferences(userId) {
-        try {
-            // Try to get from Prisma if user model exists
-            const user = await prisma.user?.findUnique({
-                where: { id: userId },
-                select: { preferredChannel: true, email: true, phone: true },
-            });
-            return user || {};
-        }
-        catch {
-            return {};
-        }
-    }
     // ── Private Helpers ────────────────────────────────────────────────────────
     registerDefaultHandlers() {
-        // Push notification via notification service
         this.channelHandlers.set('push', {
             send: async (params) => {
                 try {
@@ -343,11 +291,8 @@ export class NudgeDeliveryService {
                 }
             },
         });
-        // Email via notification service (uses email field from user data)
         this.channelHandlers.set('email', {
             send: async (params) => {
-                // In production, this would send actual email
-                // For now, log and publish to notification service
                 console.log('[NudgeDelivery] Email notification:', {
                     userId: params.userId,
                     message: params.message,
@@ -356,10 +301,8 @@ export class NudgeDeliveryService {
                 return { success: true };
             },
         });
-        // SMS via notification service
         this.channelHandlers.set('sms', {
             send: async (params) => {
-                // In production, this would send actual SMS
                 console.log('[NudgeDelivery] SMS notification:', {
                     userId: params.userId,
                     message: params.message,
@@ -368,7 +311,6 @@ export class NudgeDeliveryService {
                 return { success: true };
             },
         });
-        // In-app message via shared memory pub/sub
         this.channelHandlers.set('in_app', {
             send: async (params) => {
                 console.log('[NudgeDelivery] In-app message:', params);
@@ -390,18 +332,7 @@ export class NudgeDeliveryService {
         }
         return templates['push'];
     }
-    selectBestChannel(user) {
-        if (user?.preferredChannel) {
-            return user.preferredChannel;
-        }
-        if (user?.email)
-            return 'email';
-        if (user?.phone)
-            return 'sms';
-        return 'push';
-    }
     renderTemplate(templates, channel, intent, suggestedNudge) {
-        // Use suggested nudge if provided
         if (suggestedNudge)
             return suggestedNudge;
         const template = templates[Math.floor(Math.random() * templates.length)];
@@ -431,6 +362,5 @@ export class NudgeDeliveryService {
         }
     }
 }
-// ── Singleton ────────────────────────────────────────────────────────────────
 export const nudgeDeliveryService = new NudgeDeliveryService();
 //# sourceMappingURL=NudgeDeliveryService.js.map

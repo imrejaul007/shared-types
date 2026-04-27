@@ -2,8 +2,10 @@
 // Webhook handlers for external events that trigger intent actions
 
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { intentCaptureService } from '../services/IntentCaptureService.js';
 import { dormantIntentService } from '../services/DormantIntentService.js';
+import { Nudge } from '../models/index.js';
 
 const logger = {
   info: (msg: string, meta?: Record<string, unknown>) => console.log(`[Webhook] ${msg}`, meta || ''),
@@ -16,11 +18,22 @@ const logger = {
 function verifyWebhookSecret(req: Request): boolean {
   const secret = process.env.INTENT_WEBHOOK_SECRET;
   if (!secret) {
-    logger.warn('[Webhook] No webhook secret configured');
-    return true; // Allow in development
+    // In production, reject if no secret is configured
+    if (process.env.NODE_ENV === 'production') {
+      logger.error('[Webhook] Production webhook received but no INTENT_WEBHOOK_SECRET configured');
+      return false;
+    }
+    logger.warn('[Webhook] No webhook secret configured — allowing (dev mode only)');
+    return true;
   }
   const webhookSecret = req.headers['x-webhook-secret'] as string;
-  return webhookSecret === secret;
+  if (!webhookSecret || webhookSecret !== secret) {
+    logger.warn('[Webhook] Invalid or missing webhook secret', {
+      hasHeader: !!webhookSecret,
+    });
+    return false;
+  }
+  return true;
 }
 
 // ── Hotel OTA Events ───────────────────────────────────────────────────────────
@@ -272,9 +285,16 @@ export async function handleNudgeDelivered(req: Request, res: Response): Promise
     return;
   }
 
-  // TODO: Implement with Prisma Nudge model update
-  logger.info('[Webhook] Nudge delivered event', { nudgeId });
-  res.json({ success: true, message: 'Nudge delivery recorded' });
+  try {
+    await Nudge.findByIdAndUpdate(nudgeId, {
+      $set: { status: 'delivered', deliveredAt: new Date() },
+    });
+    logger.info('[Webhook] Nudge delivered event', { nudgeId });
+    res.json({ success: true, message: 'Nudge delivery recorded' });
+  } catch (error) {
+    logger.error('[Webhook] Nudge delivered update failed', { nudgeId, error });
+    res.status(500).json({ error: 'Failed to update nudge status' });
+  }
 }
 
 /**
@@ -294,9 +314,16 @@ export async function handleNudgeClicked(req: Request, res: Response): Promise<v
     return;
   }
 
-  // TODO: Implement with Prisma Nudge model update
-  logger.info('[Webhook] Nudge clicked event', { nudgeId });
-  res.json({ success: true, message: 'Nudge click recorded' });
+  try {
+    await Nudge.findByIdAndUpdate(nudgeId, {
+      $set: { status: 'clicked', clickedAt: new Date() },
+    });
+    logger.info('[Webhook] Nudge clicked event', { nudgeId });
+    res.json({ success: true, message: 'Nudge click recorded' });
+  } catch (error) {
+    logger.error('[Webhook] Nudge clicked update failed', { nudgeId, error });
+    res.status(500).json({ error: 'Failed to update nudge status' });
+  }
 }
 
 /**
@@ -317,7 +344,9 @@ export async function handleNudgeConverted(req: Request, res: Response): Promise
   }
 
   try {
-    // TODO: Implement with Prisma Nudge model update
+    await Nudge.findByIdAndUpdate(nudgeId, {
+      $set: { status: 'converted', convertedAt: new Date() },
+    });
     logger.info('[Webhook] Nudge converted event', { nudgeId, dormantIntentId });
     if (dormantIntentId) {
       await dormantIntentService.markRevived(dormantIntentId);

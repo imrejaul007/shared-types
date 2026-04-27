@@ -1,9 +1,10 @@
 // ── Agent Integration Test Suite ────────────────────────────────────────────────
 // Tests autonomous agent actions and Commerce Memory integration
+// Uses MongoDB (replaces Prisma)
 
-import { PrismaClient } from '@prisma/client';
+import { connectDB } from '../database/mongodb.js';
+import { Intent, DormantIntent, CrossAppIntentProfile } from '../models/index.js';
 import {
-  // Agents
   runDemandSignalAgent,
   runScarcityAgent,
   runPersonalizationAgent,
@@ -12,17 +13,13 @@ import {
   runFeedbackLoopAgent,
   runNetworkEffectAgent,
   runRevenueAttributionAgent,
-  // Actions
   actionExecutor,
   handleDemandSignalAction,
   handleScarcitySignalAction,
   handleOptimizationAction,
   triggerAutoRevival,
-  // Memory
   sharedMemory,
-} from '../index.js';
-
-const prisma = new PrismaClient();
+} from '../agents/index.js';
 
 const logger = {
   info: (msg: string, meta?: Record<string, unknown>) => console.log(`[TEST] ${msg}`, meta || ''),
@@ -83,7 +80,7 @@ async function testAttributionAgent(): Promise<void> {
   logger.info('Attribution results', result.data as Record<string, unknown>);
 }
 
-// ── Test: Adaptive Scoring Agent ───────────────────────────────────────────
+// ── Test: Adaptive Scoring Agent ────────────────────────────────────────────
 
 async function testAdaptiveScoringAgent(): Promise<void> {
   const result = await runAdaptiveScoringAgent();
@@ -107,7 +104,7 @@ async function testRevenueAgent(): Promise<void> {
   logger.info('Revenue attribution results', result.data as Record<string, unknown>);
 }
 
-// ── Test: Feedback Loop Agent ─────────────────────────────────────────────
+// ── Test: Feedback Loop Agent ──────────────────────────────────────────────
 
 async function testFeedbackLoopAgent(): Promise<void> {
   const result = await runFeedbackLoopAgent();
@@ -174,43 +171,35 @@ async function testOptimizationAction(): Promise<void> {
 // ── Test: Auto Revival Trigger ───────────────────────────────────────────
 
 async function testAutoRevival(): Promise<void> {
-  // First create a dormant intent
   const userId = `test-user-${Date.now()}`;
   const intentKey = `test-intent-${Date.now()}`;
 
-  // Create test intent
-  await prisma.intent.upsert({
-    where: { id: `test-${intentKey}` },
-    create: {
-      id: `test-${intentKey}`,
-      userId,
-      appType: 'hotel_ota',
-      category: 'TRAVEL',
-      intentKey,
-      confidence: 0.5,
-      status: 'DORMANT',
-    },
-    update: {},
+  // Create test intent via MongoDB
+  const intent = await Intent.create({
+    userId,
+    appType: 'hotel_ota',
+    category: 'TRAVEL',
+    intentKey,
+    intentQuery: 'test query',
+    confidence: 0.5,
+    status: 'DORMANT',
+    signals: [],
   });
 
-  // Create dormant intent
-  await prisma.dormantIntent.upsert({
-    where: { id: `test-dormant-${intentKey}` },
-    create: {
-      id: `test-dormant-${intentKey}`,
-      intentId: `test-${intentKey}`,
-      userId,
-      appType: 'hotel_ota',
-      category: 'TRAVEL',
-      intentKey,
-      dormancyScore: 0.5,
-      revivalScore: 0.7,
-      daysDormant: 10,
-    },
-    update: {},
+  // Create dormant intent via MongoDB
+  await DormantIntent.create({
+    intentId: intent._id,
+    userId,
+    appType: 'hotel_ota',
+    category: 'TRAVEL',
+    intentKey,
+    dormancyScore: 0.5,
+    revivalScore: 0.7,
+    daysDormant: 10,
+    status: 'active',
   });
 
-  const success = await triggerAutoRevival(userId, `test-dormant-${intentKey}`, 'Test reminder message');
+  const success = await triggerAutoRevival(userId, intent._id.toString(), 'Test reminder message');
   if (!success) throw new Error('Auto revival failed');
   logger.info('Auto revival triggered', { userId, intentKey });
 }
@@ -221,16 +210,12 @@ async function testSharedMemory(): Promise<void> {
   const testKey = `test-${Date.now()}`;
   const testValue = { data: 'test-value', timestamp: Date.now() };
 
-  // Set
   await sharedMemory.set(testKey, testValue, 3600);
-
-  // Get
   const retrieved = await sharedMemory.get<typeof testValue>(testKey);
   if (!retrieved || retrieved.data !== testValue.data) {
     throw new Error('Memory set/get failed');
   }
 
-  // Stats
   const stats = await sharedMemory.stats();
   logger.info('Memory stats', stats);
 }
@@ -255,7 +240,6 @@ async function testActionExecutor(): Promise<void> {
   if (!success) throw new Error('Action executor failed');
   logger.info('Action executed successfully');
 
-  // Verify history
   const history = actionExecutor.getHistory(10);
   if (history.length === 0) throw new Error('Action not recorded in history');
 }
@@ -265,35 +249,34 @@ async function testActionExecutor(): Promise<void> {
 async function testCommerceMemoryAPI(): Promise<void> {
   const testUserId = `test-user-${Date.now()}`;
 
-  // Create test user profile
-  await prisma.crossAppIntentProfile.upsert({
-    where: { userId: testUserId },
-    create: {
-      userId: testUserId,
-      travelIntentCount: 5,
-      diningIntentCount: 3,
-      retailIntentCount: 2,
-      totalConversions: 4,
-      travelAffinity: 60,
-      diningAffinity: 30,
-      retailAffinity: 10,
+  // Create test user profile via MongoDB
+  await CrossAppIntentProfile.findOneAndUpdate(
+    { userId: testUserId },
+    {
+      $set: {
+        userId: testUserId,
+        travelIntentCount: 5,
+        diningIntentCount: 3,
+        retailIntentCount: 2,
+        totalConversions: 4,
+        travelAffinity: 60,
+        diningAffinity: 30,
+        retailAffinity: 10,
+      },
     },
-    update: {},
-  });
+    { upsert: true, new: true }
+  );
 
-  // Create test intent
-  await prisma.intent.upsert({
-    where: { id: `test-intent-${testUserId}` },
-    create: {
-      id: `test-intent-${testUserId}`,
-      userId: testUserId,
-      appType: 'hotel_ota',
-      category: 'TRAVEL',
-      intentKey: 'hotel_goa_weekend',
-      confidence: 0.75,
-      status: 'ACTIVE',
-    },
-    update: {},
+  // Create test intent via MongoDB
+  await Intent.create({
+    userId: testUserId,
+    appType: 'hotel_ota',
+    category: 'TRAVEL',
+    intentKey: 'hotel_goa_weekend',
+    intentQuery: 'Goa beach resorts',
+    confidence: 0.75,
+    status: 'ACTIVE',
+    signals: [],
   });
 
   logger.info('Commerce Memory API test data created', { userId: testUserId });
@@ -304,7 +287,7 @@ async function testCommerceMemoryAPI(): Promise<void> {
 async function testAllAgents(): Promise<void> {
   logger.info('Running all agents in parallel...');
 
-  const results = await Promise.allSettled([
+  const agentsResults = await Promise.allSettled([
     runDemandSignalAgent(),
     runScarcityAgent(),
     runPersonalizationAgent(),
@@ -315,9 +298,11 @@ async function testAllAgents(): Promise<void> {
     runFeedbackLoopAgent(),
   ]);
 
-  const failures = results.filter((r) => r.status === 'rejected' || !('value' in r) || !r.value.success);
+  const failures = agentsResults.filter(
+    (r) => r.status === 'rejected' || !('value' in r) || !r.value.success
+  );
   if (failures.length > 0) {
-    throw new Error(`${failures.length}/${results.length} agents failed`);
+    throw new Error(`${failures.length}/${agentsResults.length} agents failed`);
   }
 
   logger.info('All 8 agents completed successfully');
@@ -330,8 +315,11 @@ async function main(): Promise<void> {
   console.log('  RTMN Commerce Memory - Agent Integration Test Suite');
   console.log('═══════════════════════════════════════════════════════════════\n');
 
+  // Connect to MongoDB first
+  await connectDB();
+  console.log('✅ MongoDB connected\n');
+
   try {
-    // Agent Tests
     await runTest('Demand Signal Agent', testDemandSignalAgent);
     await runTest('Scarcity Agent', testScarcityAgent);
     await runTest('Personalization Agent', testPersonalizationAgent);
@@ -341,24 +329,20 @@ async function main(): Promise<void> {
     await runTest('Revenue Attribution Agent', testRevenueAgent);
     await runTest('Feedback Loop Agent', testFeedbackLoopAgent);
 
-    // Action Trigger Tests
     await runTest('Demand Signal Action', testDemandSignalAction);
     await runTest('Scarcity Signal Action', testScarcitySignalAction);
     await runTest('Optimization Action', testOptimizationAction);
     await runTest('Auto Revival', testAutoRevival);
 
-    // Infrastructure Tests
     await runTest('Shared Memory Operations', testSharedMemory);
     await runTest('Action Executor', testActionExecutor);
     await runTest('Commerce Memory API Setup', testCommerceMemoryAPI);
 
-    // Integration Test
     await runTest('All Agents Together', testAllAgents);
   } catch (error) {
     logger.fail('Test suite', error);
   }
 
-  // Summary
   console.log('\n═══════════════════════════════════════════════════════════════');
   console.log('  Test Summary');
   console.log('═══════════════════════════════════════════════════════════════');
@@ -381,9 +365,8 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Cleanup
-  await prisma.$disconnect();
   console.log('Test suite complete!\n');
+  process.exit(0);
 }
 
 main().catch((error) => {

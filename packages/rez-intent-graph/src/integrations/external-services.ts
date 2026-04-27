@@ -4,6 +4,7 @@
 // Includes retry + circuit breaker for resilient autonomous operations
 
 import { sharedMemory } from '../agents/shared-memory.js';
+import { SERVICE_URLS } from '../config/services.js';
 
 const logger = {
   info: (msg: string, meta?: Record<string, unknown>) => console.log(`[ExternalServices] ${msg}`, meta || ''),
@@ -11,25 +12,8 @@ const logger = {
   error: (msg: string, meta?: Record<string, unknown>) => console.error(`[ExternalServices] ${msg}`, meta || ''),
 };
 
-// ── Service URLs (from environment - SOURCE OF TRUTH) ──────────────────────────────
-// Production URLs from SOURCE-OF-TRUTH/ENV-VARS.md
-
-const SERVICES = {
-  wallet: process.env.WALLET_SERVICE_URL || 'https://rez-wallet-service-36vo.onrender.com',
-  monolith: process.env.MONOLITH_URL || 'https://rez-backend-8dfu.onrender.com',
-  order: process.env.ORDER_SERVICE_URL || 'https://rez-order-service-hz18.onrender.com',
-  payment: process.env.PAYMENT_SERVICE_URL || 'https://rez-payment-service.onrender.com',
-  merchant: process.env.MERCHANT_SERVICE_URL || 'https://rez-merchant-service-n3q2.onrender.com',
-  notification: process.env.NOTIFICATION_SERVICE_URL || 'https://rez-notification-events-mwdz.onrender.com',
-  auth: process.env.AUTH_SERVICE_URL || 'https://rez-auth-service.onrender.com',
-  catalog: process.env.CATALOG_SERVICE_URL || 'https://rez-catalog-service-1.onrender.com',
-  search: process.env.SEARCH_SERVICE_URL || 'https://rez-search-service.onrender.com',
-  marketing: process.env.MARKETING_SERVICE_URL || 'https://rez-marketing-service.onrender.com',
-  gamification: process.env.GAMIFICATION_SERVICE_URL || 'https://rez-gamification-service-3b5d.onrender.com',
-  ads: process.env.ADS_SERVICE_URL || 'https://rez-ads-service.onrender.com',
-  pms: process.env.PMS_SERVICE_URL || 'https://rez-pms-service.onrender.com',
-  analytics: process.env.ANALYTICS_SERVICE_URL || 'https://analytics-events-37yy.onrender.com',
-};
+// ── Service URLs — sourced from src/config/services.ts ──────────────────────────────
+const SERVICES = SERVICE_URLS;
 
 // ── Circuit Breaker Configuration ───────────────────────────────────────────────
 

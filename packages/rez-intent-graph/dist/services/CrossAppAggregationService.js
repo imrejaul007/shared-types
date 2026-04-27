@@ -1,48 +1,48 @@
-// ── Cross-App Aggregation Service ───────────────────────────────────────────────
-// Aggregates intent data across apps for unified user profiles
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+/**
+ * Cross-App Aggregation Service - MongoDB
+ * Aggregates user intent data across all ReZ apps
+ */
+import { Intent, CrossAppIntentProfile, DormantIntent } from '../models/index.js';
+/**
+ * Cross-App Aggregation Service - MongoDB Implementation
+ */
 export class CrossAppAggregationService {
     /**
-     * Get or create cross-app profile for a user
+     * Get or create cross-app profile for user
      */
     async getProfile(userId) {
-        return (await prisma.crossAppIntentProfile.upsert({
-            where: { userId },
-            create: { userId },
-            update: {},
-        }));
+        let profile = await CrossAppIntentProfile.findOne({ userId });
+        if (!profile) {
+            profile = await CrossAppIntentProfile.create({ userId });
+        }
+        return profile;
     }
     /**
      * Get enriched context for an agent (active + dormant intents)
      */
     async getEnrichedContext(userId) {
         // Fetch active intents
-        const activeIntents = await prisma.intent.findMany({
-            where: { userId, status: 'ACTIVE' },
-            orderBy: { lastSeenAt: 'desc' },
-            take: 10,
-        });
+        const activeIntents = await Intent.find({ userId, status: 'ACTIVE' })
+            .sort({ lastSeenAt: -1 })
+            .limit(10);
         // Fetch dormant intents with revival candidates
-        const dormantIntents = await prisma.dormantIntent.findMany({
-            where: { userId, status: 'active' },
-            orderBy: { revivalScore: 'desc' },
-            take: 5,
-        });
+        const dormantIntents = await DormantIntent.find({ userId, status: 'active' })
+            .sort({ revivalScore: -1 })
+            .limit(5);
         // Fetch cross-app profile
         const profile = await this.getProfile(userId);
         // Build active intents list
         const activeList = activeIntents.map((i) => ({
             category: i.category,
             key: i.intentKey,
-            confidence: Number(i.confidence),
+            confidence: i.confidence,
             lastSeen: i.lastSeenAt,
         }));
         // Build dormant intents list
         const dormantList = dormantIntents.map((di) => ({
             category: di.category,
             key: di.intentKey,
-            revivalScore: Number(di.revivalScore),
+            revivalScore: di.revivalScore,
             daysDormant: di.daysDormant,
         }));
         // Generate nudge suggestions
@@ -57,12 +57,12 @@ export class CrossAppAggregationService {
     /**
      * Generate nudge suggestions based on dormant intents and profile
      */
-    generateNudgeSuggestions(dormantIntents, profile) {
+    generateNudgeSuggestions(dormantIntents, _profile) {
         return dormantIntents
             .filter((di) => di.revivalScore >= 0.3)
             .map((di) => {
             let priority;
-            const score = Number(di.revivalScore);
+            const score = di.revivalScore;
             if (score >= 0.7)
                 priority = 'high';
             else if (score >= 0.5)
@@ -102,63 +102,131 @@ export class CrossAppAggregationService {
         return templates[Math.floor(Math.random() * templates.length)];
     }
     /**
+     * Sync cross-app profile with current intents
+     */
+    async syncCrossAppProfile(userId) {
+        // Count intents by category and status
+        const intents = await Intent.aggregate([
+            { $match: { userId } },
+            {
+                $group: {
+                    _id: { category: '$category', status: '$status' },
+                    count: { $sum: 1 },
+                },
+            },
+        ]);
+        // Build count maps
+        const categoryCounts = { TRAVEL: 0, DINING: 0, RETAIL: 0 };
+        const dormantCounts = { TRAVEL: 0, DINING: 0, RETAIL: 0 };
+        const conversionCounts = { TRAVEL: 0, DINING: 0, RETAIL: 0 };
+        for (const item of intents) {
+            const cat = item._id.category;
+            if (item._id.status === 'DORMANT') {
+                dormantCounts[cat] = item.count;
+            }
+            else if (item._id.status === 'FULFILLED') {
+                conversionCounts[cat] = item.count;
+            }
+            else {
+                categoryCounts[cat] += item.count;
+            }
+        }
+        const total = categoryCounts.TRAVEL + categoryCounts.DINING + categoryCounts.RETAIL || 1;
+        const totalConversions = conversionCounts.TRAVEL + conversionCounts.DINING + conversionCounts.RETAIL;
+        // Calculate affinities (0-100)
+        const travelAffinity = Math.round(((categoryCounts.TRAVEL + dormantCounts.TRAVEL) / (total * 2)) * 100);
+        const diningAffinity = Math.round(((categoryCounts.DINING + dormantCounts.DINING) / (total * 2)) * 100);
+        const retailAffinity = Math.round(((categoryCounts.RETAIL + dormantCounts.RETAIL) / (total * 2)) * 100);
+        // Update profile
+        const profile = await CrossAppIntentProfile.findOneAndUpdate({ userId }, {
+            $set: {
+                travelIntentCount: categoryCounts.TRAVEL,
+                diningIntentCount: categoryCounts.DINING,
+                retailIntentCount: categoryCounts.RETAIL,
+                dormantTravelCount: dormantCounts.TRAVEL,
+                dormantDiningCount: dormantCounts.DINING,
+                dormantRetailCount: dormantCounts.RETAIL,
+                totalConversions,
+                travelAffinity,
+                diningAffinity,
+                retailAffinity,
+                updatedAt: new Date(),
+            },
+        }, { upsert: true, new: true });
+        return profile;
+    }
+    /**
+     * Get user affinity profile
+     */
+    async getUserAffinityProfile(userId) {
+        const profile = await this.getProfile(userId);
+        const dominantCategory = this.getDominantCategory(profile);
+        return {
+            userId,
+            travelAffinity: profile.travelAffinity,
+            diningAffinity: profile.diningAffinity,
+            retailAffinity: profile.retailAffinity,
+            dominantCategory,
+            totalIntents: profile.travelIntentCount +
+                profile.diningIntentCount +
+                profile.retailIntentCount,
+            dormantIntents: profile.dormantTravelCount +
+                profile.dormantDiningCount +
+                profile.dormantRetailCount,
+            conversions: profile.totalConversions,
+        };
+    }
+    /**
+     * Determine dominant category
+     */
+    getDominantCategory(profile) {
+        const { travelAffinity, diningAffinity, retailAffinity } = profile;
+        const max = Math.max(travelAffinity, diningAffinity, retailAffinity);
+        const threshold = 20;
+        const scores = [
+            { cat: 'TRAVEL', score: travelAffinity },
+            { cat: 'DINING', score: diningAffinity },
+            { cat: 'RETAIL', score: retailAffinity },
+        ];
+        const sorted = scores.sort((a, b) => b.score - a.score);
+        if (sorted[0].score - sorted[1].score >= threshold) {
+            return sorted[0].cat;
+        }
+        return 'MIXED';
+    }
+    /**
      * Aggregate demand signals for merchants
      */
     async aggregateMerchantDemand(merchantId, category, timeRangeDays = 30) {
         const since = new Date(Date.now() - timeRangeDays * 24 * 60 * 60 * 1000);
-        const intents = await prisma.intent.findMany({
-            where: {
-                category,
-                firstSeenAt: { gte: since },
-                status: { in: ['ACTIVE', 'DORMANT'] },
-            },
-            select: {
-                intentKey: true,
-                confidence: true,
-                status: true,
-            },
-        });
-        const fulfilledCount = await prisma.intent.count({
-            where: {
-                category,
-                status: 'FULFILLED',
-                lastSeenAt: { gte: since },
-            },
+        const intents = await Intent.find({
+            merchantId,
+            category,
+            firstSeenAt: { $gte: since },
+            status: { $in: ['ACTIVE', 'DORMANT'] },
+        }).select('intentKey confidence status');
+        const fulfilledCount = await Intent.countDocuments({
+            merchantId,
+            category,
+            status: 'FULFILLED',
+            lastSeenAt: { $gte: since },
         });
         const totalCount = intents.length;
         const unmetDemandPct = totalCount > 0
             ? ((totalCount - fulfilledCount) / totalCount) * 100
             : 0;
         const avgConfidence = totalCount > 0
-            ? intents.reduce((sum, i) => sum + Number(i.confidence), 0) / totalCount
+            ? intents.reduce((sum, i) => sum + i.confidence, 0) / totalCount
             : 0;
         // Group by intent key
-        const intentCounts = intents.reduce((acc, i) => {
-            acc[i.intentKey] = (acc[i.intentKey] || 0) + 1;
-            return acc;
-        }, {});
+        const intentCounts = {};
+        for (const i of intents) {
+            intentCounts[i.intentKey] = (intentCounts[i.intentKey] || 0) + 1;
+        }
         const topIntentKeys = Object.entries(intentCounts)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 10)
             .map(([key]) => key);
-        // Update or create merchant demand signal
-        await prisma.merchantDemandSignal.upsert({
-            where: { merchantId_category: { merchantId, category } },
-            create: {
-                merchantId,
-                category,
-                demandCount: totalCount,
-                unmetDemandPct,
-                topCities: [],
-                trend: this.calculateTrend(totalCount, category),
-            },
-            update: {
-                demandCount: totalCount,
-                unmetDemandPct,
-                trend: this.calculateTrend(totalCount, category),
-                lastAggregated: new Date(),
-            },
-        });
         return {
             demandCount: totalCount,
             unmetDemandPct,
@@ -167,32 +235,75 @@ export class CrossAppAggregationService {
         };
     }
     /**
-     * Calculate demand trend
-     */
-    calculateTrend(count, category) {
-        // Simple heuristic: would need historical data for accurate trend
-        // For now, return stable
-        return 'stable';
-    }
-    /**
      * Get user affinity scores across categories
      */
     async getUserAffinities(userId) {
         const profile = await this.getProfile(userId);
-        const travel = profile.travelAffinity;
-        const dining = profile.diningAffinity;
-        const retail = profile.retailAffinity;
-        const categories = [
-            { category: 'TRAVEL', score: travel },
-            { category: 'DINING', score: dining },
-            { category: 'RETAIL', score: retail },
-        ];
-        const dominant = categories.reduce((max, c) => (c.score > max.score ? c : max));
+        const dominant = this.getDominantCategory(profile);
         return {
-            travel,
-            dining,
-            retail,
-            dominantCategory: dominant.category,
+            travel: profile.travelAffinity,
+            dining: profile.diningAffinity,
+            retail: profile.retailAffinity,
+            dominantCategory: dominant,
+        };
+    }
+    /**
+     * Get users by affinity (for segmentation)
+     */
+    async getUsersByAffinity(category, minAffinity = 70) {
+        const affinityField = `${category.toLowerCase()}Affinity`;
+        const profiles = await CrossAppIntentProfile.find({
+            [affinityField]: { $gte: minAffinity },
+        }).select('userId');
+        return profiles.map((p) => p.userId);
+    }
+    /**
+     * Batch sync profiles (for cron job)
+     */
+    async batchSyncProfiles(userIds) {
+        let synced = 0;
+        for (const userId of userIds) {
+            try {
+                await this.syncCrossAppProfile(userId);
+                synced++;
+            }
+            catch (error) {
+                console.error(`Failed to sync profile for ${userId}:`, error);
+            }
+        }
+        return synced;
+    }
+    /**
+     * Get cross-app summary for dashboard
+     */
+    async getCrossAppSummary() {
+        const [userCount, avgAffinities, categoryStats] = await Promise.all([
+            CrossAppIntentProfile.countDocuments(),
+            CrossAppIntentProfile.aggregate([
+                {
+                    $group: {
+                        _id: null,
+                        avgTravel: { $avg: '$travelAffinity' },
+                        avgDining: { $avg: '$diningAffinity' },
+                        avgRetail: { $avg: '$retailAffinity' },
+                    },
+                },
+            ]),
+            Intent.aggregate([
+                { $match: { status: 'ACTIVE' } },
+                { $group: { _id: '$category', count: { $sum: 1 } } },
+                { $sort: { count: -1 } },
+                { $limit: 5 },
+            ]),
+        ]);
+        return {
+            totalUsers: userCount,
+            avgAffinity: {
+                travel: Math.round(avgAffinities[0]?.avgTravel || 50),
+                dining: Math.round(avgAffinities[0]?.avgDining || 50),
+                retail: Math.round(avgAffinities[0]?.avgRetail || 50),
+            },
+            topCategories: categoryStats.map((c) => ({ category: c._id, count: c.count })),
         };
     }
 }

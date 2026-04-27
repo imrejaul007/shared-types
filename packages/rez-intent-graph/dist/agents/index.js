@@ -18,7 +18,7 @@ export { SwarmCoordinator, getSwarmCoordinator, startAllAgents, stopAllAgents, g
 // Autonomous Orchestrator
 export { AutonomousOrchestrator, getAutonomousOrchestrator, startAutonomousMode, stopAutonomousMode, executeAutonomousAction, } from './autonomous-orchestrator.js';
 // Action Trigger
-export { actionExecutor } from './action-trigger.js';
+export { actionExecutor, handleDemandSignalAction, handleScarcitySignalAction, handleOptimizationAction, triggerAutoRevival, } from './action-trigger.js';
 // Support Agent
 export { runSupportAgent, supportAgentConfig, handleSupportRequest, getSupportStats, } from './support-agent.js';
 //# sourceMappingURL=index.js.map

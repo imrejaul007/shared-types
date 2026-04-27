@@ -1,4 +1,6 @@
 // ── ReZ Mind - Agent Server ─────────────────────────────────────────────────────
+import 'dotenv/config';
+
 // Standalone Express server for running the ReZ Mind agent swarm
 // Part of ReZ Mind - AI-powered commerce intelligence platform
 // DANGEROUS: Full autonomous mode with skip-permission capabilities
@@ -59,15 +61,23 @@ import chatRouter from '../api/chat.routes.js';
 
 // ── WebSocket Server ──────────────────────────────────────────────────────────
 import { wsServer } from '../websocket/server.js';
+import { standardLimiter } from '../middleware/rateLimit.js';
 
 const app = express();
 const PORT = process.env.AGENT_PORT || 3005;
 
-// ── Enable Dangerous Mode on Server Start ──────────────────────────────────────
-console.log('🚨 DANGEROUS MODE: Enabling skip-permission capabilities on server startup');
-enableDangerousMode();
+// ── Dangerous Mode — only enable if explicitly configured ──────────────────────
+if (process.env.REZ_DANGEROUS_MODE === 'true') {
+  console.log('🚨 DANGEROUS MODE: Enabled via REZ_DANGEROUS_MODE env var');
+  enableDangerousMode();
+} else {
+  console.log('🛡️  Safe mode: dangerous mode disabled. Set REZ_DANGEROUS_MODE=true to enable.');
+}
 
 app.use(express.json());
+
+// Rate limiting - global standard limit
+app.use(standardLimiter);
 
 // ── Merchant Demand API (Phase 5) ────────────────────────────────────────────────
 app.use('/api/merchant', merchantRouter);
@@ -763,6 +773,7 @@ export function startAgentServer(): void {
 }
 
 // Start if run directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+const isMainModule = decodeURIComponent(import.meta.url) === `file://${process.argv[1]}`;
+if (isMainModule) {
   startAgentServer();
 }

@@ -3,12 +3,9 @@
 // Updates user profiles after each nudge, A/B tests variants, optimizes send times
 // DANGEROUS: Auto-adjusts channel preferences and send times
 
-import { PrismaClient } from '@prisma/client';
 import { sharedMemory } from './shared-memory.js';
 import { actionExecutor } from './action-trigger.js';
 import type { AgentConfig, AgentResult, UserResponseProfile } from './types.js';
-
-const prisma = new PrismaClient();
 
 const logger = {
   info: (msg: string, meta?: Record<string, unknown>) => console.log(`[PersonalizationAgent] ${msg}`, meta || ''),
@@ -46,37 +43,50 @@ function calculateRate(count: number, total: number): number {
 }
 
 // ── Build or update user profile ────────────────────────────────────────────────
+// Uses sharedMemory for nudge event data instead of raw SQL tables
 
 async function buildUserProfile(userId: string): Promise<UserResponseProfile> {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-  // Get all nudge events for user
-  const nudgeEvents = await prisma.$queryRaw<Array<{
-    id: string;
-    user_id: string;
+  // Get nudge events from sharedMemory
+  const nudgeKeys = await sharedMemory.keys(`nudge:${userId}:*`);
+  const nudgeEvents: Array<{
+    nudgeId: string;
     channel: string;
-    status: string;
-    sent_at: Date;
-  }>>`
-    SELECT id, user_id, channel, status, sent_at
-    FROM nudge_events
-    WHERE user_id = ${userId}
-    AND sent_at >= ${thirtyDaysAgo}
-  `;
+    timestamp: Date;
+    eventType: string;
+  }> = [];
 
-  // Get conversions
-  const conversions = await prisma.$queryRaw<Array<{
-    nudge_id: string;
-    user_id: string;
-    converted_at: Date;
-  }>>`
-    SELECT nudge_id, user_id, converted_at
-    FROM nudge_conversions
-    WHERE user_id = ${userId}
-    AND converted_at >= ${thirtyDaysAgo}
-  `;
+  for (const key of nudgeKeys) {
+    const event = await sharedMemory.get<{
+      nudgeId: string;
+      channel: string;
+      timestamp: string;
+      eventType?: string;
+    }>(key);
+    if (event && event.timestamp) {
+      const timestamp = new Date(event.timestamp);
+      if (timestamp >= thirtyDaysAgo) {
+        nudgeEvents.push({
+          nudgeId: event.nudgeId,
+          channel: event.channel,
+          timestamp,
+          eventType: event.eventType || 'sent',
+        });
+      }
+    }
+  }
 
-  const conversionNudgeIds = new Set(conversions.map((c) => c.nudge_id));
+  // Get conversions from sharedMemory
+  const conversionKeys = await sharedMemory.keys(`conversion:${userId}:*`);
+  const conversionNudgeIds = new Set<string>();
+
+  for (const key of conversionKeys) {
+    const conversion = await sharedMemory.get<{ nudgeId: string }>(key);
+    if (conversion?.nudgeId) {
+      conversionNudgeIds.add(conversion.nudgeId);
+    }
+  }
 
   // Calculate rates per channel
   const channelStats = new Map<Channel, { delivered: number; opened: number; clicked: number; converted: number }>();
@@ -89,7 +99,7 @@ async function buildUserProfile(userId: string): Promise<UserResponseProfile> {
     const stats = channelStats.get(channel)!;
     stats.delivered++;
 
-    if (conversionNudgeIds.has(event.id)) {
+    if (conversionNudgeIds.has(event.nudgeId)) {
       stats.converted++;
     }
   }
@@ -109,13 +119,13 @@ async function buildUserProfile(userId: string): Promise<UserResponseProfile> {
   // Calculate optimal send times (hour of day)
   const sendTimes = new Map<number, { sends: number; conversions: number }>();
   for (const event of nudgeEvents) {
-    const hour = event.sent_at.getHours();
+    const hour = event.timestamp.getHours();
     if (!sendTimes.has(hour)) {
       sendTimes.set(hour, { sends: 0, conversions: 0 });
     }
     const times = sendTimes.get(hour)!;
     times.sends++;
-    if (conversionNudgeIds.has(event.id)) {
+    if (conversionNudgeIds.has(event.nudgeId)) {
       times.conversions++;
     }
   }
@@ -137,7 +147,7 @@ async function buildUserProfile(userId: string): Promise<UserResponseProfile> {
   const preferredChannels = channelConversions.slice(0, 2).map((c) => c.channel);
 
   // Calculate average session value
-  const avgSessionValue = conversions.length > 0 ? await calculateAvgSessionValue(userId) : 0;
+  const avgSessionValue = await calculateAvgSessionValue(userId, conversionNudgeIds.size);
 
   // Determine tone preference
   const tonePreference = determineTonePreference(convertRates);
@@ -160,25 +170,17 @@ async function buildUserProfile(userId: string): Promise<UserResponseProfile> {
 
 // ── Calculate average session value ────────────────────────────────────────────
 
-async function calculateAvgSessionValue(userId: string): Promise<number> {
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+async function calculateAvgSessionValue(userId: string, conversionCount: number): Promise<number> {
+  // Get session values from sharedMemory order data
+  const orderKeys = await sharedMemory.keys(`order:${userId}:*`);
+  let totalValue = 0;
 
-  const sessions = await prisma.$queryRaw<Array<{ total: number }>>`
-    SELECT COALESCE(SUM(order_value), 0) as total
-    FROM user_sessions
-    WHERE user_id = ${userId}
-    AND session_date >= ${thirtyDaysAgo}
-  `;
-
-  const conversions = await prisma.$queryRaw<Array<{ count: number }>>`
-    SELECT COUNT(*) as count
-    FROM nudge_conversions
-    WHERE user_id = ${userId}
-    AND converted_at >= ${thirtyDaysAgo}
-  `;
-
-  const totalValue = Number(sessions[0]?.total || 0);
-  const conversionCount = Number(conversions[0]?.count || 0);
+  for (const key of orderKeys) {
+    const order = await sharedMemory.get<Record<string, unknown>>(key);
+    if (order) {
+      totalValue += (order.value as number) || (order.total as number) || 0;
+    }
+  }
 
   return conversionCount > 0 ? Math.round(totalValue / conversionCount) : 0;
 }
@@ -250,6 +252,15 @@ export async function selectOptimalVariant(
 export async function processNudgeEvent(event: NudgeEvent): Promise<void> {
   logger.info('Processing nudge event', { userId: event.userId, type: event.eventType });
 
+  // Store event in sharedMemory
+  await sharedMemory.set(`nudge:${event.userId}:${event.nudgeId}:${event.eventType}`, {
+    nudgeId: event.nudgeId,
+    channel: event.channel,
+    timestamp: event.timestamp.toISOString(),
+    eventType: event.eventType,
+    metadata: event.metadata,
+  }, 30 * 24 * 60 * 60);
+
   // Update profile asynchronously (non-blocking)
   buildUserProfile(event.userId).catch((err) => {
     logger.error('Failed to update user profile', { userId: event.userId, error: err });
@@ -259,6 +270,13 @@ export async function processNudgeEvent(event: NudgeEvent): Promise<void> {
   if (event.eventType === 'converted' && event.metadata?.intentKey) {
     const category = (event.metadata.category as string) || 'GENERAL';
     await sharedMemory.addTrendingIntent(event.metadata.intentKey as string, category);
+
+    // Record conversion
+    await sharedMemory.set(`conversion:${event.userId}:${event.nudgeId}`, {
+      nudgeId: event.nudgeId,
+      userId: event.userId,
+      timestamp: new Date().toISOString(),
+    }, 30 * 24 * 60 * 60);
   }
 
   // DANGEROUS: Trigger autonomous actions based on conversion patterns
@@ -322,35 +340,31 @@ async function triggerPersonalizationAction(event: NudgeEvent): Promise<void> {
 // ── A/B Test Result Analysis ──────────────────────────────────────────────────
 
 export async function analyzeABTestResults(): Promise<void> {
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  // Get A/B test results from sharedMemory
+  const variantKeys = await sharedMemory.keys('personalization:ab_test:*');
 
-  // Get A/B test results
-  const testResults = await prisma.$queryRaw<Array<{
-    variant_id: string;
-    channel: string;
-    tone: string;
-    sends: number;
-    conversions: number;
-  }>>`
-    SELECT
-      variant_id,
-      channel,
-      tone,
-      COUNT(*) as sends,
-      COUNT(CASE WHEN status = 'FULFILLED' THEN 1 END) as conversions
-    FROM nudge_events
-    WHERE sent_at >= ${sevenDaysAgo}
-    AND variant_id IS NOT NULL
-    GROUP BY variant_id, channel, tone
-  `;
+  // Group results by channel
+  const channelVariants = new Map<string, Array<{ variantId: string; sends: number; conversions: number }>>();
 
-  // Find winning variant per channel
-  const channelVariants = new Map<string, typeof testResults>();
-  for (const result of testResults) {
+  for (const key of variantKeys) {
+    const result = await sharedMemory.get<{
+      variantId: string;
+      channel: string;
+      tone: string;
+      sends: number;
+      conversions: number;
+    }>(key);
+
+    if (!result) continue;
+
     if (!channelVariants.has(result.channel)) {
       channelVariants.set(result.channel, []);
     }
-    channelVariants.get(result.channel)!.push(result);
+    channelVariants.get(result.channel)!.push({
+      variantId: result.variantId,
+      sends: result.sends,
+      conversions: result.conversions,
+    });
   }
 
   for (const [channel, variants] of channelVariants) {
@@ -372,7 +386,7 @@ export async function analyzeABTestResults(): Promise<void> {
     if (bestRate > 0.05) {
       logger.info('[PersonalizationAgent] DANGEROUS: Adopting winning variant', {
         channel,
-        variantId: bestVariant.variant_id,
+        variantId: bestVariant.variantId,
         rate: bestRate,
       });
 
@@ -381,7 +395,7 @@ export async function analyzeABTestResults(): Promise<void> {
         target: channel,
         payload: {
           strategyId: `ab_test:${channel}:losers`,
-          reason: `Variant ${bestVariant.variant_id} wins with ${(bestRate * 100).toFixed(1)}% conversion`,
+          reason: `Variant ${bestVariant.variantId} wins with ${(bestRate * 100).toFixed(1)}% conversion`,
         },
         agent: 'personalization-agent',
         skipPermission: true,
@@ -391,7 +405,7 @@ export async function analyzeABTestResults(): Promise<void> {
       // Store winning variant
       await sharedMemory.set(
         `personalization:winning_variant:${channel}`,
-        bestVariant.variant_id,
+        bestVariant.variantId,
         86400 * 7
       );
     }
@@ -406,12 +420,36 @@ export async function runPersonalizationAgent(): Promise<AgentResult> {
   try {
     logger.info('Running personalization update');
 
-    // Process any pending nudge events
-    const pendingEvents = await getPendingNudgeEvents();
+    // Process any pending nudge events stored in sharedMemory
+    const pendingEventKeys = await sharedMemory.keys('nudge:*:pending');
+    const pendingEvents: NudgeEvent[] = [];
+
+    for (const key of pendingEventKeys) {
+      const event = await sharedMemory.get<{
+        nudgeId: string;
+        userId: string;
+        channel: string;
+        eventType: string;
+        timestamp: string;
+        metadata?: Record<string, unknown>;
+      }>(key);
+
+      if (event) {
+        pendingEvents.push({
+          nudgeId: event.nudgeId,
+          userId: event.userId,
+          channel: event.channel as Channel,
+          eventType: event.eventType as NudgeEvent['eventType'],
+          timestamp: new Date(event.timestamp),
+          metadata: event.metadata,
+        });
+      }
+    }
 
     for (const event of pendingEvents) {
       await processNudgeEvent(event);
-      await markEventProcessed(event.nudgeId, event.eventType);
+      // Remove from pending
+      await sharedMemory.delete(`nudge:${event.userId}:${event.nudgeId}:pending`);
     }
 
     logger.info('Personalization update complete', { events: pendingEvents.length });
@@ -430,53 +468,6 @@ export async function runPersonalizationAgent(): Promise<AgentResult> {
       durationMs: Date.now() - start,
       error: String(error),
     };
-  }
-}
-
-// ── Get pending events ─────────────────────────────────────────────────────────
-
-async function getPendingNudgeEvents(): Promise<NudgeEvent[]> {
-  try {
-    const events = await prisma.$queryRaw<Array<{
-      nudge_id: string;
-      user_id: string;
-      channel: string;
-      event_type: string;
-      timestamp: Date;
-      metadata: Record<string, unknown>;
-    }>>`
-      SELECT nudge_id, user_id, channel, event_type, timestamp, metadata
-      FROM nudge_events_pending
-      WHERE processed = false
-      ORDER BY timestamp ASC
-      LIMIT 100
-    `;
-
-    return events.map((e) => ({
-      nudgeId: e.nudge_id,
-      userId: e.user_id,
-      channel: e.channel as Channel,
-      eventType: e.event_type as NudgeEvent['eventType'],
-      timestamp: e.timestamp,
-      metadata: e.metadata,
-    }));
-  } catch {
-    // Table might not exist in development
-    return [];
-  }
-}
-
-// ── Mark event processed ────────────────────────────────────────────────────────
-
-async function markEventProcessed(nudgeId: string, eventType: string): Promise<void> {
-  try {
-    await prisma.$executeRaw`
-      UPDATE nudge_events_pending
-      SET processed = true
-      WHERE nudge_id = ${nudgeId} AND event_type = ${eventType}
-    `;
-  } catch {
-    // Ignore in development
   }
 }
 

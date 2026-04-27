@@ -30,7 +30,7 @@ export declare function captureBookingCancelled(params: HotelIntentContext): Pro
 /**
  * Get active travel intents for a user
  */
-export declare function getActiveTravelIntents(userId: string): Promise<import("../types/intent.js").Intent[]>;
+export declare function getActiveTravelIntents(userId: string): Promise<import("../index.js").IIntent[]>;
 /**
  * Hotel OTA Integration object
  */

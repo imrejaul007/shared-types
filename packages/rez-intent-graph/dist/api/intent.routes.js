@@ -1,28 +1,35 @@
 // ── Intent Graph API Routes ──────────────────────────────────────────────────────
 // Express routes for RTMN Commerce Memory Intent Graph
+// Uses MongoDB for data storage
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { intentCaptureService } from '../services/IntentCaptureService.js';
-import { intentScoringService } from '../services/IntentScoringService.js';
 import { dormantIntentService } from '../services/DormantIntentService.js';
 import { crossAppAggregationService } from '../services/CrossAppAggregationService.js';
-import { nudgeQueue } from '../services/nudge-queue.js';
-import { nudgeDeliveryService } from '../nudge/NudgeDeliveryService.js';
-import { CaptureIntentSchema, RevivalTriggerSchema } from '../types/intent.js';
-const prisma = new PrismaClient();
+import { Intent, Nudge } from '../models/index.js';
+import { verifyInternalToken, verifyCronSecret } from '../middleware/auth.js';
+import { captureLimiter, nudgeLimiter } from '../middleware/rateLimit.js';
 const router = Router();
 // ── Capture Intent ────────────────────────────────────────────────────────────
 /**
  * POST /api/intent/capture
  * Capture a new intent event
  */
-router.post('/capture', async (req, res) => {
+router.post('/capture', captureLimiter, async (req, res) => {
     try {
-        const parseResult = CaptureIntentSchema.safeParse(req.body);
-        if (!parseResult.success) {
-            return res.status(400).json({ error: 'Invalid request', details: parseResult.error.flatten() });
+        const { userId, appType, intentKey, eventType, category, intentQuery, metadata, merchantId } = req.body;
+        if (!userId || !appType || !intentKey || !eventType || !category) {
+            return res.status(400).json({ error: 'Missing required fields' });
         }
-        const result = await intentCaptureService.capture(parseResult.data);
+        const result = await intentCaptureService.capture({
+            userId,
+            appType,
+            intentKey,
+            eventType,
+            category,
+            intentQuery,
+            metadata,
+            merchantId,
+        });
         res.json({ success: true, data: result });
     }
     catch (error) {
@@ -110,18 +117,17 @@ router.get('/enriched/:userId', async (req, res) => {
         res.status(500).json({ error: 'Failed to get enriched context' });
     }
 });
-// ── Trigger Revival ───────────────────────────────────────────────────────────
+// ── Trigger Revival ────────────────────────────────────────────────────────────
 /**
  * POST /api/intent/revival
  * Trigger revival for a dormant intent
  */
 router.post('/revival', async (req, res) => {
     try {
-        const parseResult = RevivalTriggerSchema.safeParse(req.body);
-        if (!parseResult.success) {
-            return res.status(400).json({ error: 'Invalid request', details: parseResult.error.flatten() });
+        const { dormantIntentId, triggerType } = req.body;
+        if (!dormantIntentId || !triggerType) {
+            return res.status(400).json({ error: 'dormantIntentId and triggerType are required' });
         }
-        const { dormantIntentId, triggerType, triggerData } = parseResult.data;
         const candidate = await dormantIntentService.triggerRevival(dormantIntentId, triggerType);
         if (!candidate) {
             return res.status(404).json({ error: 'Dormant intent not found or not eligible for revival' });
@@ -147,23 +153,6 @@ router.post('/revived/:dormantIntentId', async (req, res) => {
     catch (error) {
         console.error('[IntentAPI] Mark revived failed:', error);
         res.status(500).json({ error: 'Failed to mark as revived' });
-    }
-});
-// ── Get Revival Candidates ────────────────────────────────────────────────────
-/**
- * GET /api/intent/revival-candidates
- * Get all dormant intents eligible for revival
- */
-router.get('/revival-candidates', async (req, res) => {
-    try {
-        const limit = parseInt(req.query.limit) || 100;
-        const minScore = parseFloat(req.query.minScore) || 0.3;
-        const candidates = await intentScoringService.getRevivalCandidates(limit, minScore);
-        res.json(candidates);
-    }
-    catch (error) {
-        console.error('[IntentAPI] Get revival candidates failed:', error);
-        res.status(500).json({ error: 'Failed to get revival candidates' });
     }
 });
 // ── Get Scheduled Revivals ───────────────────────────────────────────────────
@@ -235,13 +224,8 @@ router.get('/affinities/:userId', async (req, res) => {
  * POST /api/intent/cron/detect-dormant
  * Detect and mark intents as dormant (called by scheduler)
  */
-router.post('/cron/detect-dormant', async (req, res) => {
+router.post('/cron/detect-dormant', verifyCronSecret, async (req, res) => {
     try {
-        // Verify cron secret
-        const cronSecret = process.env.INTENT_CRON_SECRET;
-        if (cronSecret && req.headers['x-cron-secret'] !== cronSecret) {
-            return res.status(401).json({ error: 'Unauthorized' });
-        }
         const result = await dormantIntentService.detectAndMarkDormant();
         res.json({ success: true, data: result });
     }
@@ -255,13 +239,8 @@ router.post('/cron/detect-dormant', async (req, res) => {
  * POST /api/intent/cron/update-scores
  * Update revival scores for all dormant intents (called by scheduler)
  */
-router.post('/cron/update-scores', async (req, res) => {
+router.post('/cron/update-scores', verifyCronSecret, async (req, res) => {
     try {
-        // Verify cron secret
-        const cronSecret = process.env.INTENT_CRON_SECRET;
-        if (cronSecret && req.headers['x-cron-secret'] !== cronSecret) {
-            return res.status(401).json({ error: 'Unauthorized' });
-        }
         const updated = await dormantIntentService.updateRevivalScores();
         res.json({ success: true, data: { updated } });
     }
@@ -270,81 +249,29 @@ router.post('/cron/update-scores', async (req, res) => {
         res.status(500).json({ error: 'Failed to update revival scores' });
     }
 });
-// ── Nudge Queue Management ──────────────────────────────────────────────────
-/**
- * GET /api/intent/nudge/stats
- * Get nudge queue statistics
- */
-router.get('/nudge/stats', async (req, res) => {
-    try {
-        const [queueStats, deliveryStats] = await Promise.all([
-            nudgeQueue.getStats(),
-            nudgeDeliveryService.getNudgeStats(),
-        ]);
-        res.json({
-            queue: queueStats,
-            delivery: deliveryStats,
-        });
-    }
-    catch (error) {
-        console.error('[IntentAPI] Get nudge stats failed:', error);
-        res.status(500).json({ error: 'Failed to get nudge stats' });
-    }
-});
-/**
- * POST /api/intent/nudge/process
- * Process scheduled nudges (called by cron)
- */
-router.post('/nudge/process', async (req, res) => {
-    try {
-        const result = await nudgeDeliveryService.processScheduledNudges();
-        res.json({ success: true, data: result });
-    }
-    catch (error) {
-        console.error('[IntentAPI] Process nudges failed:', error);
-        res.status(500).json({ error: 'Failed to process nudges' });
-    }
-});
+// ── Nudge Management ─────────────────────────────────────────────────────────
 /**
  * POST /api/intent/nudge/send
- * Manually send a nudge
+ * Manually send a nudge — requires auth
  */
-router.post('/nudge/send', async (req, res) => {
+router.post('/nudge/send', verifyInternalToken, nudgeLimiter, async (req, res) => {
     try {
         const { userId, intentKey, message, channel = 'push' } = req.body;
         if (!userId || !intentKey) {
             return res.status(400).json({ error: 'userId and intentKey are required' });
         }
-        const nudge = await nudgeDeliveryService.send({
-            userId,
-            intentKey,
-            message: message || `We noticed you were interested in ${intentKey}`,
-            channel: channel,
-        });
-        res.json({ success: true, data: nudge });
+        // Find dormant intent
+        const dormant = await dormantIntentService.getUserDormantIntents(userId);
+        const match = dormant.find((d) => d.intentKey === intentKey);
+        if (match) {
+            await dormantIntentService.createNudge(match._id.toString(), userId, channel, message || `We noticed you were interested in ${intentKey}`);
+            await dormantIntentService.recordNudgeSent(match._id.toString());
+        }
+        res.json({ success: true, intentKey, channel });
     }
     catch (error) {
         console.error('[IntentAPI] Send nudge failed:', error);
         res.status(500).json({ error: 'Failed to send nudge' });
-    }
-});
-/**
- * PATCH /api/intent/nudge/:nudgeId/status
- * Update nudge status (for webhook callbacks)
- */
-router.patch('/nudge/:nudgeId/status', async (req, res) => {
-    try {
-        const { nudgeId } = req.params;
-        const { status, error } = req.body;
-        if (!status) {
-            return res.status(400).json({ error: 'status is required' });
-        }
-        await nudgeDeliveryService.updateNudgeStatus(nudgeId, status, error);
-        res.json({ success: true });
-    }
-    catch (error) {
-        console.error('[IntentAPI] Update nudge status failed:', error);
-        res.status(500).json({ error: 'Failed to update nudge status' });
     }
 });
 /**
@@ -354,16 +281,35 @@ router.patch('/nudge/:nudgeId/status', async (req, res) => {
 router.get('/nudge/history/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
-        const nudges = await prisma.nudge.findMany({
-            where: { userId },
-            orderBy: { createdAt: 'desc' },
-            take: 50,
-        });
+        const nudges = await Nudge.find({ userId })
+            .sort({ createdAt: -1 })
+            .limit(50);
         res.json(nudges);
     }
     catch (error) {
         console.error('[IntentAPI] Get nudge history failed:', error);
         res.status(500).json({ error: 'Failed to get nudge history' });
+    }
+});
+// ── Stats ─────────────────────────────────────────────────────────────────────
+/**
+ * GET /api/intent/stats
+ * Get intent graph statistics
+ */
+router.get('/stats', async (req, res) => {
+    try {
+        const summary = await crossAppAggregationService.getCrossAppSummary();
+        const intentCount = await Intent.countDocuments();
+        const dormantCount = await Intent.countDocuments({ status: 'DORMANT' });
+        res.json({
+            totalIntents: intentCount,
+            dormantIntents: dormantCount,
+            ...summary,
+        });
+    }
+    catch (error) {
+        console.error('[IntentAPI] Get stats failed:', error);
+        res.status(500).json({ error: 'Failed to get stats' });
     }
 });
 export default router;

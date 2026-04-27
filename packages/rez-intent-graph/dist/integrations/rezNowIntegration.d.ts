@@ -32,7 +32,7 @@ export declare function captureCartAbandoned(params: RestaurantIntentContext): P
 /**
  * Get active dining intents for a user
  */
-export declare function getActiveDiningIntents(userId: string): Promise<import("../types/intent.js").Intent[]>;
+export declare function getActiveDiningIntents(userId: string): Promise<import("../index.js").IIntent[]>;
 /**
  * ReZ Now Integration object
  */

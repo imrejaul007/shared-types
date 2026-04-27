@@ -3,12 +3,9 @@
 // Tracks nudge → impression → click → convert, handles multi-touch attribution
 // DANGEROUS: Auto-pauses underperforming campaigns and reallocates budget
 
-import { PrismaClient } from '@prisma/client';
 import { sharedMemory } from './shared-memory.js';
 import { actionExecutor } from './action-trigger.js';
 import type { AgentConfig, AgentResult, AttributionRecord, Touchpoint, ScoredIntent } from './types.js';
-
-const prisma = new PrismaClient();
 
 const logger = {
   info: (msg: string, meta?: Record<string, unknown>) => console.log(`[AttributionAgent] ${msg}`, meta || ''),
@@ -39,6 +36,16 @@ interface RawTouchpoint {
   nudgeId?: string;
   timestamp: Date;
   metadata?: Record<string, unknown>;
+}
+
+// ── Pending Conversion (stored in sharedMemory) ───────────────────────────────
+
+interface PendingConversion {
+  id: string;
+  userId: string;
+  nudgeId: string;
+  value: number;
+  processed: boolean;
 }
 
 // ── Record a touchpoint ──────────────────────────────────────────────────────
@@ -154,7 +161,7 @@ function calculateTimeDecayAttribution(touchpoints: RawTouchpoint[], totalValue:
   return totalWeight > 0 ? weightedSum / totalWeight : 0;
 }
 
-// ── Position Attribution ────────────────────────────────────────────────────
+// ── Position Attribution ───────────────────────────────────────────────────
 
 function calculatePositionAttribution(touchpoints: RawTouchpoint[], totalValue: number): number {
   if (touchpoints.length === 0) return 0;
@@ -178,6 +185,7 @@ function calculatePositionAttribution(touchpoints: RawTouchpoint[], totalValue: 
 }
 
 // ── Detect organic vs nudge-influenced ──────────────────────────────────────
+// Uses sharedMemory for touchpoint data instead of raw SQL
 
 export async function detectOrganicVsInfluenced(userId: string): Promise<{
   organic: number;
@@ -186,26 +194,23 @@ export async function detectOrganicVsInfluenced(userId: string): Promise<{
 }> {
   const since = new Date(Date.now() - DEFAULT_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
-  const touchpoints = await prisma.$queryRaw<Array<{
-    type: string;
-    has_nudge: boolean;
-  }>>`
-    SELECT
-      type,
-      CASE WHEN nudge_id IS NOT NULL THEN true ELSE false END as has_nudge
-    FROM user_touchpoints
-    WHERE user_id = ${userId}
-    AND timestamp >= ${since}
-  `;
+  // Get all touchpoint keys for this user from sharedMemory
+  const touchpointKeys = await sharedMemory.keys(`touchpoint:${userId}:*`);
 
   let organic = 0;
   let influenced = 0;
 
-  for (const tp of touchpoints) {
-    if (tp.has_nudge) {
-      influenced++;
-    } else {
-      organic++;
+  for (const key of touchpointKeys) {
+    const touchpoints = await sharedMemory.get<RawTouchpoint[]>(key);
+    if (!touchpoints) continue;
+
+    for (const tp of touchpoints) {
+      if (tp.timestamp < since) continue;
+      if (tp.nudgeId) {
+        influenced++;
+      } else {
+        organic++;
+      }
     }
   }
 
@@ -218,6 +223,7 @@ export async function detectOrganicVsInfluenced(userId: string): Promise<{
 }
 
 // ── Incrementality calculation ──────────────────────────────────────────────
+// Uses sharedMemory for attribution data instead of raw SQL tables
 
 export async function calculateIncrementality(
   merchantId: string,
@@ -230,25 +236,30 @@ export async function calculateIncrementality(
 }> {
   const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
 
-  // Get nudge-attributed revenue
-  const nudgeRevenue = await prisma.$queryRaw<Array<{ total: number }>>`
-    SELECT COALESCE(SUM(attributed_revenue), 0) as total
-    FROM attribution_records
-    WHERE merchant_id = ${merchantId}
-    AND created_at >= ${since}
-  `;
+  // Get nudge-attributed revenue from sharedMemory
+  const allAttributions = await sharedMemory.mget<AttributionRecord>('attribution:*');
+  let nudgeGMV = 0;
 
-  // Get total GMV
-  const totalGMV = await prisma.$queryRaw<Array<{ total: number }>>`
-    SELECT COALESCE(SUM(order_value), 0) as total
-    FROM orders
-    WHERE merchant_id = ${merchantId}
-    AND created_at >= ${since}
-  `;
+  for (const record of allAttributions.values()) {
+    if (record.createdAt >= since) {
+      nudgeGMV += record.attributedRevenue;
+    }
+  }
 
-  const nudgeGMV = Number(nudgeRevenue[0]?.total || 0);
-  const total = Number(totalGMV[0]?.total || 0);
-  const organicGMV = total - nudgeGMV;
+  // For total GMV and organic GMV, we would need order data from external systems
+  // Using sharedMemory order data as fallback
+  const orderKeys = await sharedMemory.keys(`order:*`);
+  let totalGMV = 0;
+
+  for (const key of orderKeys) {
+    const order = await sharedMemory.get<Record<string, unknown>>(key);
+    if (order && order.createdAt && new Date(order.createdAt as string) >= since) {
+      const value = order.value as number || order.total as number || 0;
+      totalGMV += value;
+    }
+  }
+
+  const organicGMV = totalGMV - nudgeGMV;
 
   // Incrementality = nudge GMV that wouldn't have happened organically
   // Estimated using control group data
@@ -262,42 +273,45 @@ export async function calculateIncrementality(
 // ── Autonomous Attribution Actions ────────────────────────────────────────────────
 
 async function analyzeChannelAttribution(): Promise<void> {
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  // Get channel performance from sharedMemory attribution data
+  const allAttributions = await sharedMemory.mget<AttributionRecord>('attribution:*');
 
-  // Get channel performance
-  const channelStats = await prisma.$queryRaw<Array<{
-    channel: string;
-    revenue: number;
-    cost: number;
-    conversions: number;
-  }>>`
-    SELECT
-      channel,
-      COALESCE(SUM(attributed_revenue), 0) as revenue,
-      COALESCE(SUM(cost), 0) as cost,
-      COUNT(*) as conversions
-    FROM attribution_records
-    WHERE created_at >= ${sevenDaysAgo}
-    GROUP BY channel
-  `;
+  const channelStats = new Map<string, { revenue: number; conversions: number }>();
 
-  for (const stats of channelStats) {
-    const roi = Number(stats.cost) > 0 ? Number(stats.revenue) / Number(stats.cost) : 0;
-    const conversionRate = Number(stats.conversions) > 0 ? 1 / Number(stats.conversions) : 0;
+  for (const record of allAttributions.values()) {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    if (record.createdAt < sevenDaysAgo) continue;
+
+    for (const tp of record.touchpoints) {
+      if (tp.type !== 'organic' && tp.channel) {
+        const existing = channelStats.get(tp.channel) || { revenue: 0, conversions: 0 };
+        existing.revenue += record.attributedRevenue;
+        if (record.attributedConversion) {
+          existing.conversions += 1;
+        }
+        channelStats.set(tp.channel, existing);
+      }
+    }
+  }
+
+  for (const [channel, stats] of channelStats.entries()) {
+    const cost = 0; // Cost data would come from external marketing system
+    const roi = cost > 0 ? stats.revenue / cost : stats.revenue;
+    const conversionRate = stats.conversions > 0 ? 1 / stats.conversions : 0;
 
     // DANGEROUS: Auto-pause underperforming channels
-    if (roi < 0.5 && Number(stats.conversions) > 20) {
+    if (roi < 0.5 && stats.conversions > 20) {
       logger.warn('[AttributionAgent] DANGEROUS: Pausing underperforming channel', {
-        channel: stats.channel,
+        channel,
         roi,
         conversions: stats.conversions,
       });
 
       await actionExecutor.execute({
         type: 'pause_strategy',
-        target: stats.channel,
+        target: channel,
         payload: {
-          strategyId: `attribution:${stats.channel}`,
+          strategyId: `attribution:${channel}`,
           reason: `Low ROI ${roi.toFixed(2)} after 7 days`,
         },
         agent: 'attribution-agent',
@@ -312,8 +326,8 @@ async function analyzeChannelAttribution(): Promise<void> {
         type: 'reallocate_budget',
         target: 'marketing',
         payload: {
-          channel: stats.channel,
-          newBudget: Math.round(Number(stats.cost) * 1.5), // Boost by 50%
+          channel,
+          newBudget: Math.round(cost * 1.5), // Boost by 50%
           reason: `High ROI ${roi.toFixed(2)} - increasing allocation`,
         },
         agent: 'attribution-agent',
@@ -324,7 +338,48 @@ async function analyzeChannelAttribution(): Promise<void> {
   }
 }
 
-// ── Main execution ─────────────────────────────────────────────────────────
+// ── Get pending conversions ─────────────────────────────────────────────────
+// Stored in sharedMemory instead of raw SQL table
+
+async function getPendingConversions(): Promise<
+  Array<{ id: string; userId: string; nudgeId: string; value: number }>
+> {
+  try {
+    const conversionKeys = await sharedMemory.keys('pending_conversion:*');
+    const conversions: Array<{ id: string; userId: string; nudgeId: string; value: number }> = [];
+
+    for (const key of conversionKeys) {
+      const conversion = await sharedMemory.get<PendingConversion>(key);
+      if (conversion && !conversion.processed) {
+        conversions.push({
+          id: conversion.id,
+          userId: conversion.userId,
+          nudgeId: conversion.nudgeId,
+          value: conversion.value,
+        });
+      }
+    }
+
+    return conversions.slice(0, 100);
+  } catch {
+    return [];
+  }
+}
+
+// ── Mark conversion processed ───────────────────────────────────────────────
+
+async function markConversionProcessed(id: string): Promise<void> {
+  try {
+    const key = `pending_conversion:${id}`;
+    const conversion = await sharedMemory.get<PendingConversion>(key);
+    if (conversion) {
+      conversion.processed = true;
+      await sharedMemory.set(key, conversion, DEFAULT_WINDOW_DAYS * 24 * 60 * 60);
+    }
+  } catch {
+    // Ignore in development
+  }
+}
 
 // ── Main execution ─────────────────────────────────────────────────────────
 
@@ -366,47 +421,6 @@ export async function runAttributionAgent(): Promise<AgentResult> {
       durationMs: Date.now() - start,
       error: String(error),
     };
-  }
-}
-
-// ── Get pending conversions ─────────────────────────────────────────────────
-
-async function getPendingConversions(): Promise<
-  Array<{ id: string; userId: string; nudgeId: string; value: number }>
-> {
-  try {
-    const conversions = await prisma.$queryRaw<Array<{
-      id: string;
-      user_id: string;
-      nudge_id: string;
-      value: number;
-    }>>`
-      SELECT id, user_id, nudge_id, value
-      FROM pending_conversions
-      WHERE processed = false
-      LIMIT 100
-    `;
-
-    return conversions.map((c) => ({
-      id: c.id,
-      userId: c.user_id,
-      nudgeId: c.nudge_id,
-      value: Number(c.value),
-    }));
-  } catch {
-    return [];
-  }
-}
-
-// ── Mark conversion processed ────────────────────────────────────────────────
-
-async function markConversionProcessed(id: string): Promise<void> {
-  try {
-    await prisma.$executeRaw`
-      UPDATE pending_conversions SET processed = true WHERE id = ${id}
-    `;
-  } catch {
-    // Ignore in development
   }
 }
 

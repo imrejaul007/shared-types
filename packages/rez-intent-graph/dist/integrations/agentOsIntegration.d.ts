@@ -68,41 +68,14 @@ export interface AgentInsight {
 export declare class IntentGraphMemoryService implements IntentGraphMemory {
     private memoryCache;
     private readonly CACHE_TTL_MS;
-    /**
-     * Get active intents for a user
-     */
     getActiveIntents(userId: string): Promise<IntentSummary[]>;
-    /**
-     * Get dormant intents for a user
-     */
     getDormantIntents(userId: string): Promise<DormantIntentSummary[]>;
-    /**
-     * Get cross-app profile for a user
-     */
     getCrossAppProfile(userId: string): Promise<CrossAppProfile | null>;
-    /**
-     * Enrich context for an agent with all intent data
-     */
     enrichContext(userId: string): Promise<EnrichedContext>;
-    /**
-     * Record an agent's insight about a user
-     */
     recordAgentInsight(userId: string, agentId: string, insight: string): Promise<void>;
-    /**
-     * Get recent activity for a user
-     */
     private getRecentActivity;
-    /**
-     * Get agent insights for a user
-     */
     private getAgentInsights;
-    /**
-     * Clear cache for a user
-     */
     invalidateCache(userId: string): void;
-    /**
-     * Clear all cache
-     */
     clearCache(): void;
 }
 export declare const intentGraphMemory: IntentGraphMemoryService;

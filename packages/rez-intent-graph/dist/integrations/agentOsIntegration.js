@@ -1,34 +1,27 @@
 // ── Intent Graph Memory Layer ───────────────────────────────────────────────────
 // Agent OS Integration - Provides intent memory access for all agents
-// Phase 4: Complete Agent OS integration with enriched context
-import { PrismaClient } from '@prisma/client';
+// MongoDB implementation
+import { Intent, DormantIntent, CrossAppIntentProfile } from '../models/index.js';
 import { sharedMemory } from '../agents/shared-memory.js';
 import { intentScoringService } from '../services/IntentScoringService.js';
 import { dormantIntentService } from '../services/DormantIntentService.js';
-const prisma = new PrismaClient();
 // ── Intent Graph Memory Implementation ─────────────────────────────────────────
 export class IntentGraphMemoryService {
     memoryCache = new Map();
     CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-    /**
-     * Get active intents for a user
-     */
     async getActiveIntents(userId) {
         try {
-            const intents = await prisma.intent.findMany({
-                where: { userId, status: 'ACTIVE' },
-                include: { _count: { select: { signals: true } } },
-                orderBy: { lastSeenAt: 'desc' },
-                take: 20,
-            });
+            const intents = await Intent.find({ userId, status: 'ACTIVE' })
+                .sort({ lastSeenAt: -1 })
+                .limit(20);
             return intents.map((intent) => ({
-                id: intent.id,
+                id: intent._id.toString(),
                 intentKey: intent.intentKey,
                 category: intent.category,
-                confidence: Number(intent.confidence),
+                confidence: intent.confidence,
                 status: intent.status,
                 lastSeen: intent.lastSeenAt,
-                signals: intent._count.signals,
+                signals: intent.signals?.length || 0,
             }));
         }
         catch (error) {
@@ -36,24 +29,19 @@ export class IntentGraphMemoryService {
             return [];
         }
     }
-    /**
-     * Get dormant intents for a user
-     */
     async getDormantIntents(userId) {
         try {
-            const dormantIntents = await prisma.dormantIntent.findMany({
-                where: { userId, status: 'active' },
-                orderBy: { revivalScore: 'desc' },
-                take: 10,
-            });
+            const dormantIntents = await DormantIntent.find({ userId, status: 'active' })
+                .sort({ revivalScore: -1 })
+                .limit(10);
             return dormantIntents.map((di) => ({
-                id: di.id,
+                id: di._id.toString(),
                 intentKey: di.intentKey,
                 category: di.category,
-                revivalScore: Number(di.revivalScore),
+                revivalScore: di.revivalScore,
                 daysDormant: di.daysDormant,
                 nudgeCount: di.nudgeCount,
-                idealRevivalAt: di.idealRevivalAt,
+                idealRevivalAt: di.idealRevivalAt || null,
             }));
         }
         catch (error) {
@@ -61,14 +49,9 @@ export class IntentGraphMemoryService {
             return [];
         }
     }
-    /**
-     * Get cross-app profile for a user
-     */
     async getCrossAppProfile(userId) {
         try {
-            const profile = await prisma.crossAppIntentProfile.findUnique({
-                where: { userId },
-            });
+            const profile = await CrossAppIntentProfile.findOne({ userId });
             if (!profile)
                 return null;
             return {
@@ -90,9 +73,6 @@ export class IntentGraphMemoryService {
             return null;
         }
     }
-    /**
-     * Enrich context for an agent with all intent data
-     */
     async enrichContext(userId) {
         // Check cache first
         const cached = this.memoryCache.get(userId);
@@ -152,52 +132,34 @@ export class IntentGraphMemoryService {
         });
         return enrichedContext;
     }
-    /**
-     * Record an agent's insight about a user
-     */
     async recordAgentInsight(userId, agentId, insight) {
         const insightKey = `insight:${userId}:${agentId}:${Date.now()}`;
         await sharedMemory.set(insightKey, {
             agentId,
             insight,
             timestamp: new Date().toISOString(),
-        }, 86400 * 7 // Keep for 7 days
-        );
+        }, 86400 * 7);
         // Also update cross-app profile
-        await prisma.crossAppIntentProfile.upsert({
-            where: { userId },
-            create: { userId },
-            update: {},
-        });
+        await CrossAppIntentProfile.findOneAndUpdate({ userId }, { $setOnInsert: { userId } }, { upsert: true });
     }
-    /**
-     * Get recent activity for a user
-     */
     async getRecentActivity(userId) {
         try {
-            const signals = await prisma.intentSignal.findMany({
-                where: { intent: { userId } },
-                include: { intent: { select: { intentKey: true, category: true } } },
-                orderBy: { capturedAt: 'desc' },
-                take: 10,
-            });
-            return signals.map((signal) => ({
+            const intents = await Intent.find({ userId })
+                .sort({ lastSeenAt: -1 })
+                .limit(10);
+            return intents.flatMap((intent) => (intent.signals || []).slice(0, 2).map((signal) => ({
                 type: signal.eventType,
                 timestamp: signal.capturedAt,
-                description: `${signal.eventType} on ${signal.intent.intentKey}`,
-            }));
+                description: `${signal.eventType} on ${intent.intentKey}`,
+            }))).slice(0, 10);
         }
         catch (error) {
             console.error('[IntentGraphMemory] getRecentActivity failed:', error);
             return [];
         }
     }
-    /**
-     * Get agent insights for a user
-     */
     async getAgentInsights(userId) {
         const insights = [];
-        // Get insights from shared memory
         try {
             const insightKeys = await sharedMemory.get(`insights:${userId}`) || [];
             for (const key of insightKeys.slice(0, 10)) {
@@ -216,20 +178,13 @@ export class IntentGraphMemoryService {
         }
         return insights;
     }
-    /**
-     * Clear cache for a user
-     */
     invalidateCache(userId) {
         this.memoryCache.delete(userId);
     }
-    /**
-     * Clear all cache
-     */
     clearCache() {
         this.memoryCache.clear();
     }
 }
-// ── Singleton Instance ─────────────────────────────────────────────────────────
 export const intentGraphMemory = new IntentGraphMemoryService();
 export const INTENT_TOOLS = [
     {
@@ -305,7 +260,6 @@ export const INTENT_TOOLS = [
         handler: async (params) => dormantIntentService.triggerRevival(params.dormantIntentId, params.triggerType),
     },
 ];
-// ── Tool Executor ──────────────────────────────────────────────────────────────
 export async function executeAgentTool(toolName, params) {
     const tool = INTENT_TOOLS.find((t) => t.name === toolName);
     if (!tool) {
@@ -320,7 +274,6 @@ export async function executeAgentTool(toolName, params) {
         return { success: false, error: String(error) };
     }
 }
-// ── List Available Tools ───────────────────────────────────────────────────────
 export function listAgentTools() {
     return INTENT_TOOLS.map(({ name, description, parameters }) => ({
         name,

@@ -114,7 +114,13 @@ export {
 } from './autonomous-orchestrator.js';
 
 // Action Trigger
-export { actionExecutor } from './action-trigger.js';
+export {
+  actionExecutor,
+  handleDemandSignalAction,
+  handleScarcitySignalAction,
+  handleOptimizationAction,
+  triggerAutoRevival,
+} from './action-trigger.js';
 
 // Types re-exports
 export type {

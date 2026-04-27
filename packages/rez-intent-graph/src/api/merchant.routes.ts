@@ -1,31 +1,42 @@
 // ── Merchant Demand API Routes ──────────────────────────────────────────────────────
 // Phase 5: Demand Signals for Merchants - Procurement Intelligence
-// Provides merchants with real-time demand aggregation and insights
+// MongoDB implementation
 
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { Intent, MerchantDemandSignal } from '../models/index.js';
 import { sharedMemory } from '../agents/shared-memory.js';
-import { getMerchantDemand } from '../agents/demand-signal-agent.js';
 
-const prisma = new PrismaClient();
 const router = Router();
 
 // ── Merchant Authentication Middleware ──────────────────────────────────────────
-// In production, this would verify merchant JWT
 
 function verifyMerchantAuth(req: Request, res: Response, next: Function): void {
   const merchantToken = req.headers['x-merchant-token'] as string;
   const internalToken = req.headers['x-internal-token'] as string;
+  const apiKey = req.headers['x-api-key'] as string;
 
-  // Allow internal service calls
-  if (internalToken === process.env.INTERNAL_SERVICE_TOKEN) {
+  // Internal service token (server-to-server)
+  if (internalToken && internalToken === process.env.INTERNAL_SERVICE_TOKEN) {
     next();
     return;
   }
 
-  // In production: verify merchant JWT
-  if (!merchantToken) {
-    res.status(401).json({ error: 'Authentication required' });
+  // API key auth
+  if (apiKey && apiKey === process.env.MERCHANT_API_KEY) {
+    next();
+    return;
+  }
+
+  // Merchant token auth — require both header presence AND non-empty value
+  if (!merchantToken || merchantToken.trim() === '') {
+    res.status(401).json({ error: 'Authentication required. Provide x-internal-token, x-api-key, or x-merchant-token header.' });
+    return;
+  }
+
+  // In production, validate the merchant token against your auth service
+  // For now, we require a properly formatted token (non-empty, min 16 chars)
+  if (merchantToken.length < 16) {
+    res.status(401).json({ error: 'Invalid merchant token format' });
     return;
   }
 
@@ -36,57 +47,34 @@ router.use(verifyMerchantAuth);
 
 // ── Demand Dashboard ────────────────────────────────────────────────────────────
 
-/**
- * GET /api/merchant/:merchantId/demand/dashboard
- * Get complete demand dashboard for a merchant
- */
 router.get('/:merchantId/demand/dashboard', async (req: Request, res: Response) => {
   const { merchantId } = req.params;
   const { category } = req.query;
 
   try {
-    const categories = category
-      ? [category as string]
-      : ['TRAVEL', 'DINING', 'RETAIL'];
+    const categories = category ? [category as string] : ['TRAVEL', 'DINING', 'RETAIL'];
 
-    const dashboard: {
-      merchantId: string;
-      timestamp: string;
-      categories: Record<string, unknown>;
-    } = {
+    const dashboard: Record<string, unknown> = {
       merchantId,
       timestamp: new Date().toISOString(),
       categories: {},
     };
 
     for (const cat of categories) {
-      // Get demand signal
       const signal = await sharedMemory.getDemandSignal(merchantId, cat);
 
-      // Get intent count
-      const intentCount = await prisma.intent.count({
-        where: { merchantId, category: cat },
+      const intentCount = await Intent.countDocuments({ merchantId, category: cat });
+      const activeCount = await Intent.countDocuments({ merchantId, category: cat, status: 'ACTIVE' });
+      const dormantCount = await Intent.countDocuments({ merchantId, category: cat, status: 'DORMANT' });
+
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentSignals = await Intent.countDocuments({
+        merchantId,
+        category: cat,
+        'signals.capturedAt': { $gte: since },
       });
 
-      // Get active vs dormant breakdown
-      const activeCount = await prisma.intent.count({
-        where: { merchantId, category: cat, status: 'ACTIVE' },
-      });
-
-      const dormantCount = await prisma.intent.count({
-        where: { merchantId, category: cat, status: 'DORMANT' },
-      });
-
-      // Get recent demand (last 24h)
-      const recentSignals = await prisma.intentSignal.count({
-        where: {
-          intent: { merchantId, category: cat },
-          capturedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
-          eventType: { in: ['search', 'view', 'wishlist', 'cart_add'] },
-        },
-      });
-
-      dashboard.categories[cat] = {
+      (dashboard.categories as Record<string, unknown>)[cat] = {
         signal: signal || null,
         stats: {
           totalIntents: intentCount,
@@ -94,9 +82,7 @@ router.get('/:merchantId/demand/dashboard', async (req: Request, res: Response) 
           dormantIntents: dormantCount,
           recentActivity: recentSignals,
         },
-        health: signal
-          ? getDemandHealth(signal.demandCount, signal.unmetDemandPct)
-          : 'unknown',
+        health: signal ? getDemandHealth(signal.demandCount, signal.unmetDemandPct) : 'unknown',
       };
     }
 
@@ -107,16 +93,14 @@ router.get('/:merchantId/demand/dashboard', async (req: Request, res: Response) 
   }
 });
 
-/**
- * GET /api/merchant/:merchantId/demand/signal
- * Get real-time demand signal for a specific category
- */
+// ── Demand Signal ─────────────────────────────────────────────────────────────
+
 router.get('/:merchantId/demand/signal', async (req: Request, res: Response) => {
   const { merchantId } = req.params;
   const { category = 'DINING' } = req.query;
 
   try {
-    const signal = await getMerchantDemand(merchantId, category as string);
+    const signal = await MerchantDemandSignal.findOne({ merchantId, category: category as string });
     res.json(signal);
   } catch (error) {
     console.error('[MerchantAPI] Demand signal failed:', error);
@@ -126,54 +110,29 @@ router.get('/:merchantId/demand/signal', async (req: Request, res: Response) => 
 
 // ── Procurement Signals ───────────────────────────────────────────────────────────
 
-/**
- * GET /api/merchant/:merchantId/procurement
- * Get procurement recommendations based on demand gaps
- */
 router.get('/:merchantId/procurement', async (req: Request, res: Response) => {
   const { merchantId } = req.params;
   const { category = 'DINING' } = req.query;
 
   try {
-    // Get all demand signals for this category
-    const demandSignals = await prisma.merchantDemandSignal.findMany({
-      where: { category: category as string },
-      orderBy: { demandCount: 'desc' },
-      take: 100,
-    });
+    const demandSignals = await MerchantDemandSignal.find({ category: category as string })
+      .sort({ demandCount: -1 })
+      .limit(100);
 
-    // Calculate category-wide metrics
     const totalDemand = demandSignals.reduce((sum, s) => sum + s.demandCount, 0);
     const avgUnmetDemand =
       demandSignals.length > 0
-        ? demandSignals.reduce((sum, s) => sum + Number(s.unmetDemandPct), 0) /
-          demandSignals.length
+        ? demandSignals.reduce((sum, s) => sum + s.unmetDemandPct, 0) / demandSignals.length
         : 0;
 
-    // Find high-demand items with low supply (gaps)
-    const gaps: Array<{
-      merchantId: string;
-      demandCount: number;
-      unmetPct: number;
-      gapScore: number;
-    }> = [];
-
-    for (const signal of demandSignals) {
-      if (signal.demandCount > 10 && Number(signal.unmetDemandPct) > 30) {
-        gaps.push({
-          merchantId: signal.merchantId,
-          demandCount: signal.demandCount,
-          unmetPct: Number(signal.unmetDemandPct),
-          gapScore: signal.demandCount * (Number(signal.unmetDemandPct) / 100),
-        });
-      }
-    }
-
-    // Get seasonality forecast
-    const seasonality = await getSeasonalityForecast(category as string);
-
-    // Build procurement recommendations
-    const recommendations = gaps
+    const gaps = demandSignals
+      .filter((s) => s.demandCount > 10 && s.unmetDemandPct > 30)
+      .map((s) => ({
+        merchantId: s.merchantId,
+        demandCount: s.demandCount,
+        unmetPct: s.unmetDemandPct,
+        gapScore: s.demandCount * (s.unmetDemandPct / 100),
+      }))
       .sort((a, b) => b.gapScore - a.gapScore)
       .slice(0, 10)
       .map((gap) => ({
@@ -185,12 +144,14 @@ router.get('/:merchantId/procurement', async (req: Request, res: Response) => {
         expectedCapture: `${Math.min(80, gap.unmetPct).toFixed(0)}% conversion if addressed`,
       }));
 
+    const seasonality = getSeasonalityForecast(category as string);
+
     res.json({
       merchantId,
       category: category,
       totalMarketDemand: totalDemand,
       avgUnmetDemand: avgUnmetDemand.toFixed(1),
-      gaps: recommendations,
+      gaps,
       seasonality,
       generatedAt: new Date().toISOString(),
     });
@@ -202,10 +163,6 @@ router.get('/:merchantId/procurement', async (req: Request, res: Response) => {
 
 // ── Top Performing Intents ───────────────────────────────────────────────────────
 
-/**
- * GET /api/merchant/:merchantId/intents/top
- * Get top performing intents (by conversion potential)
- */
 router.get('/:merchantId/intents/top', async (req: Request, res: Response) => {
   const { merchantId } = req.params;
   const { category, limit = '20' } = req.query;
@@ -214,40 +171,23 @@ router.get('/:merchantId/intents/top', async (req: Request, res: Response) => {
     const whereClause: Record<string, unknown> = { merchantId };
     if (category) whereClause.category = category;
 
-    const intents = await prisma.intent.findMany({
-      where: whereClause,
-      orderBy: { confidence: 'desc' },
-      take: parseInt(limit as string),
-      select: {
-        id: true,
-        intentKey: true,
-        category: true,
-        confidence: true,
-        status: true,
-        firstSeenAt: true,
-        lastSeenAt: true,
-        _count: { select: { signals: true, dormantIntents: true } },
-      },
-    });
+    const intents = await Intent.find(whereClause)
+      .sort({ confidence: -1 })
+      .limit(parseInt(limit as string));
 
     res.json({
       merchantId,
       intents: intents.map((i) => ({
-        id: i.id,
+        id: i._id.toString(),
         intentKey: i.intentKey,
         category: i.category,
-        confidence: Number(i.confidence),
+        confidence: i.confidence,
         status: i.status,
-        signalCount: i._count.signals,
-        dormantCount: i._count.dormantIntents,
+        signalCount: i.signals?.length || 0,
         firstSeen: i.firstSeenAt,
         lastSeen: i.lastSeenAt,
         conversionPotential:
-          Number(i.confidence) > 0.7
-            ? 'high'
-            : Number(i.confidence) > 0.4
-            ? 'medium'
-            : 'low',
+          i.confidence > 0.7 ? 'high' : i.confidence > 0.4 ? 'medium' : 'low',
       })),
     });
   } catch (error) {
@@ -258,67 +198,46 @@ router.get('/:merchantId/intents/top', async (req: Request, res: Response) => {
 
 // ── Demand Trends ───────────────────────────────────────────────────────────────
 
-/**
- * GET /api/merchant/:merchantId/trends
- * Get demand trends over time
- */
 router.get('/:merchantId/trends', async (req: Request, res: Response) => {
   const { merchantId } = req.params;
   const { category, period = '7d' } = req.query;
 
   const periodMs =
-    period === '24h'
-      ? 24 * 60 * 60 * 1000
-      : period === '7d'
-      ? 7 * 24 * 60 * 60 * 1000
-      : 30 * 24 * 60 * 60 * 1000;
+    period === '24h' ? 24 * 60 * 60 * 1000 :
+    period === '7d' ? 7 * 24 * 60 * 60 * 1000 :
+    30 * 24 * 60 * 60 * 1000;
 
   const since = new Date(Date.now() - periodMs);
-  const bucketSize = period === '24h' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000; // 1h or 1d buckets
+  const bucketSize = period === '24h' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
 
   try {
-    const whereClause: Record<string, unknown> = {
-      intent: { merchantId },
-      capturedAt: { gte: since },
-      eventType: { in: ['search', 'view', 'wishlist', 'cart_add'] },
-    };
-    if (category) (whereClause.intent as Record<string, unknown>).category = category;
+    const intents = await Intent.find({
+      merchantId,
+      lastSeenAt: { $gte: since },
+      ...(category ? { category } : {}),
+    }).select('signals lastSeenAt');
 
-    const signals = await prisma.intentSignal.findMany({
-      where: whereClause,
-      select: { capturedAt: true, eventType: true },
-      orderBy: { capturedAt: 'asc' },
-    });
-
-    // Bucket signals by time
     const buckets: Record<string, { search: number; view: number; wishlist: number; cart: number }> = {};
-    for (const signal of signals) {
-      const bucketTime = new Date(
-        Math.floor(signal.capturedAt.getTime() / bucketSize) * bucketSize
-      );
-      const key = bucketTime.toISOString();
 
-      if (!buckets[key]) {
-        buckets[key] = { search: 0, view: 0, wishlist: 0, cart: 0 };
-      }
+    for (const intent of intents) {
+      for (const signal of intent.signals || []) {
+        if (signal.capturedAt < since) continue;
+        const bucketTime = new Date(
+          Math.floor(signal.capturedAt.getTime() / bucketSize) * bucketSize
+        );
+        const key = bucketTime.toISOString();
 
-      switch (signal.eventType) {
-        case 'search':
-          buckets[key].search++;
-          break;
-        case 'view':
-          buckets[key].view++;
-          break;
-        case 'wishlist':
-          buckets[key].wishlist++;
-          break;
-        case 'cart_add':
-          buckets[key].cart++;
-          break;
+        if (!buckets[key]) {
+          buckets[key] = { search: 0, view: 0, wishlist: 0, cart: 0 };
+        }
+
+        if (signal.eventType === 'search') buckets[key].search++;
+        else if (signal.eventType === 'view') buckets[key].view++;
+        else if (signal.eventType === 'wishlist') buckets[key].wishlist++;
+        else if (signal.eventType === 'cart_add') buckets[key].cart++;
       }
     }
 
-    // Convert to array and calculate totals
     const trend = Object.entries(buckets)
       .map(([time, counts]) => ({
         time,
@@ -327,19 +246,13 @@ router.get('/:merchantId/trends', async (req: Request, res: Response) => {
       }))
       .sort((a, b) => a.time.localeCompare(b.time));
 
-    // Calculate summary
     const totalSignals = trend.reduce((sum, t) => sum + t.total, 0);
     const avgSignals = trend.length > 0 ? totalSignals / trend.length : 0;
-    const firstTrend =
-      trend.length > 0 ? trend[0].total : 0;
-    const lastTrend =
-      trend.length > 0 ? trend[trend.length - 1].total : 0;
+    const firstTrend = trend.length > 0 ? trend[0].total : 0;
+    const lastTrend = trend.length > 0 ? trend[trend.length - 1].total : 0;
     const trendDirection =
-      lastTrend > firstTrend * 1.1
-        ? 'rising'
-        : lastTrend < firstTrend * 0.9
-        ? 'declining'
-        : 'stable';
+      lastTrend > firstTrend * 1.1 ? 'rising' :
+      lastTrend < firstTrend * 0.9 ? 'declining' : 'stable';
 
     res.json({
       merchantId,
@@ -350,10 +263,9 @@ router.get('/:merchantId/trends', async (req: Request, res: Response) => {
         totalSignals,
         avgPerBucket: avgSignals.toFixed(1),
         trendDirection,
-        changePct:
-          firstTrend > 0
-            ? (((lastTrend - firstTrend) / firstTrend) * 100).toFixed(1)
-            : '0',
+        changePct: firstTrend > 0
+          ? (((lastTrend - firstTrend) / firstTrend) * 100).toFixed(1)
+          : '0',
       },
       trend,
     });
@@ -365,29 +277,18 @@ router.get('/:merchantId/trends', async (req: Request, res: Response) => {
 
 // ── City/Location Insights ──────────────────────────────────────────────────────
 
-/**
- * GET /api/merchant/:merchantId/locations
- * Get demand by location/city
- */
 router.get('/:merchantId/locations', async (req: Request, res: Response) => {
   const { merchantId } = req.params;
   const { category, limit = '10' } = req.query;
 
   try {
-    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    const whereClause: Record<string, unknown> = {
-      merchantId,
-      firstSeenAt: { gte: since },
-    };
+    const whereClause: Record<string, unknown> = { merchantId, firstSeenAt: { $gte: since } };
     if (category) whereClause.category = category;
 
-    const intents = await prisma.intent.findMany({
-      where: whereClause,
-      select: { metadata: true },
-    });
+    const intents = await Intent.find(whereClause).select('metadata');
 
-    // Extract cities from metadata
     const cityCounts = new Map<string, number>();
     for (const intent of intents) {
       const metadata = intent.metadata as Record<string, unknown> | null;
@@ -422,10 +323,6 @@ router.get('/:merchantId/locations', async (req: Request, res: Response) => {
 
 // ── Price Expectations ─────────────────────────────────────────────────────────
 
-/**
- * GET /api/merchant/:merchantId/pricing
- * Get price expectations based on demand
- */
 router.get('/:merchantId/pricing', async (req: Request, res: Response) => {
   const { merchantId } = req.params;
   const { category } = req.query;
@@ -433,15 +330,11 @@ router.get('/:merchantId/pricing', async (req: Request, res: Response) => {
   try {
     const whereClause: Record<string, unknown> = {
       merchantId,
-      status: { in: ['ACTIVE', 'DORMANT'] },
+      status: { $in: ['ACTIVE', 'DORMANT'] },
     };
     if (category) whereClause.category = category;
 
-    // Get intents with price metadata
-    const intents = await prisma.intent.findMany({
-      where: whereClause,
-      select: { metadata: true, confidence: true },
-    });
+    const intents = await Intent.find(whereClause).select('metadata confidence');
 
     let priceSum = 0;
     let priceCount = 0;
@@ -454,7 +347,7 @@ router.get('/:merchantId/pricing', async (req: Request, res: Response) => {
       if (price && price > 0) {
         priceSum += price;
         priceCount++;
-        if (Number(intent.confidence) > 0.6) {
+        if (intent.confidence > 0.6) {
           highConfidenceSum += price;
           highConfidenceCount++;
         }
@@ -488,10 +381,6 @@ router.get('/:merchantId/pricing', async (req: Request, res: Response) => {
 
 // ── Alerts Configuration ───────────────────────────────────────────────────────
 
-/**
- * POST /api/merchant/:merchantId/alerts
- * Configure demand alerts
- */
 router.post('/:merchantId/alerts', async (req: Request, res: Response) => {
   const { merchantId } = req.params;
   const { category, threshold, webhookUrl, enabled = true } = req.body;
@@ -514,7 +403,7 @@ router.post('/:merchantId/alerts', async (req: Request, res: Response) => {
     await sharedMemory.set(
       `merchant:alert:${merchantId}:${category || 'all'}`,
       alertConfig,
-      86400 * 30 // 30 days
+      86400 * 30
     );
 
     res.json({ success: true, config: alertConfig });
@@ -533,27 +422,20 @@ function getDemandHealth(demandCount: number, unmetPct: number): string {
   return 'low';
 }
 
-async function getSeasonalityForecast(
-  category: string
-): Promise<Array<{ month: number; expectedDemand: string }>> {
+function getSeasonalityForecast(category: string): Array<{ month: number; expectedDemand: string; isCurrentMonth: boolean }> {
   const currentMonth = new Date().getMonth();
 
-  // Simple seasonality model based on category
   const multipliers: Record<string, number[]> = {
     TRAVEL: [0.5, 0.6, 0.7, 0.8, 0.9, 1.2, 1.4, 1.3, 0.9, 0.7, 0.8, 1.0],
     DINING: [0.9, 0.9, 1.0, 1.0, 1.1, 1.1, 1.2, 1.2, 1.0, 1.0, 1.1, 1.3],
     RETAIL: [0.7, 0.7, 0.8, 0.9, 1.0, 1.0, 0.9, 1.0, 1.1, 1.3, 1.5, 1.8],
   };
 
-  const base = await prisma.intent.count({
-    where: { category },
-  });
-
   const forecast = multipliers[category] || multipliers.DINING;
 
   return forecast.map((mult, index) => ({
     month: index + 1,
-    expectedDemand: `${(base * mult).toFixed(0)} (${mult > 1 ? '+' : ''}${((mult - 1) * 100).toFixed(0)}%)`,
+    expectedDemand: `${(mult * 100).toFixed(0)} (${mult > 1 ? '+' : ''}${((mult - 1) * 100).toFixed(0)}%)`,
     isCurrentMonth: index === currentMonth,
   }));
 }

@@ -22,13 +22,7 @@ export interface NudgeTemplate {
 export declare class NudgeDeliveryService {
     private channelHandlers;
     constructor();
-    /**
-     * Register a channel handler
-     */
     registerChannelHandler(channel: NudgeChannel, handler: NudgeChannelHandler): void;
-    /**
-     * Send a nudge directly (for action trigger)
-     */
     send(params: {
         userId: string;
         intentKey: string;
@@ -36,43 +30,23 @@ export declare class NudgeDeliveryService {
         channel: NudgeChannel;
         template?: string;
     }): Promise<Nudge>;
-    /**
-     * Send nudges for scheduled revival candidates
-     */
     processScheduledNudges(): Promise<{
         processed: number;
         sent: number;
         failed: number;
     }>;
-    /**
-     * Send a nudge for a revival candidate
-     */
     sendNudge(candidate: any): Promise<Nudge>;
-    /**
-     * Record nudge sent to database
-     */
     recordNudgeSent(dormantIntentId: string, userId: string, channel: string, message: string, nudgeId?: string): Promise<void>;
-    /**
-     * Update nudge status (delivered, clicked, converted)
-     */
     updateNudgeStatus(nudgeId: string, status: 'delivered' | 'clicked' | 'converted' | 'failed', error?: string): Promise<void>;
-    /**
-     * Get nudge statistics
-     */
     getNudgeStats(): Promise<{
         total: number;
         byStatus: Record<string, number>;
         byChannel: Record<string, number>;
         conversionRate: number;
     }>;
-    /**
-     * Get user preferences for channel selection
-     */
-    private getUserPreferences;
     private registerDefaultHandlers;
     private inferTriggerType;
     private getTemplate;
-    private selectBestChannel;
     private renderTemplate;
     private formatIntentKey;
     private generateDeepLink;

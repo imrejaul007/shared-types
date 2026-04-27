@@ -2,10 +2,9 @@
 // Agent 7: Collaborative filtering and user similarity clusters
 // Updates user clusters daily, generates trending signals, personalizes based on cohort
 // DANGEROUS: Auto-triggers cohort-based nudges and trending recommendations
-import { PrismaClient } from '@prisma/client';
+import { Intent } from '../models/index.js';
 import { sharedMemory } from './shared-memory.js';
 import { actionExecutor } from './action-trigger.js';
-const prisma = new PrismaClient();
 const logger = {
     info: (msg, meta) => console.log(`[NetworkEffectAgent] ${msg}`, meta || ''),
     warn: (msg, meta) => console.warn(`[NetworkEffectAgent] ${msg}`, meta || ''),
@@ -21,23 +20,35 @@ export const networkEffectAgentConfig = {
 // ── Build user features ────────────────────────────────────────────────────────
 async function buildUserFeatures(userId) {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const features = await prisma.$queryRaw `
-    SELECT
-      COUNT(CASE WHEN category = 'TRAVEL' THEN 1 END) as travel_count,
-      COUNT(CASE WHEN category = 'DINING' THEN 1 END) as dining_count,
-      COUNT(CASE WHEN category = 'RETAIL' THEN 1 END) as retail_count,
-      COALESCE(SUM(order_value), 0) as total_value,
-      COUNT(*) as order_count,
-      COUNT(CASE WHEN status = 'FULFILLED' THEN 1 END) as fulfilled_count
-    FROM intents
-    WHERE user_id = ${userId}
-    AND first_seen_at >= ${thirtyDaysAgo}
-  `;
-    const row = features[0];
-    if (!row)
-        return null;
-    const total = Number(row.travel_count) + Number(row.dining_count) + Number(row.retail_count);
-    if (total === 0) {
+    // MongoDB aggregation equivalent to the raw SQL
+    const result = await Intent.aggregate([
+        {
+            $match: {
+                userId,
+                firstSeenAt: { $gte: thirtyDaysAgo },
+            },
+        },
+        {
+            $group: {
+                _id: null,
+                travel_count: {
+                    $sum: { $cond: [{ $eq: ['$category', 'TRAVEL'] }, 1, 0] },
+                },
+                dining_count: {
+                    $sum: { $cond: [{ $eq: ['$category', 'DINING'] }, 1, 0] },
+                },
+                retail_count: {
+                    $sum: { $cond: [{ $eq: ['$category', 'RETAIL'] }, 1, 0] },
+                },
+                order_count: { $sum: 1 },
+                fulfilled_count: {
+                    $sum: { $cond: [{ $eq: ['$status', 'FULFILLED'] }, 1, 0] },
+                },
+            },
+        },
+    ]);
+    const row = result[0];
+    if (!row || row.order_count === 0) {
         return {
             userId,
             travelAffinity: 33,
@@ -48,13 +59,14 @@ async function buildUserFeatures(userId) {
             preferredTimeOfDay: 12,
         };
     }
+    const total = (row.travel_count || 0) + (row.dining_count || 0) + (row.retail_count || 0);
     return {
         userId,
-        travelAffinity: Math.round((Number(row.travel_count) / total) * 100),
-        diningAffinity: Math.round((Number(row.dining_count) / total) * 100),
-        retailAffinity: Math.round((Number(row.retail_count) / total) * 100),
-        avgOrderValue: Number(row.order_count) > 0 ? Number(row.total_value) / Number(row.order_count) : 0,
-        conversionRate: Number(row.order_count) > 0 ? Number(row.fulfilled_count) / Number(row.order_count) : 0,
+        travelAffinity: total > 0 ? Math.round(((row.travel_count || 0) / total) * 100) : 33,
+        diningAffinity: total > 0 ? Math.round(((row.dining_count || 0) / total) * 100) : 33,
+        retailAffinity: total > 0 ? Math.round(((row.retail_count || 0) / total) * 100) : 33,
+        avgOrderValue: 0, // Would come from order_value in metadata
+        conversionRate: row.order_count > 0 ? (row.fulfilled_count || 0) / row.order_count : 0,
         preferredTimeOfDay: 12, // Would compute from actual data
     };
 }
@@ -82,23 +94,23 @@ function cosineSimilarity(a, b) {
 // ── Cluster users ────────────────────────────────────────────────────────────────
 async function clusterUsers() {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    // Get active users
-    const users = await prisma.$queryRaw `
-    SELECT DISTINCT user_id
-    FROM intents
-    WHERE first_seen_at >= ${sevenDaysAgo}
-    LIMIT 1000
-  `;
+    // Get active users using MongoDB aggregation
+    const userResults = await Intent.aggregate([
+        { $match: { firstSeenAt: { $gte: sevenDaysAgo } } },
+        { $group: { _id: '$userId' } },
+        { $limit: 1000 },
+    ]);
+    const users = userResults.map((r) => r._id);
     if (users.length < 10) {
         logger.warn('Insufficient users for clustering');
         return [];
     }
     // Build features for all users
     const userFeatures = new Map();
-    for (const row of users) {
-        const features = await buildUserFeatures(row.user_id);
+    for (const userId of users) {
+        const features = await buildUserFeatures(userId);
         if (features) {
-            userFeatures.set(row.user_id, features);
+            userFeatures.set(userId, features);
         }
     }
     // Simple clustering by category affinity
@@ -134,7 +146,7 @@ async function clusterUsers() {
     for (const cluster of clusters.values()) {
         let totalValue = 0;
         let totalConversions = 0;
-        let totalUsers = cluster.userIds.length;
+        const totalUsers = cluster.userIds.length;
         for (const userId of cluster.userIds) {
             const features = userFeatures.get(userId);
             if (features) {
@@ -166,19 +178,23 @@ export async function findSimilarUsers(userId, limit = 10) {
         return [];
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     // Get other active users
-    const users = await prisma.$queryRaw `
-    SELECT DISTINCT user_id
-    FROM intents
-    WHERE first_seen_at >= ${sevenDaysAgo}
-    AND user_id != ${userId}
-    LIMIT 500
-  `;
+    const userResults = await Intent.aggregate([
+        {
+            $match: {
+                firstSeenAt: { $gte: sevenDaysAgo },
+                userId: { $ne: userId },
+            },
+        },
+        { $group: { _id: '$userId' } },
+        { $limit: 500 },
+    ]);
+    const otherUsers = userResults.map((r) => r._id);
     const similarities = [];
-    for (const row of users) {
-        const features = await buildUserFeatures(row.user_id);
+    for (const otherId of otherUsers) {
+        const features = await buildUserFeatures(otherId);
         if (features) {
             const similarity = cosineSimilarity(targetFeatures, features);
-            similarities.push({ userId: row.user_id, similarity });
+            similarities.push({ userId: otherId, similarity });
         }
     }
     // Sort and return top N
@@ -192,22 +208,24 @@ export async function getCollaborativeRecommendations(userId, category, limit = 
     const userIds = similarUsers.map((u) => u.userId);
     if (userIds.length === 0)
         return [];
-    // Find what similar users wanted/converted
-    const userIdList = userIds.join(',');
-    const recommendations = await prisma.$queryRaw `
-    SELECT intent_key, COUNT(*) as count
-    FROM intents
-    WHERE user_id = ANY(STRING_TO_ARRAY(${userIdList}, ','))
-    AND category = ${category}
-    AND status = 'FULFILLED'
-    AND user_id != ${userId}
-    GROUP BY intent_key
-    ORDER BY count DESC
-    LIMIT ${limit}
-  `;
-    return recommendations.map((r) => r.intent_key);
+    // Find what similar users wanted/converted using MongoDB
+    const recommendations = await Intent.aggregate([
+        {
+            $match: {
+                userId: { $in: userIds },
+                category,
+                status: 'FULFILLED',
+            },
+        },
+        {
+            $group: { _id: '$intentKey', count: { $sum: 1 } },
+        },
+        { $sort: { count: -1 } },
+        { $limit: limit },
+    ]);
+    return recommendations.map((r) => r._id);
 }
-// ── Generate collaborative signal ───────────────────────────────────────────────
+// ── Generate collaborative signal ────────────────────────────────────────────────
 export async function generateCollaborativeSignal(userId) {
     const similarUsers = await findSimilarUsers(userId, 10);
     const trending = await sharedMemory.getTrendingIntents('GENERAL', 5);
@@ -323,16 +341,16 @@ export async function runNetworkEffectAgent() {
         const clusters = await clusterUsers();
         // Generate signals for top active users
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        const activeUsers = await prisma.$queryRaw `
-      SELECT DISTINCT user_id
-      FROM intents
-      WHERE last_seen_at >= ${sevenDaysAgo}
-      ORDER BY last_seen_at DESC
-      LIMIT 100
-    `;
+        const activeUsersResult = await Intent.aggregate([
+            { $match: { lastSeenAt: { $gte: sevenDaysAgo } } },
+            { $sort: { lastSeenAt: -1 } },
+            { $group: { _id: '$userId' } },
+            { $limit: 100 },
+        ]);
+        const activeUsers = activeUsersResult.map((r) => r._id);
         let signalsGenerated = 0;
-        for (const row of activeUsers) {
-            await generateCollaborativeSignal(row.user_id);
+        for (const userId of activeUsers) {
+            await generateCollaborativeSignal(userId);
             signalsGenerated++;
         }
         // DANGEROUS: Analyze and respond to trending signals

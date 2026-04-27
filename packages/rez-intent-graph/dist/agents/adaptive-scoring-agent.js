@@ -2,10 +2,9 @@
 // Agent 5: ML-based confidence scoring
 // Replaces naive formula with learned model, factors in user history, time-of-day, category, price
 // DANGEROUS: Auto-retrains models and adjusts scoring thresholds
-import { PrismaClient } from '@prisma/client';
+import { Intent } from '../models/index.js';
 import { sharedMemory } from './shared-memory.js';
 import { actionExecutor } from './action-trigger.js';
-const prisma = new PrismaClient();
 const logger = {
     info: (msg, meta) => console.log(`[AdaptiveScoringAgent] ${msg}`, meta || ''),
     warn: (msg, meta) => console.warn(`[AdaptiveScoringAgent] ${msg}`, meta || ''),
@@ -30,18 +29,25 @@ const currentWeights = {
 // ── Calculate user history factor ───────────────────────────────────────────────
 async function getUserHistoryScore(userId) {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const history = await prisma.$queryRaw `
-    SELECT
-      COUNT(CASE WHEN status = 'FULFILLED' THEN 1 END) as conversions,
-      COUNT(*) as total
-    FROM intents
-    WHERE user_id = ${userId}
-    AND first_seen_at >= ${thirtyDaysAgo}
-  `;
-    const row = history[0];
-    if (!row || Number(row.total) === 0)
+    const result = await Intent.aggregate([
+        {
+            $match: {
+                userId,
+                firstSeenAt: { $gte: thirtyDaysAgo },
+            },
+        },
+        {
+            $group: {
+                _id: null,
+                conversions: { $sum: { $cond: [{ $eq: ['$status', 'FULFILLED'] }, 1, 0] } },
+                total: { $sum: 1 },
+            },
+        },
+    ]);
+    const row = result[0];
+    if (!row || row.total === 0)
         return 0.5; // Neutral
-    const conversionRate = Number(row.conversions) / Number(row.total);
+    const conversionRate = (row.conversions || 0) / row.total;
     return Math.min(1, conversionRate * 2 + 0.2); // Scale to 0.2-1.2
 }
 // ── Calculate time of day factor ───────────────────────────────────────────────
@@ -61,27 +67,30 @@ function getTimeOfDayScore() {
 // ── Calculate category factor ───────────────────────────────────────────────────
 async function getCategoryScore(category) {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const stats = await prisma.$queryRaw `
-    SELECT
-      COUNT(CASE WHEN status = 'FULFILLED' THEN 1 END) as conversions,
-      COUNT(*) as total
-    FROM intents
-    WHERE category = ${category}
-    AND first_seen_at >= ${sevenDaysAgo}
-  `;
-    const row = stats[0];
-    if (!row || Number(row.total) < 10)
+    const result = await Intent.aggregate([
+        {
+            $match: {
+                category,
+                firstSeenAt: { $gte: sevenDaysAgo },
+            },
+        },
+        {
+            $group: {
+                _id: null,
+                conversions: { $sum: { $cond: [{ $eq: ['$status', 'FULFILLED'] }, 1, 0] } },
+                total: { $sum: 1 },
+            },
+        },
+    ]);
+    const row = result[0];
+    if (!row || row.total < 10)
         return 0.5; // Not enough data
-    const conversionRate = Number(row.conversions) / Number(row.total);
+    const conversionRate = (row.conversions || 0) / row.total;
     return Math.min(1, conversionRate * 3 + 0.3);
 }
 // ── Calculate price factor ───────────────────────────────────────────────────────
 async function getPriceScore(intentKey) {
-    // Check if there's a price range in metadata
-    const intent = await prisma.intent.findFirst({
-        where: { intentKey },
-        select: { metadata: true },
-    });
+    const intent = await Intent.findOne({ intentKey }).select('metadata');
     if (!intent?.metadata)
         return 0.5;
     const metadata = intent.metadata;
@@ -102,13 +111,10 @@ async function getPriceScore(intentKey) {
 }
 // ── Calculate velocity factor ───────────────────────────────────────────────────
 async function getVelocityScore(intentId) {
-    const intent = await prisma.intent.findUnique({
-        where: { id: intentId },
-        include: { signals: { orderBy: { capturedAt: 'desc' }, take: 5 } },
-    });
+    const intent = await Intent.findById(intentId).select('signals');
     if (!intent)
         return 0.5;
-    const signals = intent.signals;
+    const signals = (intent.signals || []).sort((a, b) => b.capturedAt.getTime() - a.capturedAt.getTime()).slice(0, 5);
     if (signals.length < 2)
         return 0.4;
     // Calculate signal velocity (signals per hour)
@@ -125,9 +131,7 @@ async function getVelocityScore(intentId) {
 }
 // ── Extract features ───────────────────────────────────────────────────────────
 async function extractFeatures(userId, intentId) {
-    const intent = await prisma.intent.findUnique({
-        where: { id: intentId },
-    });
+    const intent = await Intent.findById(intentId);
     if (!intent)
         return null;
     const [userHistoryScore, categoryScore, priceScore, velocityScore] = await Promise.all([
@@ -204,21 +208,36 @@ export async function scoreIntents(userId, intentIds) {
 export async function retrainModel() {
     logger.info('Retraining scoring model');
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    // Get historical data: features vs actual outcomes
-    const trainingData = await prisma.$queryRaw `
-    SELECT
-      i.user_id,
-      i.id as intent_id,
-      i.category,
-      i.intent_key,
-      CASE WHEN i.status = 'FULFILLED' THEN true ELSE false END as fulfilled,
-      (SELECT COUNT(*) FROM intent_signals WHERE intent_id = i.id) as signal_count,
-      EXTRACT(EPOCH FROM (NOW() - i.last_seen_at)) / 3600 as hours_since_last_signal
-    FROM intents i
-    WHERE i.first_seen_at >= ${thirtyDaysAgo}
-    ORDER BY i.first_seen_at DESC
-    LIMIT 10000
-  `;
+    // Get historical data using MongoDB aggregation
+    const trainingData = await Intent.aggregate([
+        {
+            $match: { firstSeenAt: { $gte: thirtyDaysAgo } },
+        },
+        {
+            $lookup: {
+                from: 'intents',
+                localField: '_id',
+                foreignField: '_id',
+                as: 'self',
+            },
+        },
+        {
+            $addFields: {
+                signalCount: { $size: { $ifNull: ['$signals', []] } },
+                fulfilled: { $eq: ['$status', 'FULFILLED'] },
+                hoursSinceLastSignal: {
+                    $divide: [
+                        { $subtract: [new Date(), '$lastSeenAt'] },
+                        3600000,
+                    ],
+                },
+            },
+        },
+        {
+            $sort: { firstSeenAt: -1 },
+        },
+        { $limit: 10000 },
+    ]);
     if (trainingData.length < 100) {
         logger.warn('Insufficient training data, skipping retraining');
         return;
@@ -242,7 +261,7 @@ export async function retrainModel() {
                 timeOfDayScore: getTimeOfDayScore(),
                 categoryScore: 0.5,
                 priceScore: 0.5,
-                velocityScore: Math.min(1, row.signal_count / 5),
+                velocityScore: Math.min(1, (row.signalCount || 0) / 5),
             };
             const rawScore = weights.userHistory * features.userHistoryScore +
                 weights.timeOfDay * features.timeOfDayScore +
@@ -312,27 +331,27 @@ export async function retrainModel() {
 // ── Autonomous Threshold Adjustments ────────────────────────────────────────────────
 async function monitorScoringAccuracy() {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    // Get scored intents with outcomes
-    const scoredIntents = await prisma.$queryRaw `
-    SELECT
-      si.predicted_prob,
-      i.status
-    FROM scored_intents si
-    JOIN intents i ON i.id = si.intent_id
-    WHERE si.created_at >= ${sevenDaysAgo}
-    LIMIT 500
-  `;
-    if (scoredIntents.length < 50)
-        return;
-    // Calculate accuracy
+    // Get scored intents from sharedMemory with outcomes
+    const scoredIntentKeys = await sharedMemory.keys('scored:intents:*');
     let correct = 0;
-    for (const row of scoredIntents) {
-        const predicted = row.predicted_prob > 0.5;
-        const actual = row.status === 'FULFILLED';
+    let total = 0;
+    for (const key of scoredIntentKeys) {
+        const scored = await sharedMemory.get(key);
+        if (!scored)
+            continue;
+        // Check if we have actual outcome
+        const intent = await Intent.findById(scored.intentId).select('status lastSeenAt');
+        if (!intent || intent.lastSeenAt < sevenDaysAgo)
+            continue;
+        const predicted = scored.predictedConversionProb > 0.5;
+        const actual = intent.status === 'FULFILLED';
         if (predicted === actual)
             correct++;
+        total++;
     }
-    const accuracy = correct / scoredIntents.length;
+    if (total < 50)
+        return;
+    const accuracy = correct / total;
     // DANGEROUS: Auto-adjust thresholds if accuracy drops
     if (accuracy < 0.6) {
         logger.warn('[AdaptiveScoringAgent] DANGEROUS: Low scoring accuracy detected', { accuracy });
@@ -349,7 +368,7 @@ async function monitorScoringAccuracy() {
             risk: 'medium',
         });
     }
-    logger.info('[AdaptiveScoringAgent] Scoring accuracy', { accuracy, samples: scoredIntents.length });
+    logger.info('[AdaptiveScoringAgent] Scoring accuracy', { accuracy, samples: total });
 }
 // ── Main execution ─────────────────────────────────────────────────────────────
 export async function runAdaptiveScoringAgent() {
@@ -357,15 +376,13 @@ export async function runAdaptiveScoringAgent() {
     try {
         logger.info('Running adaptive scoring');
         // Score high-priority intents
-        const priorityIntents = await prisma.intent.findMany({
-            where: { status: 'ACTIVE' },
-            select: { id: true, userId: true },
-            orderBy: { lastSeenAt: 'desc' },
-            take: 100,
-        });
+        const priorityIntents = await Intent.find({ status: 'ACTIVE' })
+            .sort({ lastSeenAt: -1 })
+            .select('id userId')
+            .limit(100);
         let scoredCount = 0;
         for (const intent of priorityIntents) {
-            const scored = await scoreIntentById(intent.userId, intent.id);
+            const scored = await scoreIntentById(intent.userId, intent._id.toString());
             if (scored)
                 scoredCount++;
         }

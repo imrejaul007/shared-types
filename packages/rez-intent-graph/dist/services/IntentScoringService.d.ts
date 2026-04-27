@@ -1,4 +1,29 @@
-import { type ScoringContext, type DormancyDetection, type RevivalCandidate } from '../types/intent.js';
+export interface ScoringContext {
+    intentId: string;
+    baseConfidence: number;
+    signalCount: number;
+    lastSignalAt: Date;
+    avgVelocity: number;
+    metadata: {
+        appType: string;
+        category: string;
+        status: string;
+        daysActive: number;
+    };
+}
+export interface DormancyDetection {
+    intentId: string;
+    daysSinceLastActivity: number;
+    currentConfidence: number;
+    shouldMarkDormant: boolean;
+}
+export interface RevivalCandidate {
+    dormantIntent: any;
+    intent: any;
+    revivalScore: number;
+    suggestedNudge: string;
+    idealTiming: Date;
+}
 export declare class IntentScoringService {
     /**
      * Calculate detailed scoring context for an intent
@@ -27,7 +52,7 @@ export declare class IntentScoringService {
     /**
      * Generate nudge message based on intent and trigger
      */
-    generateNudgeMessage(intentKey: string, category: string, triggerType: string, triggerData?: Record<string, unknown>): string;
+    generateNudgeMessage(intentKey: string, category: string, triggerType: string, _triggerData?: Record<string, unknown>): string;
     private formatIntentKey;
     /**
      * Get revival candidates sorted by score

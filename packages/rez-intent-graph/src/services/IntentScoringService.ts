@@ -1,39 +1,59 @@
 // ── Intent Scoring Service ────────────────────────────────────────────────────
 // Calculates confidence scores, dormancy detection, and revival scoring
+// MongoDB implementation
 
-import { PrismaClient } from '@prisma/client';
-import {
-  type ScoringContext,
-  type DormancyDetection,
-  type RevivalCandidate,
-  BASE_CONFIDENCE,
-  DORMANCY_THRESHOLD_DAYS,
-  CONFIDENCE_DORMANT_THRESHOLD,
-} from '../types/intent.js';
+import { Intent, DormantIntent } from '../models/index.js';
+import type { IIntent } from '../models/Intent.js';
 
-const prisma = new PrismaClient();
+export interface ScoringContext {
+  intentId: string;
+  baseConfidence: number;
+  signalCount: number;
+  lastSignalAt: Date;
+  avgVelocity: number;
+  metadata: {
+    appType: string;
+    category: string;
+    status: string;
+    daysActive: number;
+  };
+}
+
+export interface DormancyDetection {
+  intentId: string;
+  daysSinceLastActivity: number;
+  currentConfidence: number;
+  shouldMarkDormant: boolean;
+}
+
+export interface RevivalCandidate {
+  dormantIntent: any;
+  intent: any;
+  revivalScore: number;
+  suggestedNudge: string;
+  idealTiming: Date;
+}
+
+const DORMANCY_THRESHOLD_DAYS = 7;
+const CONFIDENCE_DORMANT_THRESHOLD = 0.3;
 
 export class IntentScoringService {
   /**
    * Calculate detailed scoring context for an intent
    */
   async getScoringContext(intentId: string): Promise<ScoringContext | null> {
-    const intent = await prisma.intent.findUnique({
-      where: { id: intentId },
-      include: {
-        signals: { orderBy: { capturedAt: 'desc' } },
-      },
-    });
+    const intent = await Intent.findById(intentId);
 
     if (!intent) return null;
 
-    const signalCount = intent.signals.length;
-    const lastSignalAt = intent.signals[0]?.capturedAt || intent.lastSeenAt;
-    const avgVelocity = this.calculateAvgVelocity(intent.signals);
+    const signals = intent.signals || [];
+    const signalCount = signals.length;
+    const lastSignalAt = signals[0]?.capturedAt || intent.lastSeenAt;
+    const avgVelocity = this.calculateAvgVelocity(signals);
 
     return {
       intentId,
-      baseConfidence: Number(intent.confidence),
+      baseConfidence: intent.confidence,
       signalCount,
       lastSignalAt,
       avgVelocity,
@@ -54,26 +74,19 @@ export class IntentScoringService {
   async detectDormantIntents(daysThreshold = DORMANCY_THRESHOLD_DAYS): Promise<DormancyDetection[]> {
     const thresholdDate = new Date(Date.now() - daysThreshold * 24 * 60 * 60 * 1000);
 
-    const activeIntents = await prisma.intent.findMany({
-      where: {
-        status: 'ACTIVE',
-        lastSeenAt: { lt: thresholdDate },
-      },
-      select: {
-        id: true,
-        lastSeenAt: true,
-        confidence: true,
-      },
-    });
+    const activeIntents = await Intent.find({
+      status: 'ACTIVE',
+      lastSeenAt: { $lt: thresholdDate },
+    }).select('_id lastSeenAt confidence');
 
-    return activeIntents.map((intent: { id: string; lastSeenAt: Date; confidence: unknown }) => ({
-      intentId: intent.id,
+    return activeIntents.map((intent: any) => ({
+      intentId: intent._id.toString(),
       daysSinceLastActivity: Math.floor(
         (Date.now() - intent.lastSeenAt.getTime()) / (1000 * 60 * 60 * 24)
       ),
-      currentConfidence: Number(intent.confidence),
+      currentConfidence: intent.confidence,
       shouldMarkDormant:
-        Number(intent.confidence) < CONFIDENCE_DORMANT_THRESHOLD ||
+        intent.confidence < CONFIDENCE_DORMANT_THRESHOLD ||
         (Date.now() - intent.lastSeenAt.getTime()) / (1000 * 60 * 60 * 24) >= daysThreshold,
     }));
   }
@@ -82,16 +95,7 @@ export class IntentScoringService {
    * Calculate revival score for a dormant intent
    */
   async calculateRevivalScore(dormantIntentId: string): Promise<number> {
-    const dormant = await prisma.dormantIntent.findUnique({
-      where: { id: dormantIntentId },
-      include: {
-        intent: {
-          include: {
-            signals: { orderBy: { capturedAt: 'desc' }, take: 10 },
-          },
-        },
-      },
-    });
+    const dormant = await DormantIntent.findById(dormantIntentId);
 
     if (!dormant) return 0;
 
@@ -103,9 +107,7 @@ export class IntentScoringService {
    */
   private computeRevivalScore(dormant: any): number {
     // Base score from intent strength
-    const intentStrength = dormant.intent
-      ? Number(dormant.intent.confidence)
-      : 0.5;
+    const intentStrength = dormant.intent ? dormant.intent.confidence : 0.5;
 
     // Dormancy sweet spot bonus (7-14 days is optimal)
     const daysDormant = dormant.daysDormant;
@@ -153,12 +155,10 @@ export class IntentScoringService {
     const dayOfWeek = now.getDay();
 
     if (category === 'TRAVEL') {
-      // Weekends are better for travel planning
       return dayOfWeek === 0 || dayOfWeek === 6 ? 0.2 : 0.05;
     }
 
     if (category === 'DINING') {
-      // Meal times are better for restaurant intents
       if ((hour >= 11 && hour <= 14) || (hour >= 18 && hour <= 21)) {
         return 0.15;
       }
@@ -172,17 +172,15 @@ export class IntentScoringService {
    * Calculate ideal revival timing
    */
   calculateIdealRevivalTime(category: string, daysDormant: number): Date {
-    const baseDelay = 3; // Days to wait after marking dormant
+    const baseDelay = 3;
     const now = new Date();
 
     switch (category) {
       case 'TRAVEL':
-        // Target next weekend
         const daysUntilWeekend = (7 - now.getDay() + 6) % 7 || 7;
         return new Date(now.getTime() + (baseDelay + daysUntilWeekend) * 24 * 60 * 60 * 1000);
 
       case 'DINING':
-        // Target meal times
         const hour = now.getHours();
         let delayHours = hour < 11 ? 11 - hour : hour < 18 ? 18 - hour : 24 - hour + 11;
         return new Date(now.getTime() + delayHours * 60 * 60 * 1000);
@@ -199,7 +197,7 @@ export class IntentScoringService {
     intentKey: string,
     category: string,
     triggerType: string,
-    triggerData?: Record<string, unknown>
+    _triggerData?: Record<string, unknown>
   ): string {
     const templates: Record<string, string[]> = {
       TRAVEL: [
@@ -239,33 +237,27 @@ export class IntentScoringService {
     limit = 100,
     minScore = 0.3
   ): Promise<RevivalCandidate[]> {
-    const dormantIntents = await prisma.dormantIntent.findMany({
-      where: {
-        status: 'active',
-        revivalScore: { gte: minScore },
-      },
-      include: { intent: true },
-      orderBy: { revivalScore: 'desc' },
-      take: limit,
-    });
+    const dormantIntents = await DormantIntent.find({
+      status: 'active',
+      revivalScore: { $gte: minScore },
+    })
+      .sort({ revivalScore: -1 })
+      .limit(limit);
 
-    return dormantIntents.map((di: {
-      id: string;
-      intentId: string;
-      userId: string;
-      appType: string;
-      category: string;
-      intentKey: string;
-      revivalScore: unknown;
-      idealRevivalAt: Date | null;
-      intent: unknown;
-    }) => ({
-      dormantIntent: di as unknown as RevivalCandidate['dormantIntent'],
-      intent: di.intent as unknown as RevivalCandidate['intent'],
-      revivalScore: Number(di.revivalScore),
-      suggestedNudge: this.generateNudgeMessage(di.intentKey, di.category, 'scheduled'),
-      idealTiming: new Date(di.idealRevivalAt || Date.now()),
-    }));
+    const results: RevivalCandidate[] = [];
+
+    for (const di of dormantIntents) {
+      const intent = await Intent.findById(di.intentId);
+      results.push({
+        dormantIntent: di,
+        intent,
+        revivalScore: di.revivalScore,
+        suggestedNudge: this.generateNudgeMessage(di.intentKey, di.category, 'scheduled'),
+        idealTiming: di.idealRevivalAt || new Date(),
+      });
+    }
+
+    return results;
   }
 
   /**

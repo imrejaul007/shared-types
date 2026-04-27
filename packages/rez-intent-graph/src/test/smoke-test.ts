@@ -1,16 +1,24 @@
 // ── Quick Smoke Test ───────────────────────────────────────────────────────────────
 // Fast test to verify agents and actions work
 
-import {
-  runDemandSignalAgent,
-  runScarcityAgent,
-  actionExecutor,
-  handleDemandSignalAction,
-  sharedMemory,
-} from '../index.js';
+import 'dotenv/config';
+import { connectDB } from '../database/mongodb.js';
+import { sharedMemory } from '../agents/shared-memory.js';
+import { getSwarmCoordinator } from '../agents/swarm-coordinator.js';
+import { runDemandSignalAgent } from '../agents/demand-signal-agent.js';
+import { runScarcityAgent } from '../agents/scarcity-agent.js';
+import { actionExecutor, handleDemandSignalAction } from '../agents/action-trigger.js';
 
 async function main() {
   console.log('🔥 Running quick smoke test...\n');
+
+  // Connect to MongoDB first
+  await connectDB();
+  console.log('✅ MongoDB connected\n');
+
+  // Enable dangerous mode for action executor
+  getSwarmCoordinator().enableDangerousMode();
+  console.log('✅ Dangerous mode enabled\n');
 
   let passed = 0;
   let failed = 0;

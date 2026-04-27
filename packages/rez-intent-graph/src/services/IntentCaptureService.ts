@@ -1,42 +1,76 @@
-// ── Intent Capture Service ────────────────────────────────────────────────────
-// Captures user intent signals from various app events
+/**
+ * Intent Capture Service - MongoDB
+ * Captures user intent signals from various app events
+ */
 
-import { PrismaClient, Prisma } from '@prisma/client';
+import mongoose from 'mongoose';
 import {
-  type CaptureIntentParams,
-  type CaptureIntentResult,
-  type Intent,
-  type IntentSignal,
-  BASE_CONFIDENCE,
-  SIGNAL_WEIGHTS,
-  AppType,
-  EventType,
-} from '../types/intent.js';
+  Intent,
+  IntentSequence,
+  CrossAppIntentProfile,
+} from '../models/index.js';
+import type { IIntent, IIntentSignal } from '../models/Intent.js';
 
-const prisma = new PrismaClient();
+// Event weights for confidence calculation
+const SIGNAL_WEIGHTS: Record<string, number> = {
+  search: 0.15,
+  view: 0.10,
+  wishlist: 0.25,
+  cart_add: 0.30,
+  hold: 0.35,
+  checkout_start: 0.40,
+  booking_start: 0.40,
+  booking_confirmed: 1.0,
+  fulfilled: 1.0,
+  abandoned: 0.0,
+};
 
+const BASE_CONFIDENCE = 0.3;
+
+export interface CaptureIntentParams {
+  userId: string;
+  appType: string;
+  eventType: string;
+  category: string;
+  intentKey: string;
+  intentQuery?: string;
+  metadata?: Record<string, unknown>;
+  merchantId?: string;
+}
+
+export interface CaptureResult {
+  intent: IIntent;
+  signal: IIntentSignal;
+  isNew: boolean;
+}
+
+/**
+ * Intent Capture Service - MongoDB Implementation
+ */
 export class IntentCaptureService {
   /**
    * Capture an intent event from user action
    */
-  async capture(params: CaptureIntentParams): Promise<CaptureIntentResult> {
-    const { userId, appType, eventType, category, intentKey, intentQuery, metadata } = params;
+  async capture(params: CaptureIntentParams): Promise<CaptureResult> {
+    const {
+      userId,
+      appType,
+      eventType,
+      category,
+      intentKey,
+      intentQuery,
+      metadata,
+      merchantId,
+    } = params;
 
     // Calculate signal weight
     const signalWeight = SIGNAL_WEIGHTS[eventType] || 0.1;
 
     // Find or create intent
-    const existingIntent = await prisma.intent.findUnique({
-      where: {
-        userId_appType_intentKey: { userId, appType, intentKey },
-      },
-      include: {
-        signals: { orderBy: { capturedAt: 'desc' }, take: 10 },
-      },
-    });
+    const existingIntent = await Intent.findOne({ userId, appType, intentKey });
 
-    let intent: Intent;
-    let signal: IntentSignal;
+    let intent: IIntent;
+    let signal: IIntentSignal;
     let isNew = false;
 
     if (existingIntent) {
@@ -44,61 +78,66 @@ export class IntentCaptureService {
       const newConfidence = this.calculateNewConfidence(existingIntent, signalWeight);
       const newStatus = this.determineStatus(eventType, newConfidence);
 
-      intent = await prisma.intent.update({
-        where: { id: existingIntent.id },
-        data: {
-          confidence: newConfidence,
-          status: newStatus,
-          intentQuery: intentQuery || existingIntent.intentQuery,
-        },
-      }) as unknown as Intent;
+      existingIntent.confidence = newConfidence;
+      existingIntent.status = newStatus as IIntent['status'];
+      existingIntent.intentQuery = intentQuery || existingIntent.intentQuery;
+      existingIntent.lastSeenAt = new Date();
 
-      signal = await prisma.intentSignal.create({
-        data: {
-          intentId: intent.id,
-          eventType,
-          weight: signalWeight,
-          data: metadata as Prisma.InputJsonValue | undefined,
-        },
-      }) as unknown as IntentSignal;
+      await existingIntent.save();
 
-      // Update sequence
-      await this.addToSequence(intent.id, userId, eventType, existingIntent.signals[0]?.capturedAt);
+      intent = existingIntent;
+
+      // Add signal to array
+      signal = {
+        eventType,
+        weight: signalWeight,
+        data: metadata,
+        capturedAt: new Date(),
+      };
+
+      // Add signal to intent
+      await Intent.updateOne(
+        { _id: intent._id },
+        { $push: { signals: { $each: [signal], $slice: -50 } } }
+      );
+
+      // Add to sequence
+      await this.addToSequence(intent._id as mongoose.Types.ObjectId, userId, eventType);
 
     } else {
       // Create new intent
       isNew = true;
-      const initialConfidence = BASE_CONFIDENCE + signalWeight;
+      const initialConfidence = Math.min(1.0, BASE_CONFIDENCE + signalWeight);
 
-      intent = await prisma.intent.create({
-        data: {
-          userId,
-          appType,
-          category,
-          intentKey,
-          intentQuery,
-          confidence: initialConfidence,
-          status: this.determineStatus(eventType, initialConfidence),
-        },
-      }) as unknown as Intent;
-
-      signal = await prisma.intentSignal.create({
-        data: {
-          intentId: intent.id,
+      intent = await Intent.create({
+        userId,
+        appType,
+        category,
+        intentKey,
+        intentQuery,
+        confidence: initialConfidence,
+        status: this.determineStatus(eventType, initialConfidence) as IIntent['status'],
+        merchantId,
+        metadata,
+        firstSeenAt: new Date(),
+        lastSeenAt: new Date(),
+        signals: [{
           eventType,
           weight: signalWeight,
-          data: metadata as Prisma.InputJsonValue | undefined,
-        },
-      }) as unknown as IntentSignal;
+          data: metadata,
+          capturedAt: new Date(),
+        }],
+      });
+
+      signal = intent.signals[0];
 
       // Create sequence entry
-      await prisma.intentSequence.create({
-        data: {
-          intentId: intent.id,
-          userId,
-          eventType,
-          sequenceOrder: 1,
-        },
+      await IntentSequence.create({
+        intentId: intent._id as mongoose.Types.ObjectId,
+        userId,
+        eventType,
+        sequenceOrder: 1,
+        occurredAt: new Date(),
       });
 
       // Update cross-app profile
@@ -111,10 +150,10 @@ export class IntentCaptureService {
   /**
    * Calculate new confidence based on existing signals and new event
    */
-  private calculateNewConfidence(existingIntent: any, newSignalWeight: number): number {
+  private calculateNewConfidence(existingIntent: IIntent, newSignalWeight: number): number {
     const recencyMultiplier = this.calculateRecencyMultiplier(existingIntent.lastSeenAt);
     const velocityBonus = this.calculateVelocityBonus(existingIntent.signals);
-    const baseConfidence = Number(existingIntent.confidence);
+    const baseConfidence = existingIntent.confidence;
 
     const newConfidence = baseConfidence + (newSignalWeight * recencyMultiplier) + velocityBonus;
     return Math.min(1.0, Math.max(0.0, newConfidence));
@@ -131,10 +170,10 @@ export class IntentCaptureService {
   /**
    * Calculate velocity bonus for rapid signals
    */
-  private calculateVelocityBonus(signals: any[]): number {
+  private calculateVelocityBonus(signals: IIntentSignal[]): number {
     if (signals.length < 2) return 0;
 
-    const recentSignals = signals.slice(0, 5);
+    const recentSignals = signals.slice(-5);
     const avgTimeBetweenSignals = this.calculateAvgTimeBetweenSignals(recentSignals);
 
     if (avgTimeBetweenSignals < 60000) return 0.2; // Less than 1 minute
@@ -143,12 +182,12 @@ export class IntentCaptureService {
     return 0;
   }
 
-  private calculateAvgTimeBetweenSignals(signals: any[]): number {
+  private calculateAvgTimeBetweenSignals(signals: IIntentSignal[]): number {
     if (signals.length < 2) return Infinity;
 
     let totalMs = 0;
     for (let i = 0; i < signals.length - 1; i++) {
-      totalMs += new Date(signals[i].capturedAt).getTime() - new Date(signals[i + 1].capturedAt).getTime();
+      totalMs += signals[i].capturedAt.getTime() - signals[i + 1].capturedAt.getTime();
     }
     return totalMs / (signals.length - 1);
   }
@@ -156,7 +195,7 @@ export class IntentCaptureService {
   /**
    * Determine intent status based on event type
    */
-  private determineStatus(eventType: EventType, confidence: number): string {
+  private determineStatus(eventType: string, confidence: number): string {
     if (eventType === 'fulfilled') return 'FULFILLED';
     if (eventType === 'abandoned') return 'DORMANT';
     if (confidence < 0.3) return 'DORMANT';
@@ -167,28 +206,24 @@ export class IntentCaptureService {
    * Add event to sequence tracking
    */
   private async addToSequence(
-    intentId: string,
+    intentId: mongoose.Types.ObjectId,
     userId: string,
-    eventType: string,
-    previousSignalAt?: Date
+    eventType: string
   ): Promise<void> {
-    const lastSequence = await prisma.intentSequence.findFirst({
-      where: { intentId },
-      orderBy: { sequenceOrder: 'desc' },
-    });
+    const lastSequence = await IntentSequence.findOne({ intentId })
+      .sort({ sequenceOrder: -1 });
 
-    const durationMs = previousSignalAt
-      ? Date.now() - new Date(previousSignalAt).getTime()
+    const durationMs = lastSequence
+      ? Date.now() - lastSequence.occurredAt.getTime()
       : undefined;
 
-    await prisma.intentSequence.create({
-      data: {
-        intentId,
-        userId,
-        eventType,
-        sequenceOrder: (lastSequence?.sequenceOrder || 0) + 1,
-        durationMs,
-      },
+    await IntentSequence.create({
+      intentId,
+      userId,
+      eventType,
+      sequenceOrder: (lastSequence?.sequenceOrder || 0) + 1,
+      durationMs,
+      occurredAt: new Date(),
     });
   }
 
@@ -197,80 +232,95 @@ export class IntentCaptureService {
    */
   private async updateCrossAppProfile(
     userId: string,
-    appType: AppType,
+    appType: string,
     category: string
   ): Promise<void> {
-    const profile = await prisma.crossAppIntentProfile.upsert({
-      where: { userId },
-      create: { userId },
-      update: {},
-    });
-
     const incrementField = this.getCategoryIncrementField(appType);
+
     if (incrementField) {
-      await prisma.crossAppIntentProfile.update({
-        where: { userId },
-        data: { [incrementField]: { increment: 1 } },
-      });
+      await CrossAppIntentProfile.findOneAndUpdate(
+        { userId },
+        { $inc: { [incrementField]: 1 } },
+        { upsert: true }
+      );
     }
 
     // Recalculate affinities
-    await this.recalculateAffinities(profile.id, userId);
+    await this.recalculateAffinities(userId);
   }
 
-  private getCategoryIncrementField(appType: AppType): string | null {
+  private getCategoryIncrementField(appType: string): string | null {
     switch (appType) {
-      case 'hotel_ota': return 'travelIntentCount';
-      case 'restaurant': return 'diningIntentCount';
-      case 'retail': return 'retailIntentCount';
-      default: return null;
+      case 'hotel_ota':
+      case 'hotel_guest':
+        return 'travelIntentCount';
+      case 'restaurant':
+      case 'rez_now':
+        return 'diningIntentCount';
+      case 'retail':
+        return 'retailIntentCount';
+      default:
+        return null;
     }
   }
 
-  private async recalculateAffinities(profileId: string, userId: string): Promise<void> {
-    const intents = await prisma.intent.findMany({
-      where: { userId, status: { in: ['ACTIVE', 'FULFILLED'] } },
-      select: { appType: true },
-    });
+  private async recalculateAffinities(userId: string): Promise<void> {
+    const intents = await Intent.find({
+      userId,
+      status: { $in: ['ACTIVE', 'FULFILLED'] },
+    }).select('appType');
 
-    const counts: Record<string, number> = { hotel_ota: 0, restaurant: 0, retail: 0 };
-    intents.forEach((i: { appType: string }) => {
+    const counts: Record<string, number> = { hotel_ota: 0, restaurant: 0, retail: 0, hotel_guest: 0, rez_now: 0 };
+
+    intents.forEach((i) => {
       if (counts[i.appType] !== undefined) {
         counts[i.appType]++;
       }
     });
 
-    const total = Math.max(1, counts.hotel_ota + counts.restaurant + counts.retail);
+    // Group by category
+    const travelCount = counts.hotel_ota + counts.hotel_guest;
+    const diningCount = counts.restaurant + counts.rez_now;
+    const retailCount = counts.retail;
+    const total = Math.max(1, travelCount + diningCount + retailCount);
 
-    await prisma.crossAppIntentProfile.update({
-      where: { id: profileId },
-      data: {
-        travelAffinity: Math.round((counts.hotel_ota / total) * 100),
-        diningAffinity: Math.round((counts.restaurant / total) * 100),
-        retailAffinity: Math.round((counts.retail / total) * 100),
-      },
-    });
+    await CrossAppIntentProfile.findOneAndUpdate(
+      { userId },
+      {
+        $set: {
+          travelAffinity: Math.round((travelCount / total) * 100),
+          diningAffinity: Math.round((diningCount / total) * 100),
+          retailAffinity: Math.round((retailCount / total) * 100),
+          updatedAt: new Date(),
+        },
+      }
+    );
   }
 
   /**
    * Get active intents for a user
    */
-  async getActiveIntents(userId: string): Promise<Intent[]> {
-    return (await prisma.intent.findMany({
-      where: { userId, status: 'ACTIVE' },
-      orderBy: { lastSeenAt: 'desc' },
-    })) as unknown as Intent[];
+  async getActiveIntents(userId: string): Promise<IIntent[]> {
+    return Intent.find({ userId, status: 'ACTIVE' })
+      .sort({ lastSeenAt: -1 })
+      .limit(50);
   }
 
   /**
    * Get all intents for a user across apps
    */
-  async getUserIntents(userId: string): Promise<Intent[]> {
-    return (await prisma.intent.findMany({
-      where: { userId },
-      orderBy: { lastSeenAt: 'desc' },
-      include: { signals: { orderBy: { capturedAt: 'desc' }, take: 5 } },
-    })) as unknown as Intent[];
+  async getUserIntents(userId: string): Promise<IIntent[]> {
+    return Intent.find({ userId })
+      .sort({ lastSeenAt: -1 })
+      .limit(100);
+  }
+
+  /**
+   * Get intents by app type
+   */
+  async getIntentsByApp(userId: string, appType: string): Promise<IIntent[]> {
+    return Intent.find({ userId, appType })
+      .sort({ lastSeenAt: -1 });
   }
 }
 
