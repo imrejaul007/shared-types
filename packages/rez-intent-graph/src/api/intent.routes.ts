@@ -7,6 +7,8 @@ import { intentCaptureService } from '../services/IntentCaptureService.js';
 import { intentScoringService } from '../services/IntentScoringService.js';
 import { dormantIntentService } from '../services/DormantIntentService.js';
 import { crossAppAggregationService } from '../services/CrossAppAggregationService.js';
+import { nudgeQueue } from '../services/nudge-queue.js';
+import { nudgeDeliveryService } from '../nudge/NudgeDeliveryService.js';
 import { CaptureIntentSchema, DormancyCheckSchema, RevivalTriggerSchema } from '../types/intent.js';
 
 const prisma = new PrismaClient();
@@ -289,6 +291,108 @@ router.post('/cron/update-scores', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('[IntentAPI] Update scores failed:', error);
     res.status(500).json({ error: 'Failed to update revival scores' });
+  }
+});
+
+// ── Nudge Queue Management ──────────────────────────────────────────────────
+
+/**
+ * GET /api/intent/nudge/stats
+ * Get nudge queue statistics
+ */
+router.get('/nudge/stats', async (req: Request, res: Response) => {
+  try {
+    const [queueStats, deliveryStats] = await Promise.all([
+      nudgeQueue.getStats(),
+      nudgeDeliveryService.getNudgeStats(),
+    ]);
+    res.json({
+      queue: queueStats,
+      delivery: deliveryStats,
+    });
+  } catch (error) {
+    console.error('[IntentAPI] Get nudge stats failed:', error);
+    res.status(500).json({ error: 'Failed to get nudge stats' });
+  }
+});
+
+/**
+ * POST /api/intent/nudge/process
+ * Process scheduled nudges (called by cron)
+ */
+router.post('/nudge/process', async (req: Request, res: Response) => {
+  try {
+    const result = await nudgeDeliveryService.processScheduledNudges();
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('[IntentAPI] Process nudges failed:', error);
+    res.status(500).json({ error: 'Failed to process nudges' });
+  }
+});
+
+/**
+ * POST /api/intent/nudge/send
+ * Manually send a nudge
+ */
+router.post('/nudge/send', async (req: Request, res: Response) => {
+  try {
+    const { userId, intentKey, message, channel = 'push' } = req.body;
+
+    if (!userId || !intentKey) {
+      return res.status(400).json({ error: 'userId and intentKey are required' });
+    }
+
+    const nudge = await nudgeDeliveryService.send({
+      userId,
+      intentKey,
+      message: message || `We noticed you were interested in ${intentKey}`,
+      channel: channel as 'push' | 'email' | 'sms' | 'in_app',
+    });
+
+    res.json({ success: true, data: nudge });
+  } catch (error) {
+    console.error('[IntentAPI] Send nudge failed:', error);
+    res.status(500).json({ error: 'Failed to send nudge' });
+  }
+});
+
+/**
+ * PATCH /api/intent/nudge/:nudgeId/status
+ * Update nudge status (for webhook callbacks)
+ */
+router.patch('/nudge/:nudgeId/status', async (req: Request, res: Response) => {
+  try {
+    const { nudgeId } = req.params;
+    const { status, error } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ error: 'status is required' });
+    }
+
+    await nudgeDeliveryService.updateNudgeStatus(nudgeId, status, error);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[IntentAPI] Update nudge status failed:', error);
+    res.status(500).json({ error: 'Failed to update nudge status' });
+  }
+});
+
+/**
+ * GET /api/intent/nudge/history/:userId
+ * Get nudge history for a user
+ */
+router.get('/nudge/history/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const nudges = await prisma.nudge.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    res.json(nudges);
+  } catch (error) {
+    console.error('[IntentAPI] Get nudge history failed:', error);
+    res.status(500).json({ error: 'Failed to get nudge history' });
   }
 });
 
