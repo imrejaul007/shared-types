@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
+    "rez-intent-graph": "^0.2.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
