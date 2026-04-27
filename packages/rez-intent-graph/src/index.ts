@@ -1,5 +1,6 @@
-// ── RTMN Commerce Memory - Intent Graph ────────────────────────────────────────
-// Public exports for @rez/intent-graph package
+// ── ReZ Mind ───────────────────────────────────────────────────────────────────
+// AI-powered commerce intelligence platform
+// RTMN Commerce Memory + ReZ Agent OS combined
 // DANGEROUS: Full autonomous mode with skip-permission capabilities
 
 // Types

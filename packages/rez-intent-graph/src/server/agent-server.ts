@@ -1,5 +1,6 @@
-// ── Agent Server ─────────────────────────────────────────────────────────────────
-// Standalone Express server for running the agent swarm
+// ── ReZ Mind - Agent Server ─────────────────────────────────────────────────────
+// Standalone Express server for running the ReZ Mind agent swarm
+// Part of ReZ Mind - AI-powered commerce intelligence platform
 // DANGEROUS: Full autonomous mode with skip-permission capabilities
 
 import express, { Request, Response, NextFunction } from 'express';
