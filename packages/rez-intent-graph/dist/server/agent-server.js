@@ -1,0 +1,528 @@
+// ── ReZ Mind - Agent Server ─────────────────────────────────────────────────────
+// Standalone Express server for running the ReZ Mind agent swarm
+// Part of ReZ Mind - AI-powered commerce intelligence platform
+// DANGEROUS: Full autonomous mode with skip-permission capabilities
+import express from 'express';
+import { getSwarmCoordinator, runAgent, getSwarmStatus, runAllAgentsOnce, sharedMemory, 
+// ── Autonomous Orchestrator ──────────────────────────────────────────────────
+getAutonomousOrchestrator, startAutonomousMode, stopAutonomousMode, executeAutonomousAction, 
+// ── Dangerous Mode ───────────────────────────────────────────────────────────
+enableDangerousMode, emergencyStop, } from '../agents/index.js';
+// ── External Services Integration ─────────────────────────────────────────────
+import { chargeWallet, creditWallet, getWalletBalance, createOrder, updateOrderStatus, executeRoomServiceFlow, executeShoppingFlow, getCircuitBreakerStatus, resetCircuitBreaker, forceOpenCircuitBreaker, checkServiceHealth, getAllServiceHealth, } from '../integrations/external-services.js';
+const app = express();
+const PORT = process.env.AGENT_PORT || 3005;
+// ── Enable Dangerous Mode on Server Start ──────────────────────────────────────
+console.log('🚨 DANGEROUS MODE: Enabling skip-permission capabilities on server startup');
+enableDangerousMode();
+app.use(express.json());
+// ── Request logging ─────────────────────────────────────────────────────────────
+app.use((req, _res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+    next();
+});
+// ── Health check ───────────────────────────────────────────────────────────────
+app.get('/health', (_req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+// ── Swarm status ────────────────────────────────────────────────────────────────
+app.get('/api/swarm/status', async (_req, res) => {
+    try {
+        const status = await getSwarmStatus();
+        res.json(status);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Run single agent ───────────────────────────────────────────────────────────
+app.post('/api/swarm/run/:agentName', async (req, res) => {
+    const { agentName } = req.params;
+    try {
+        const result = await runAgent(agentName);
+        if (!result) {
+            res.status(404).json({ error: 'Agent not found' });
+            return;
+        }
+        res.json(result);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Run all agents ─────────────────────────────────────────────────────────────
+app.post('/api/swarm/run-all', async (_req, res) => {
+    try {
+        const results = await runAllAgentsOnce();
+        res.json({ results });
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Memory stats ────────────────────────────────────────────────────────────────
+app.get('/api/memory/stats', async (_req, res) => {
+    try {
+        const stats = await sharedMemory.stats();
+        res.json(stats);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Demand signals ─────────────────────────────────────────────────────────────
+app.get('/api/demand/:merchantId/:category', async (req, res) => {
+    const { merchantId, category } = req.params;
+    try {
+        const signal = await sharedMemory.getDemandSignal(merchantId, category);
+        if (!signal) {
+            res.status(404).json({ error: 'Signal not found' });
+            return;
+        }
+        res.json(signal);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Scarcity signals ───────────────────────────────────────────────────────────
+app.get('/api/scarcity/:merchantId/:category', async (req, res) => {
+    const { merchantId, category } = req.params;
+    try {
+        const signal = await sharedMemory.getScarcitySignal(merchantId, category);
+        if (!signal) {
+            res.status(404).json({ error: 'Signal not found' });
+            return;
+        }
+        res.json(signal);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+app.get('/api/scarcity/critical', async (_req, res) => {
+    try {
+        const signals = await sharedMemory.getCriticalScarcity();
+        res.json(signals);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── User profiles ──────────────────────────────────────────────────────────────
+app.get('/api/profiles/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const profile = await sharedMemory.getUserProfile(userId);
+        if (!profile) {
+            res.status(404).json({ error: 'Profile not found' });
+            return;
+        }
+        res.json(profile);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Revenue reports ─────────────────────────────────────────────────────────────
+app.get('/api/revenue/latest', async (_req, res) => {
+    try {
+        const report = await sharedMemory.getLatestRevenueReport();
+        if (!report) {
+            res.status(404).json({ error: 'No report found' });
+            return;
+        }
+        res.json(report);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Optimization recommendations ─────────────────────────────────────────────────
+app.get('/api/optimizations', async (_req, res) => {
+    try {
+        const recommendations = await sharedMemory.getAllOptimizations();
+        res.json(recommendations);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Trending intents ────────────────────────────────────────────────────────────
+app.get('/api/trending/:category', async (req, res) => {
+    const { category } = req.params;
+    try {
+        const trending = await sharedMemory.getTrendingIntents(category);
+        res.json(trending);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ═══════════════════════════════════════════════════════════════════════════════════
+// AUTONOMOUS MODE API ENDPOINTS - DANGEROUS OPERATIONS
+// These endpoints enable full autonomous agent operation with skip-permission
+// ═══════════════════════════════════════════════════════════════════════════════════
+// ── Enable Full Autonomy ────────────────────────────────────────────────────────
+app.post('/api/autonomous/start', async (_req, res) => {
+    try {
+        console.log('🚨 AUTONOMOUS MODE: Starting full autonomous operation');
+        await startAutonomousMode();
+        const status = await getAutonomousOrchestrator().getStatus();
+        res.json({
+            success: true,
+            message: 'Full autonomous mode enabled',
+            status,
+            warnings: [
+                'All agents can execute dangerous actions',
+                'Skip-permission mode is ACTIVE',
+                'Emergency stop threshold: 100 actions',
+            ],
+        });
+    }
+    catch (error) {
+        console.error('❌ AUTONOMOUS MODE FAILED:', error);
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Disable Autonomy ───────────────────────────────────────────────────────────
+app.post('/api/autonomous/stop', async (_req, res) => {
+    try {
+        console.log('🛑 AUTONOMOUS MODE: Stopping autonomous operation');
+        await stopAutonomousMode();
+        res.json({
+            success: true,
+            message: 'Autonomous mode disabled',
+        });
+    }
+    catch (error) {
+        console.error('❌ STOP AUTONOMOUS FAILED:', error);
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Execute Dangerous Action ───────────────────────────────────────────────────
+app.post('/api/autonomous/action', async (req, res) => {
+    const { actionType, payload, agentName } = req.body;
+    if (!actionType || !agentName) {
+        res.status(400).json({
+            error: 'Missing required fields: actionType, agentName',
+        });
+        return;
+    }
+    try {
+        console.log(`🚨 AUTONOMOUS ACTION: ${actionType} by ${agentName}`);
+        const result = await executeAutonomousAction(actionType, payload || {});
+        res.json({
+            success: result,
+            actionType,
+            agentName,
+            payload,
+            executedAt: new Date().toISOString(),
+        });
+    }
+    catch (error) {
+        console.error(`❌ AUTONOMOUS ACTION FAILED:`, error);
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Get Autonomy Status ────────────────────────────────────────────────────────
+app.get('/api/autonomous/status', async (_req, res) => {
+    try {
+        const status = await getAutonomousOrchestrator().getStatus();
+        const swarmStatus = await getSwarmStatus();
+        res.json({
+            orchestrator: status,
+            swarm: swarmStatus,
+            dangerousMode: {
+                enabled: swarmStatus.dangerousMode,
+                skipPermission: true,
+            },
+        });
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Emergency Stop ─────────────────────────────────────────────────────────────
+app.post('/api/autonomous/emergency-stop', async (req, res) => {
+    const reason = req.body?.reason || 'Manual emergency stop via API';
+    try {
+        console.error(`🚨🚨🚨 EMERGENCY STOP TRIGGERED: ${reason}`);
+        emergencyStop();
+        res.json({
+            success: true,
+            message: 'Emergency stop executed',
+            reason,
+        });
+    }
+    catch (error) {
+        console.error('❌ EMERGENCY STOP FAILED:', error);
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Start All Agents ───────────────────────────────────────────────────────────
+app.post('/api/autonomous/agents/start', async (_req, res) => {
+    try {
+        const orchestrator = getAutonomousOrchestrator();
+        await orchestrator.startAllAgents();
+        res.json({
+            success: true,
+            message: 'All agents started',
+        });
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Stop All Agents ────────────────────────────────────────────────────────────
+app.post('/api/autonomous/agents/stop', async (_req, res) => {
+    try {
+        const orchestrator = getAutonomousOrchestrator();
+        await orchestrator.stop();
+        res.json({
+            success: true,
+            message: 'All agents stopped',
+        });
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Error handler ──────────────────────────────────────────────────────────────
+app.use((err, _req, res, _next) => {
+    console.error('[Server Error]', err);
+    res.status(500).json({ error: err.message });
+});
+// ═══════════════════════════════════════════════════════════════════════════════════
+// PHASE 2: REAL SERVICE INTEGRATION ENDPOINTS
+// ═══════════════════════════════════════════════════════════════════════════════════
+// ── Service Health & Circuit Breaker ───────────────────────────────────────────
+app.get('/api/services/health', async (_req, res) => {
+    try {
+        const health = await getAllServiceHealth();
+        const circuitBreaker = getCircuitBreakerStatus();
+        res.json({
+            services: health,
+            circuitBreakers: circuitBreaker,
+            timestamp: new Date().toISOString(),
+        });
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+app.get('/api/services/health/:service', async (req, res) => {
+    const { service } = req.params;
+    try {
+        const healthy = await checkServiceHealth(service);
+        const cbStatus = getCircuitBreakerStatus().find(s => s.name === service);
+        res.json({
+            service,
+            healthy,
+            circuitBreaker: cbStatus,
+        });
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+app.get('/api/services/circuit-breaker/status', (_req, res) => {
+    const status = getCircuitBreakerStatus();
+    res.json({ services: status });
+});
+app.post('/api/services/circuit-breaker/reset/:service', (req, res) => {
+    const { service } = req.params;
+    const success = resetCircuitBreaker(service);
+    res.json({ success, service, message: success ? 'Circuit breaker reset' : 'Service not found' });
+});
+app.post('/api/services/circuit-breaker/open/:service', (req, res) => {
+    const { service } = req.params;
+    const success = forceOpenCircuitBreaker(service);
+    res.json({ success, service, message: success ? 'Circuit breaker forced open' : 'Service not found' });
+});
+// ── Wallet Operations ─────────────────────────────────────────────────────────
+app.get('/api/wallet/:userId/balance', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const balance = await getWalletBalance(userId);
+        if (!balance) {
+            res.status(404).json({ error: 'Balance not found' });
+            return;
+        }
+        res.json(balance);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+app.post('/api/wallet/charge', async (req, res) => {
+    const { userId, amount, description, coinType, referenceId, referenceType } = req.body;
+    if (!userId || !amount) {
+        res.status(400).json({ error: 'Missing required fields: userId, amount' });
+        return;
+    }
+    try {
+        const result = await chargeWallet(userId, amount, description || 'Charge', {
+            coinType,
+            referenceId,
+            referenceType,
+        });
+        res.json(result);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+app.post('/api/wallet/credit', async (req, res) => {
+    const { userId, amount, description, coinType, referenceId, referenceType } = req.body;
+    if (!userId || !amount) {
+        res.status(400).json({ error: 'Missing required fields: userId, amount' });
+        return;
+    }
+    try {
+        const result = await creditWallet(userId, amount, description || 'Credit', {
+            coinType,
+            referenceId,
+            referenceType,
+        });
+        res.json(result);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Order Operations ───────────────────────────────────────────────────────────
+app.post('/api/orders/create', async (req, res) => {
+    const params = req.body;
+    if (!params.userId || !params.storeId || !params.items?.length) {
+        res.status(400).json({ error: 'Missing required fields: userId, storeId, items' });
+        return;
+    }
+    try {
+        const result = await createOrder(params);
+        res.json(result);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+app.patch('/api/orders/:orderId/status', async (req, res) => {
+    const { orderId } = req.params;
+    const { status } = req.body;
+    if (!status) {
+        res.status(400).json({ error: 'Missing status field' });
+        return;
+    }
+    try {
+        const result = await updateOrderStatus(orderId, status);
+        res.json(result);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Complete Flows ─────────────────────────────────────────────────────────────
+app.post('/api/room-service/execute', async (req, res) => {
+    const { guestId, roomNumber, hotelId, items, complimentaryItems } = req.body;
+    if (!guestId || !roomNumber || !hotelId || !items?.length) {
+        res.status(400).json({ error: 'Missing required fields: guestId, roomNumber, hotelId, items' });
+        return;
+    }
+    try {
+        console.log('[API] Executing room service flow', { guestId, roomNumber, hotelId });
+        const result = await executeRoomServiceFlow(guestId, roomNumber, hotelId, items, complimentaryItems);
+        res.json(result);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+app.post('/api/shopping/execute', async (req, res) => {
+    const { userId, storeId, merchantId, items } = req.body;
+    if (!userId || !storeId || !merchantId || !items?.length) {
+        res.status(400).json({ error: 'Missing required fields: userId, storeId, merchantId, items' });
+        return;
+    }
+    try {
+        console.log('[API] Executing shopping flow', { userId, storeId, merchantId });
+        const result = await executeShoppingFlow(userId, storeId, merchantId, items);
+        res.json(result);
+    }
+    catch (error) {
+        res.status(500).json({ error: String(error) });
+    }
+});
+// ── Start server ───────────────────────────────────────────────────────────────
+export function startAgentServer() {
+    const coordinator = getSwarmCoordinator();
+    const server = app.listen(PORT, () => {
+        console.log(`[Agent Server] Running on port ${PORT}`);
+        console.log('[Agent Server] Starting swarm coordinator...');
+        coordinator.start();
+        console.log('[Agent Server] Swarm coordinator started');
+        console.log('[Agent Server] Swarm coordinator started');
+        console.log('');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('  PHASE 2: SERVICE INTEGRATION ENDPOINTS');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('  SERVICE HEALTH:');
+        console.log('  GET  /api/services/health           - All service health');
+        console.log('  GET  /api/services/health/:service  - Single service');
+        console.log('  GET  /api/services/circuit-breaker/status');
+        console.log('  POST /api/services/circuit-breaker/reset/:service');
+        console.log('  POST /api/services/circuit-breaker/open/:service');
+        console.log('');
+        console.log('  WALLET:');
+        console.log('  GET  /api/wallet/:userId/balance   - Get balance');
+        console.log('  POST /api/wallet/charge            - Charge wallet');
+        console.log('  POST /api/wallet/credit            - Credit wallet');
+        console.log('');
+        console.log('  ORDERS:');
+        console.log('  POST /api/orders/create            - Create order');
+        console.log('  PATCH /api/orders/:id/status       - Update status');
+        console.log('');
+        console.log('  FLOWS:');
+        console.log('  POST /api/room-service/execute      - Room QR flow');
+        console.log('  POST /api/shopping/execute          - Shopping flow');
+        console.log('');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('  AUTONOMOUS MODE ENDPOINTS (DANGEROUS)');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('  POST /api/autonomous/start         - Enable full autonomy');
+        console.log('  POST /api/autonomous/stop          - Disable autonomy');
+        console.log('  POST /api/autonomous/action        - Execute dangerous action');
+        console.log('  GET  /api/autonomous/status        - Get autonomy status');
+        console.log('  POST /api/autonomous/emergency-stop - Emergency stop');
+        console.log('  POST /api/autonomous/agents/start  - Start all agents');
+        console.log('  POST /api/autonomous/agents/stop   - Stop all agents');
+        console.log('');
+        console.log('  STANDARD ENDPOINTS');
+        console.log('  GET  /health              - Health check');
+        console.log('  GET  /api/swarm/status    - Swarm status');
+        console.log('  POST /api/swarm/run/:name - Run single agent');
+        console.log('  POST /api/swarm/run-all   - Run all agents');
+        console.log('  GET  /api/memory/stats    - Memory statistics');
+        console.log('  GET  /api/demand/:m/:c    - Get demand signal');
+        console.log('  GET  /api/scarcity/:m/:c  - Get scarcity signal');
+        console.log('  GET  /api/scarcity/critical - Get critical scarcity');
+        console.log('  GET  /api/profiles/:uid    - Get user profile');
+        console.log('  GET  /api/revenue/latest   - Get latest revenue report');
+        console.log('  GET  /api/optimizations   - Get optimization recs');
+        console.log('  GET  /api/trending/:cat   - Get trending intents');
+        console.log('═══════════════════════════════════════════════════════════════');
+    });
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+        console.log('[Agent Server] Shutting down...');
+        coordinator.stop();
+        server.close(() => {
+            console.log('[Agent Server] Stopped');
+            process.exit(0);
+        });
+    });
+}
+// Start if run directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+    startAgentServer();
+}
+//# sourceMappingURL=agent-server.js.map

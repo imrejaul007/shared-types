@@ -57,6 +57,34 @@ export {
 export { hotelOtaIntegration } from './integrations/hotelOtaIntegration.js';
 export { rezNowIntegration } from './integrations/rezNowIntegration.js';
 
+// Phase 2: External Services Integration
+export {
+  chargeWallet,
+  creditWallet,
+  getWalletBalance,
+  createOrder,
+  updateOrderStatus,
+  executeRoomServiceFlow,
+  executeShoppingFlow,
+  getCircuitBreakerStatus,
+  resetCircuitBreaker,
+  forceOpenCircuitBreaker,
+  checkServiceHealth,
+  getAllServiceHealth,
+} from './integrations/external-services.js';
+export type {
+  WalletTransaction,
+  WalletBalance,
+  OrderItem,
+  CreateOrderParams,
+  OrderResult,
+  PMSGuestRequest,
+  TaskAssignment,
+  StaffNotification,
+  MerchantOrder,
+  ServiceHealthStatus,
+} from './integrations/external-services.js';
+
 // Middleware
 export { intentCaptureMiddleware } from './middleware/intentMiddleware.js';
 
