@@ -21,7 +21,6 @@
 ```
 ReZ Full App/
 ├── packages/
-│ ├── rez-intent-graph/ ← ReZ Mind (Commerce Intelligence)
 │ ├── rez-chat-ai/ ← Chat AI Engine
 │ ├── rez-chat-service/ ← Chat Backend
 │ ├── rez-chat-integration/ ← Chat Integrations
@@ -39,6 +38,8 @@ ReZ Full App/
  ├── adBazaar
  └── ...
 ```
+
+**Note:** [rez-intent-graph](https://github.com/imrejaul007/rez-intent-graph) (ReZ Mind) is now a **separate repository** — deploys independently via Render Blueprint.
 
 ---
 
