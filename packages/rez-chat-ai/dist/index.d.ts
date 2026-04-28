@@ -5,6 +5,8 @@ export { AIChatHandler, AIHandlerConfig, ToolHandlerConfig, BOOKING_TOOLS, creat
 export { AIChatService, AIChatServiceConfig, ChatContext, createAIChatService, } from './services/aiChatService';
 export { LearningSystem, getLearningSystem, resetLearningSystem, PatternAnalyzer, KnowledgeGapDetector, ResponseQualityAnalyzer, ImprovementRecommender, ConversationOutcomeTracker, AnalyticsService, getAnalyticsService, resetAnalyticsService, AnalyticsEventTracker, detectIntent, AnalyticsRepository, } from './analytics';
 export type { ConversationOutcome, MessageFeedback, AIResponseMetrics, PatternEntry, KnowledgeGap, ImprovementAction, AnalyticsSummary, AnalyticsEvents, } from './analytics';
+export { TEEConfig, AttestationQuote, SecureMemory, TEESealProvider, TEEProtectedCredentials, TEEContext, TEESessionManager, getTEEConfig, getTEEContext, initializeTEEContext, destroyTEEContext, } from './security';
+export type { SealedData, } from './security';
 /**
  * Basic usage example:
  *

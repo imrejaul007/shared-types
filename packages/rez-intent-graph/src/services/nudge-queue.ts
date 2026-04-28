@@ -1,8 +1,10 @@
 // ── Nudge Queue Service ─────────────────────────────────────────────────────────
-// Message queue integration for dormant intent revival nudges
-// DANGEROUS: Enables automatic nudge delivery with skip-permission
+// MongoDB-backed priority queue for dormant intent revival nudges
+// Replaces fake Redis/in-memory queue with proper MongoDB TTL-based storage
 
-import { sharedMemory } from '../agents/shared-memory.js';
+import mongoose from 'mongoose';
+
+// ── Logger ────────────────────────────────────────────────────────────────────
 
 const logger = {
   info: (msg: string, meta?: unknown) => console.log(`[NudgeQueue] ${msg}`, meta || ''),
@@ -10,16 +12,9 @@ const logger = {
   error: (msg: string, meta?: unknown) => console.error(`[NudgeQueue] ${msg}`, meta || ''),
 };
 
-// Queue names
-const QUEUES = {
-  NUDGE_REVIVAL: 'nudge:revival:queue',
-  NUDGE_PRIORITY: 'nudge:priority:queue',
-  NUDGE_BULK: 'nudge:bulk:queue',
-  NUDGE_DEAD_LETTER: 'nudge:dead_letter:queue',
-} as const;
+// ── Queue Job Types ────────────────────────────────────────────────────────────
 
-// Queue item structure
-interface NudgeJob {
+export interface NudgeJob {
   id: string;
   type: 'intent_revival_nudge' | 'price_drop_nudge' | 'seasonality_nudge' | 'manual_nudge';
   payload: {
@@ -41,154 +36,212 @@ interface NudgeJob {
   };
 }
 
-class NudgeQueueService {
-  private redisAvailable = false;
+// Internal nudge job used by the service
+interface InternalNudgeJob {
+  dormantIntentId: string;
+  userId: string;
+  intentKey: string;
+  category: string;
+  appType: string;
+  message: string;
+  channel: string;
+  triggerType: string;
+}
 
-  constructor() {
-    // Check if Redis is available
-    this.redisAvailable = sharedMemory.isRedisAvailable();
-    if (!this.redisAvailable) {
-      logger.warn('Redis not available, using in-memory queue fallback');
-    }
-  }
+// ── MongoDB Schema ─────────────────────────────────────────────────────────────
 
+const nudgeQueueSchema = new mongoose.Schema({
+  jobId: { type: String, required: true, unique: true },
+  queue: { type: String, required: true }, // 'revival' | 'priority' | 'bulk' | 'dead_letter'
+  priority: { type: Number, default: 0 },
+  job: {
+    dormantIntentId: String,
+    userId: String,
+    intentKey: String,
+    category: String,
+    appType: String,
+    message: String,
+    channel: String,
+    triggerType: String,
+  },
+  status: { type: String, enum: ['pending', 'processing', 'completed', 'failed'], default: 'pending' },
+  attempts: { type: Number, default: 0 },
+  maxAttempts: { type: Number, default: 3 },
+  error: String,
+  scheduledFor: { type: Date, default: Date.now },
+}, { timestamps: true });
+
+// TTL index: auto-expire dead letter jobs after 7 days
+nudgeQueueSchema.index({ createdAt: 1 }, { expireAfterSeconds: 7 * 24 * 60 * 60 });
+// Priority queue index: find next job by queue + status + priority + schedule time
+nudgeQueueSchema.index({ queue: 1, status: 1, priority: -1, scheduledFor: 1 });
+
+// ── Model (singleton-safe) ─────────────────────────────────────────────────────
+
+let NudgeQueueModel: mongoose.Model<any>;
+try {
+  NudgeQueueModel = mongoose.models.NudgeQueue || mongoose.model('NudgeQueue', nudgeQueueSchema);
+} catch {
+  NudgeQueueModel = mongoose.model('NudgeQueue', nudgeQueueSchema);
+}
+
+// ── Queue Service ─────────────────────────────────────────────────────────────
+
+export class NudgeQueueService {
   /**
    * Enqueue a nudge job
    */
-  async enqueue(job: NudgeJob): Promise<{ success: boolean; queuePosition?: number }> {
-    const queueName = this.getQueueForPriority(job.metadata.priority);
+  async enqueue(job: NudgeJob, queueType: string = 'revival'): Promise<{ success: boolean; queuePosition?: number }> {
+    const jobId = job.id || `nudge_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const priority = this.priorityToNumber(job.metadata.priority);
 
-    if (this.redisAvailable) {
-      return this.enqueueRedis(queueName, job);
-    }
-
-    return this.enqueueMemory(queueName, job);
-  }
-
-  /**
-   * Enqueue to Redis (production)
-   */
-  private async enqueueRedis(queueName: string, job: NudgeJob): Promise<{ success: boolean; queuePosition?: number }> {
-    try {
-      // In production, this would use actual Redis
-      // For now, store in shared memory
-      await sharedMemory.set(
-        `${queueName}:${job.id}`,
-        job,
-        86400 // 24 hours
-      );
-
-      logger.info('Nudge job enqueued to Redis', { jobId: job.id, queue: queueName });
-      return { success: true };
-    } catch (error) {
-      logger.error('Failed to enqueue to Redis', { error, jobId: job.id });
-      return this.enqueueMemory(queueName, job);
-    }
-  }
-
-  /**
-   * Enqueue to in-memory queue (fallback)
-   */
-  private async enqueueMemory(queueName: string, job: NudgeJob): Promise<{ success: boolean; queuePosition?: number }> {
-    try {
-      await sharedMemory.set(
-        `${queueName}:${job.id}`,
-        job,
-        86400
-      );
-
-      // Track queue order
-      const queueKey = `${queueName}:order`;
-      const order = await sharedMemory.get<string[]>(queueKey) || [];
-      order.push(job.id);
-      await sharedMemory.set(queueKey, order, 86400);
-
-      logger.info('Nudge job enqueued to memory', { jobId: job.id, queue: queueName });
-      return { success: true, queuePosition: order.length };
-    } catch (error) {
-      logger.error('Failed to enqueue to memory', { error, jobId: job.id });
-      return { success: false };
-    }
-  }
-
-  /**
-   * Dequeue next job from queue
-   */
-  async dequeue(priority: 'low' | 'medium' | 'high' | 'critical' = 'medium'): Promise<NudgeJob | null> {
-    const queueName = this.getQueueForPriority(priority);
-
-    if (this.redisAvailable) {
-      return this.dequeueRedis(queueName);
-    }
-
-    return this.dequeueMemory(queueName);
-  }
-
-  private async dequeueRedis(queueName: string): Promise<NudgeJob | null> {
-    // In production: BRPOPLPUSH for reliable queue
-    return this.dequeueMemory(queueName);
-  }
-
-  private async dequeueMemory(queueName: string): Promise<NudgeJob | null> {
-    const queueKey = `${queueName}:order`;
-    const order = await sharedMemory.get<string[]>(queueKey) || [];
-
-    if (order.length === 0) return null;
-
-    const jobId = order.shift();
-    await sharedMemory.set(queueKey, order, 86400);
-
-    if (!jobId) return null;
-
-    const job = await sharedMemory.get<NudgeJob>(`${queueName}:${jobId}`);
-    if (job) {
-      await sharedMemory.delete(`${queueName}:${jobId}`);
-    }
-
-    return job || null;
-  }
-
-  /**
-   * Get queue length
-   */
-  async getQueueLength(priority?: 'low' | 'medium' | 'high' | 'critical'): Promise<number> {
-    if (priority) {
-      return this.getQueueLengthForPriority(priority);
-    }
-
-    let total = 0;
-    for (const p of ['low', 'medium', 'high', 'critical'] as const) {
-      total += await this.getQueueLengthForPriority(p);
-    }
-    return total;
-  }
-
-  private async getQueueLengthForPriority(priority: string): Promise<number> {
-    const queueName = this.getQueueForPriority(priority as any);
-    const order = await sharedMemory.get<string[]>(`${queueName}:order`) || [];
-    return order.length;
-  }
-
-  /**
-   * Move failed job to dead letter queue
-   */
-  async moveToDeadLetter(job: NudgeJob, reason: string): Promise<void> {
-    const dlqJob = {
-      ...job,
-      metadata: {
-        ...job.metadata,
-        retries: job.metadata.retries + 1,
+    await NudgeQueueModel.create({
+      jobId,
+      queue: queueType,
+      priority,
+      job: {
+        dormantIntentId: job.payload.dormantIntentId,
+        userId: job.payload.userId,
+        intentKey: job.payload.intentKey,
+        category: job.payload.category,
+        appType: job.payload.appType,
+        message: job.payload.message,
+        channel: job.payload.channel,
+        triggerType: job.type,
       },
-      error: reason,
-      failedAt: new Date().toISOString(),
-    };
+      scheduledFor: new Date(),
+    });
 
-    await sharedMemory.set(
-      `${QUEUES.NUDGE_DEAD_LETTER}:${job.id}`,
-      dlqJob,
-      604800 // 7 days
+    const position = await NudgeQueueModel.countDocuments({
+      queue: queueType,
+      status: 'pending',
+      priority: { $gte: priority },
+      scheduledFor: { $lte: new Date() },
+      jobId: { $ne: jobId },
+    });
+
+    logger.info('Nudge job enqueued', { jobId, queue: queueType, position: position + 1 });
+    return { success: true, queuePosition: position + 1 };
+  }
+
+  /**
+   * Dequeue the next pending job from a queue.
+   * Accepts queue types ('revival', 'priority', 'bulk') or legacy priorities
+   * ('low', 'medium', 'high', 'critical') for backward compatibility.
+   */
+  async dequeue(queueTypeOrPriority: string = 'revival'): Promise<NudgeJob | null> {
+    // Normalize legacy priority to queue type
+    const priorityMap: Record<string, string> = {
+      'low': 'revival',
+      'medium': 'revival',
+      'high': 'priority',
+      'critical': 'priority',
+    };
+    const queueType = priorityMap[queueTypeOrPriority] || queueTypeOrPriority;
+    const now = new Date();
+    const job = await NudgeQueueModel.findOneAndUpdate(
+      {
+        queue: queueType,
+        status: 'pending',
+        scheduledFor: { $lte: now },
+      },
+      { $set: { status: 'processing', updatedAt: new Date() } },
+      { sort: { priority: -1, createdAt: 1 }, new: true }
     );
 
+    if (!job) return null;
+
+    return {
+      id: job.jobId,
+      type: (job.job.triggerType as NudgeJob['type']) || 'intent_revival_nudge',
+      payload: {
+        dormantIntentId: job.job.dormantIntentId,
+        userId: job.job.userId,
+        intentKey: job.job.intentKey,
+        category: job.job.category,
+        appType: job.job.appType,
+        message: job.job.message,
+        revivalScore: 0,
+        channel: (job.job.channel as NudgeJob['payload']['channel']) || 'push',
+        scheduledFor: job.scheduledFor?.toISOString(),
+      },
+      metadata: {
+        createdAt: job.createdAt.toISOString(),
+        retries: job.attempts,
+        maxRetries: job.maxAttempts,
+        priority: 'medium',
+      },
+    };
+  }
+
+  /**
+   * Mark a job as completed and remove it
+   */
+  async complete(jobId: string): Promise<void> {
+    await NudgeQueueModel.deleteOne({ jobId, queue: { $ne: 'dead_letter' } });
+    logger.info('Nudge job completed', { jobId });
+  }
+
+  /**
+   * Handle a failed job: retry with backoff or move to DLQ
+   */
+  async fail(jobId: string, error: string): Promise<void> {
+    const job = await NudgeQueueModel.findOne({ jobId });
+    if (!job) return;
+
+    if (job.attempts + 1 >= job.maxAttempts) {
+      await NudgeQueueModel.findByIdAndUpdate(job._id, {
+        queue: 'dead_letter',
+        status: 'failed',
+        error,
+        updatedAt: new Date(),
+      });
+      logger.warn('Nudge job moved to DLQ after max retries', { jobId, attempts: job.attempts, error });
+    } else {
+      const backoffMs = 60000 * Math.pow(2, job.attempts);
+      await NudgeQueueModel.findByIdAndUpdate(job._id, {
+        $inc: { attempts: 1 },
+        status: 'pending',
+        error,
+        updatedAt: new Date(),
+        scheduledFor: new Date(Date.now() + backoffMs),
+      });
+      logger.warn('Nudge job scheduled for retry', { jobId, attempts: job.attempts + 1, backoffMs, error });
+    }
+  }
+
+  /**
+   * Get count of pending jobs in a queue
+   */
+  async getQueueLength(queueType?: string): Promise<number> {
+    if (queueType) {
+      return NudgeQueueModel.countDocuments({ queue: queueType, status: 'pending' });
+    }
+
+    // Sum all non-DLQ queues
+    const counts = await Promise.all([
+      NudgeQueueModel.countDocuments({ queue: 'revival', status: 'pending' }),
+      NudgeQueueModel.countDocuments({ queue: 'priority', status: 'pending' }),
+      NudgeQueueModel.countDocuments({ queue: 'bulk', status: 'pending' }),
+    ]);
+    return counts.reduce((a, b) => a + b, 0);
+  }
+
+  /**
+   * Move failed job to dead letter queue (legacy API compatibility)
+   */
+  async moveToDeadLetter(job: NudgeJob, reason: string): Promise<void> {
+    await NudgeQueueModel.findOneAndUpdate(
+      { jobId: job.id },
+      {
+        $set: {
+          queue: 'dead_letter',
+          status: 'failed',
+          error: reason,
+          updatedAt: new Date(),
+        },
+      }
+    );
     logger.warn('Job moved to dead letter queue', { jobId: job.id, reason });
   }
 
@@ -220,36 +273,38 @@ class NudgeQueueService {
     byPriority: Record<string, number>;
     deadLetter: number;
   }> {
-    const byPriority: Record<string, number> = {};
-    for (const p of ['low', 'medium', 'high', 'critical'] as const) {
-      byPriority[p] = await this.getQueueLengthForPriority(p);
-    }
-
-    const dlqOrder = await sharedMemory.get<string[]>(`${QUEUES.NUDGE_DEAD_LETTER}:order`) || [];
+    const [revival, priority, bulk, dlq] = await Promise.all([
+      NudgeQueueModel.countDocuments({ queue: 'revival', status: 'pending' }),
+      NudgeQueueModel.countDocuments({ queue: 'priority', status: 'pending' }),
+      NudgeQueueModel.countDocuments({ queue: 'bulk', status: 'pending' }),
+      NudgeQueueModel.countDocuments({ queue: 'dead_letter' }),
+    ]);
 
     return {
-      total: Object.values(byPriority).reduce((a, b) => a + b, 0),
-      byPriority,
-      deadLetter: dlqOrder.length,
+      total: revival + priority + bulk,
+      byPriority: { low: revival, medium: revival, high: priority, critical: priority },
+      deadLetter: dlq,
     };
   }
 
-  private getQueueForPriority(priority: 'low' | 'medium' | 'high' | 'critical'): string {
+  private priorityToNumber(priority: NudgeJob['metadata']['priority']): number {
     switch (priority) {
-      case 'critical':
-        return QUEUES.NUDGE_PRIORITY;
-      case 'high':
-        return QUEUES.NUDGE_PRIORITY;
-      default:
-        return QUEUES.NUDGE_REVIVAL;
+      case 'critical': return 100;
+      case 'high': return 50;
+      case 'medium': return 10;
+      case 'low': return 1;
+      default: return 10;
     }
   }
 }
 
-// Singleton
-export const nudgeQueue = new NudgeQueueService();
+// ── Singleton Export ───────────────────────────────────────────────────────────
 
-// Helper to create nudge job
+export const nudgeQueue = new NudgeQueueService();
+export { NudgeQueueModel };
+
+// ── Helper to create nudge job ────────────────────────────────────────────────
+
 export function createNudgeJob(params: {
   dormantIntentId: string;
   userId: string;

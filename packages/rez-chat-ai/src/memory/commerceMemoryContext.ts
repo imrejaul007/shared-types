@@ -72,19 +72,22 @@ export async function getCommerceMemoryContext(
       key: intent.key,
       category: intent.category,
       confidence: intent.confidence,
-      lastSeen: formatTimeAgo(intent.lastSeen),
+      lastSeen: formatTimeAgo(intent.lastSeen.toISOString()),
       displayName: formatIntentDisplayName(intent.key, intent.category),
     }));
 
     // Format dormant intents
-    const dormantIntents: DormantIntentSummary[] = filteredDormant.map((intent: { category: string; key: string; revivalScore: number; daysDormant: number }) => ({
-      key: intent.key,
-      category: intent.category,
-      daysDormant: intent.daysDormant,
-      revivalScore: intent.revivalScore,
-      displayName: formatIntentDisplayName(intent.key, intent.category),
-      actionSuggestion: getActionSuggestion(intent),
-    }));
+    const dormantIntents: DormantIntentSummary[] = filteredDormant.map((intent: { category: string; key: string; revivalScore: number; daysDormant: number }) => {
+      const displayName = formatIntentDisplayName(intent.key, intent.category);
+      return {
+        key: intent.key,
+        category: intent.category,
+        daysDormant: intent.daysDormant,
+        revivalScore: intent.revivalScore,
+        displayName,
+        actionSuggestion: getActionSuggestion({ ...intent, displayName, actionSuggestion: '' }),
+      };
+    });
 
     // Format profile
     const profile: UserProfile = filteredProfile
@@ -290,7 +293,7 @@ function getActionSuggestion(intent: DormantIntentSummary): string {
   return 'Personalized suggestion';
 }
 
-function getPreferredChannel(profile: UserProfile): string {
+function getPreferredChannel(profile: { travelAffinity: number; diningAffinity: number; retailAffinity: number }): string {
   const max = Math.max(profile.travelAffinity, profile.diningAffinity, profile.retailAffinity);
   if (max === profile.travelAffinity) return 'email';
   if (max === profile.diningAffinity) return 'push';

@@ -328,25 +328,18 @@ export async function handleBatchCapture(req, res) {
         res.status(400).json({ error: 'events array is required' });
         return;
     }
-    const results = [];
-    for (let i = 0; i < events.length; i++) {
-        const event = events[i];
-        try {
-            await intentCaptureService.capture({
-                userId: event.userId,
-                appType: event.appType || 'general',
-                eventType: event.eventType || 'view',
-                category: event.category || 'GENERAL',
-                intentKey: event.intentKey,
-                intentQuery: event.intentQuery,
-                metadata: event.metadata,
-            });
-            results.push({ index: i, success: true });
-        }
-        catch (error) {
-            results.push({ index: i, success: false, error: String(error) });
-        }
-    }
+    const results = await Promise.all(events.map((event, i) => intentCaptureService
+        .capture({
+        userId: event.userId,
+        appType: event.appType || 'general',
+        eventType: event.eventType || 'view',
+        category: event.category || 'GENERAL',
+        intentKey: event.intentKey,
+        intentQuery: event.intentQuery,
+        metadata: event.metadata,
+    })
+        .then(() => ({ index: i, success: true }))
+        .catch((error) => ({ index: i, success: false, error: String(error) }))));
     const successCount = results.filter((r) => r.success).length;
     logger.info('[Webhook] Batch capture completed', { total: events.length, success: successCount });
     res.json({ success: true, results });

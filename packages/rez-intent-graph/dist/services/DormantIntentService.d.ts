@@ -37,7 +37,7 @@ export declare class DormantIntentService {
     /**
      * Get dormant intents for a specific user
      */
-    getUserDormantIntents(userId: string): Promise<IDormantIntent[]>;
+    getUserDormantIntents(userId: string, page?: number, limit?: number): Promise<IDormantIntent[]>;
     /**
      * Get dormant intents by merchant and category
      */

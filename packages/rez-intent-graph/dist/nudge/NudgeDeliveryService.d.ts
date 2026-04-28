@@ -1,6 +1,6 @@
 export type NudgeChannel = 'push' | 'email' | 'sms' | 'in_app';
 export type NudgeStatus = 'pending' | 'sent' | 'delivered' | 'clicked' | 'converted' | 'failed';
-export interface Nudge {
+export interface NudgeRecord {
     id: string;
     dormantIntentId: string;
     userId: string;
@@ -19,6 +19,22 @@ export interface NudgeTemplate {
     channels: NudgeChannel[];
     templates: Record<NudgeChannel, string[]>;
 }
+export interface SendNudgeParams {
+    dormantIntentId: string;
+    userId: string;
+    intentKey: string;
+    category: string;
+    message: string;
+    channel: NudgeChannel;
+    revivalScore: number;
+    triggerType?: string;
+}
+export interface SendNudgeResult {
+    success: boolean;
+    reason?: string;
+    nudgeId?: string;
+    error?: string;
+}
 export declare class NudgeDeliveryService {
     private channelHandlers;
     constructor();
@@ -29,13 +45,17 @@ export declare class NudgeDeliveryService {
         message: string;
         channel: NudgeChannel;
         template?: string;
-    }): Promise<Nudge>;
+    }): Promise<NudgeRecord>;
     processScheduledNudges(): Promise<{
         processed: number;
         sent: number;
         failed: number;
     }>;
-    sendNudge(candidate: any): Promise<Nudge>;
+    sendNudge(candidate: any): Promise<NudgeRecord>;
+    /**
+     * Send nudge to a specific user with explicit parameters
+     */
+    sendNudgeTo(params: SendNudgeParams): Promise<SendNudgeResult>;
     recordNudgeSent(dormantIntentId: string, userId: string, channel: string, message: string, nudgeId?: string): Promise<void>;
     updateNudgeStatus(nudgeId: string, status: 'delivered' | 'clicked' | 'converted' | 'failed', error?: string): Promise<void>;
     getNudgeStats(): Promise<{
@@ -44,6 +64,10 @@ export declare class NudgeDeliveryService {
         byChannel: Record<string, number>;
         conversionRate: number;
     }>;
+    /**
+     * Create a Nudge record in MongoDB
+     */
+    private createNudge;
     private registerDefaultHandlers;
     private inferTriggerType;
     private getTemplate;
@@ -59,6 +83,7 @@ export interface NudgeChannelHandler {
     }): Promise<{
         success: boolean;
         error?: string;
+        channel?: string;
     }>;
 }
 export declare const nudgeDeliveryService: NudgeDeliveryService;

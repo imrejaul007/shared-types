@@ -2,7 +2,7 @@
 // ── @rez/chat-ai ─────────────────────────────────────────────────────────────────
 // AI-powered chat service for ReZ ecosystem
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.detectIntent = exports.AnalyticsEventTracker = exports.resetAnalyticsService = exports.getAnalyticsService = exports.AnalyticsService = exports.ConversationOutcomeTracker = exports.ImprovementRecommender = exports.ResponseQualityAnalyzer = exports.KnowledgeGapDetector = exports.PatternAnalyzer = exports.resetLearningSystem = exports.getLearningSystem = exports.LearningSystem = exports.createAIChatService = exports.AIChatService = exports.createAIHandler = exports.BOOKING_TOOLS = exports.AIChatHandler = exports.INDUSTRY_CATEGORIES = exports.getKnowledgeForAppType = exports.getKnowledgeForIndustry = exports.createKnowledgeBase = exports.UnifiedKnowledgeBase = exports.CustomerKnowledgeProvider = exports.MerchantKnowledgeProvider = exports.IndustryKnowledgeProvider = exports.AppKnowledgeProvider = exports.GlobalKnowledgeProvider = exports.sanitizeCustomerContext = exports.defaultSanitizer = exports.DataSanitizer = exports.transactionSanitizer = exports.idSanitizer = exports.phoneSanitizer = exports.emailSanitizer = exports.cardNumberSanitizer = exports.sensitiveDataSanitizer = void 0;
+exports.destroyTEEContext = exports.initializeTEEContext = exports.getTEEContext = exports.getTEEConfig = exports.TEESessionManager = exports.TEEProtectedCredentials = exports.TEESealProvider = exports.SecureMemory = exports.detectIntent = exports.AnalyticsEventTracker = exports.resetAnalyticsService = exports.getAnalyticsService = exports.AnalyticsService = exports.ConversationOutcomeTracker = exports.ImprovementRecommender = exports.ResponseQualityAnalyzer = exports.KnowledgeGapDetector = exports.PatternAnalyzer = exports.resetLearningSystem = exports.getLearningSystem = exports.LearningSystem = exports.createAIChatService = exports.AIChatService = exports.createAIHandler = exports.BOOKING_TOOLS = exports.AIChatHandler = exports.INDUSTRY_CATEGORIES = exports.getKnowledgeForAppType = exports.getKnowledgeForIndustry = exports.createKnowledgeBase = exports.UnifiedKnowledgeBase = exports.CustomerKnowledgeProvider = exports.MerchantKnowledgeProvider = exports.IndustryKnowledgeProvider = exports.AppKnowledgeProvider = exports.GlobalKnowledgeProvider = exports.sanitizeCustomerContext = exports.defaultSanitizer = exports.DataSanitizer = exports.transactionSanitizer = exports.idSanitizer = exports.phoneSanitizer = exports.emailSanitizer = exports.cardNumberSanitizer = exports.sensitiveDataSanitizer = void 0;
 // Sanitizers
 var sanitize_1 = require("./sanitizers/sanitize");
 Object.defineProperty(exports, "sensitiveDataSanitizer", { enumerable: true, get: function () { return sanitize_1.sensitiveDataSanitizer; } });
@@ -50,6 +50,16 @@ Object.defineProperty(exports, "getAnalyticsService", { enumerable: true, get: f
 Object.defineProperty(exports, "resetAnalyticsService", { enumerable: true, get: function () { return analytics_1.resetAnalyticsService; } });
 Object.defineProperty(exports, "AnalyticsEventTracker", { enumerable: true, get: function () { return analytics_1.AnalyticsEventTracker; } });
 Object.defineProperty(exports, "detectIntent", { enumerable: true, get: function () { return analytics_1.detectIntent; } });
+// Security & TEE
+var security_1 = require("./security");
+Object.defineProperty(exports, "SecureMemory", { enumerable: true, get: function () { return security_1.SecureMemory; } });
+Object.defineProperty(exports, "TEESealProvider", { enumerable: true, get: function () { return security_1.TEESealProvider; } });
+Object.defineProperty(exports, "TEEProtectedCredentials", { enumerable: true, get: function () { return security_1.TEEProtectedCredentials; } });
+Object.defineProperty(exports, "TEESessionManager", { enumerable: true, get: function () { return security_1.TEESessionManager; } });
+Object.defineProperty(exports, "getTEEConfig", { enumerable: true, get: function () { return security_1.getTEEConfig; } });
+Object.defineProperty(exports, "getTEEContext", { enumerable: true, get: function () { return security_1.getTEEContext; } });
+Object.defineProperty(exports, "initializeTEEContext", { enumerable: true, get: function () { return security_1.initializeTEEContext; } });
+Object.defineProperty(exports, "destroyTEEContext", { enumerable: true, get: function () { return security_1.destroyTEEContext; } });
 // ── Quick Start Usage ────────────────────────────────────────────────────────────
 /**
  * Basic usage example:

@@ -108,7 +108,7 @@ export class TEESealProvider {
 
     // Derive encryption key from enclave-bound key
     const encryptionKey = crypto.pbkdf2Sync(
-      Buffer.concat([enclaveKey, this.enclaveMeasurement]),
+      Buffer.concat([enclaveKey, Buffer.from(this.enclaveMeasurement)]),
       iv,
       100000,
       32,
@@ -146,7 +146,7 @@ export class TEESealProvider {
 
     // Derive the same encryption key
     const encryptionKey = crypto.pbkdf2Sync(
-      Buffer.concat([enclaveKey, this.enclaveMeasurement]),
+      Buffer.concat([enclaveKey, Buffer.from(this.enclaveMeasurement)]),
       iv,
       100000,
       32,
@@ -348,15 +348,15 @@ export function initializeTEEContext(config?: TEEConfig): TEEContext {
   const sessionManager = new TEESessionManager(teeConfig);
   const sealProvider = new TEESealProvider(teeConfig);
 
-  teeContext = {
+  const result: TEEContext = {
     sessionId: crypto.randomUUID(),
     enclaveMeasurement: sealProvider.getEnclaveMeasurement(),
-    attestationQuote: teeConfig.attestationEnabled ? null : undefined,
+    attestationQuote: null,
     credentials,
     sessionManager,
   };
-
-  return teeContext;
+  teeContext = result;
+  return result;
 }
 
 export function getTEEContext(): TEEContext | null {

@@ -67,16 +67,26 @@ export class MerchantKnowledgeService {
             searchQuery.merchantId = params.merchantId;
         if (params.category)
             searchQuery.type = params.category;
+        // Push text search into MongoDB using regex on title (content search remains client-side for safety)
+        if (params.query) {
+            searchQuery.$or = [
+                { title: { $regex: params.query, $options: 'i' } },
+                { tags: { $regex: params.query, $options: 'i' } },
+            ];
+        }
         const entries = await MerchantKnowledge.find(searchQuery)
             .sort({ updatedAt: -1 })
             .limit(params.limit || 20);
-        // Simple text search
-        const query = params.query.toLowerCase();
-        const results = entries.filter((entry) => {
-            const searchText = `${entry.title} ${entry.content} ${entry.tags.join(' ')}`.toLowerCase();
-            return searchText.includes(query);
-        });
-        return results.map((e) => e.toObject());
+        // Final client-side filter for content search (regex on large content fields is slow)
+        if (params.query) {
+            const query = params.query.toLowerCase();
+            const results = entries.filter((entry) => {
+                const searchText = `${entry.title} ${entry.content} ${entry.tags.join(' ')}`.toLowerCase();
+                return searchText.includes(query);
+            });
+            return results.map((e) => e.toObject());
+        }
+        return entries.map((e) => e.toObject());
     }
     async getChatContext(params) {
         const knowledge = await this.searchKnowledge({

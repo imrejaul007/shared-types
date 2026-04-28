@@ -14,6 +14,7 @@ export interface INudge extends Document {
   channel: 'push' | 'email' | 'sms' | 'in_app';
   message: string;
   status: 'pending' | 'sent' | 'delivered' | 'clicked' | 'converted' | 'failed';
+  scheduledFor?: Date;
   sentAt?: Date;
   deliveredAt?: Date;
   clickedAt?: Date;
@@ -39,6 +40,7 @@ const NudgeSchema = new Schema<INudge>({
     default: 'pending',
     index: true
   },
+  scheduledFor: { type: Date, index: true },
   sentAt: { type: Date },
   deliveredAt: { type: Date },
   clickedAt: { type: Date },

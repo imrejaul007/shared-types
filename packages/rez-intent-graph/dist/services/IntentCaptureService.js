@@ -3,6 +3,8 @@
  * Captures user intent signals from various app events
  */
 import { Intent, IntentSequence, CrossAppIntentProfile, } from '../models/index.js';
+import { vibeScoringService } from './VibeScoringService.js';
+import { crossAppBridgingService } from './CrossAppBridgingService.js';
 // Event weights for confidence calculation
 const SIGNAL_WEIGHTS = {
     search: 0.15,
@@ -90,6 +92,32 @@ export class IntentCaptureService {
             // Update cross-app profile
             await this.updateCrossAppProfile(userId, appType, category);
         }
+        // Fire-and-forget: update vibe profile, detect micro-moment, and find cross-app bridges
+        setImmediate(async () => {
+            try {
+                await vibeScoringService.updateVibeProfile(userId);
+                await vibeScoringService.detectMicroMoment(userId, intentKey, eventType);
+            }
+            catch (err) {
+                console.debug('[IntentCapture] Vibe/MicroMoment update failed:', err);
+            }
+        });
+        // Fire-and-forget: cross-app bridge detection
+        setImmediate(async () => {
+            try {
+                const bridges = await crossAppBridgingService.findBridges(userId, intentKey, category);
+                if (bridges.length > 0) {
+                    console.info(`[IntentCapture] Found ${bridges.length} cross-app bridges for user ${userId}`);
+                    // Store bridges in intent metadata for later use
+                    await Intent.findByIdAndUpdate(intent._id, {
+                        $set: { 'metadata.crossAppBridges': bridges.map(b => b.targetIntent) }
+                    });
+                }
+            }
+            catch (err) {
+                console.debug('[IntentCapture] Bridge detection failed:', err);
+            }
+        });
         return { intent, signal, isNew };
     }
     /**
@@ -217,18 +245,20 @@ export class IntentCaptureService {
     /**
      * Get active intents for a user
      */
-    async getActiveIntents(userId) {
+    async getActiveIntents(userId, page = 1, limit = 20) {
         return Intent.find({ userId, status: 'ACTIVE' })
             .sort({ lastSeenAt: -1 })
-            .limit(50);
+            .skip((page - 1) * limit)
+            .limit(limit);
     }
     /**
      * Get all intents for a user across apps
      */
-    async getUserIntents(userId) {
+    async getUserIntents(userId, page = 1, limit = 20) {
         return Intent.find({ userId })
             .sort({ lastSeenAt: -1 })
-            .limit(100);
+            .skip((page - 1) * limit)
+            .limit(limit);
     }
     /**
      * Get intents by app type

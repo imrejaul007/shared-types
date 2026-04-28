@@ -170,6 +170,8 @@ export interface ToolDefinition {
     }>;
     execute: (params: Record<string, unknown>, context: CustomerContext) => Promise<ToolResult>;
 }
+export declare const getUserIntentsToolDef: ToolDefinition;
+export declare const triggerNudgeToolDef: ToolDefinition;
 export declare const TOOL_REGISTRY: ToolDefinition[];
 export declare function executeTool(toolName: string, params: Record<string, unknown>, context: CustomerContext): Promise<ToolResult>;
 export declare function getToolsByCategory(category: ToolDefinition['category']): ToolDefinition[];

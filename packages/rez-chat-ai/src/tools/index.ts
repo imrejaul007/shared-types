@@ -207,6 +207,70 @@ export interface ToolDefinition {
   execute: (params: Record<string, unknown>, context: CustomerContext) => Promise<ToolResult>;
 }
 
+// ── Intent Graph Tools ────────────────────────────────────────────────────────
+
+export const getUserIntentsToolDef: ToolDefinition = {
+  name: 'get_user_intents',
+  description: 'Get a user\'s active shopping/travel/dining intents for personalization',
+  category: 'search',
+  parameters: {
+    userId: { type: 'string', description: 'User ID', required: true },
+  },
+  execute: async (params, _context) => {
+    try {
+      const { intentCaptureService, crossAppAggregationService } = await import('rez-intent-graph');
+      const intents = await intentCaptureService.getActiveIntents(String(params.userId));
+      const enriched = await crossAppAggregationService.getEnrichedContext(String(params.userId));
+      return {
+        success: true,
+        data: {
+          activeIntents: intents.map((i: any) => ({
+            key: i.intentKey,
+            category: i.category,
+            confidence: i.confidence,
+            lastSeen: i.lastSeenAt,
+          })),
+          dormantIntents: enriched?.dormantIntents?.slice(0, 5) || [],
+          affinities: enriched?.crossAppProfile?.travelAffinity
+            ? {
+                travel: enriched.crossAppProfile.travelAffinity,
+                dining: enriched.crossAppProfile.diningAffinity,
+                retail: enriched.crossAppProfile.retailAffinity,
+              }
+            : {},
+        },
+      };
+    } catch {
+      return { success: false, error: 'Failed to fetch intents' };
+    }
+  },
+};
+
+export const triggerNudgeToolDef: ToolDefinition = {
+  name: 'trigger_nudge',
+  description: 'Trigger a nudge for a dormant user intent to encourage conversion',
+  category: 'search',
+  parameters: {
+    userId: { type: 'string', description: 'User ID', required: true },
+    intentKey: { type: 'string', description: 'The intent key to revive', required: true },
+    triggerType: { type: 'string', description: 'Trigger type: price_drop, return_user, seasonality, offer_match, manual', required: false },
+  },
+  execute: async (params, _context) => {
+    try {
+      const { dormantIntentService } = await import('rez-intent-graph');
+      const dormant = await dormantIntentService.getUserDormantIntents(String(params.userId));
+      const target = dormant.find((d: any) => d.intentKey.includes(String(params.intentKey)));
+      if (!target) {
+        return { success: false, error: 'Dormant intent not found' };
+      }
+      await dormantIntentService.triggerRevival(target._id.toString(), (params.triggerType as 'price_drop' | 'return_user' | 'seasonality' | 'offer_match' | 'manual') || 'manual');
+      return { success: true, data: { message: 'Revival triggered' } };
+    } catch {
+      return { success: false, error: 'Failed to trigger revival' };
+    }
+  },
+};
+
 export const TOOL_REGISTRY: ToolDefinition[] = [
   // ── Search Tools ────────────────────────────────────────────────────────────
   {
@@ -584,6 +648,10 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
       };
     },
   },
+
+  // ── Intent Graph Tools ───────────────────────────────────────────────────────
+  getUserIntentsToolDef,
+  triggerNudgeToolDef,
 ];
 
 // ── Tool Execution Helper ──────────────────────────────────────────────────────

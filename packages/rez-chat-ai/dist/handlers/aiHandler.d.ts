@@ -1,5 +1,29 @@
 import { AppType, AIChatRequest, AIChatResponse, CustomerContext, ToolResult } from '../types';
 import { MerchantKnowledgeData } from '../knowledge/providers';
+export interface IntentGraphContext {
+    activeIntents: Array<{
+        key: string;
+        category: string;
+        confidence: number;
+        lastSeen: string;
+    }>;
+    dormantIntents: Array<{
+        key: string;
+        category: string;
+        revivalScore: number;
+        daysDormant: number;
+    }>;
+    profile: {
+        dominantCategory?: string;
+        affinities?: Record<string, number>;
+    } | null;
+}
+export interface AIContext {
+    customerInfo: string;
+    knowledgeContext: string;
+    historyContext: string;
+    intentGraph?: IntentGraphContext;
+}
 export interface ToolHandlerConfig {
     name: string;
     description: string;

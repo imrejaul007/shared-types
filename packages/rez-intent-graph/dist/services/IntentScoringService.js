@@ -2,8 +2,38 @@
 // Calculates confidence scores, dormancy detection, and revival scoring
 // MongoDB implementation
 import { Intent, DormantIntent } from '../models/index.js';
+import { sharedMemory } from '../agents/shared-memory.js';
+const logger = {
+    debug: (msg, meta) => console.debug(`[IntentScoringService] ${msg}`, meta || ''),
+};
 const DORMANCY_THRESHOLD_DAYS = 7;
 const CONFIDENCE_DORMANT_THRESHOLD = 0.3;
+/**
+ * Read timing override set by the feedback loop agent.
+ * Returns null if no override exists (uses defaults).
+ */
+async function getTimingOverride(category) {
+    try {
+        const override = await sharedMemory.get(`timing:override:${category}`);
+        return override || null;
+    }
+    catch {
+        return null;
+    }
+}
+/**
+ * Read per-category dormancy threshold set by the feedback loop agent.
+ * Returns null if no override exists (uses default).
+ */
+async function getDormancyThreshold(category) {
+    try {
+        const threshold = await sharedMemory.get(`dormancy:threshold:${category}`);
+        return threshold ?? null;
+    }
+    catch {
+        return null;
+    }
+}
 export class IntentScoringService {
     /**
      * Calculate detailed scoring context for an intent
@@ -38,14 +68,27 @@ export class IntentScoringService {
         const activeIntents = await Intent.find({
             status: 'ACTIVE',
             lastSeenAt: { $lt: thresholdDate },
-        }).select('_id lastSeenAt confidence');
-        return activeIntents.map((intent) => ({
-            intentId: intent._id.toString(),
-            daysSinceLastActivity: Math.floor((Date.now() - intent.lastSeenAt.getTime()) / (1000 * 60 * 60 * 24)),
-            currentConfidence: intent.confidence,
-            shouldMarkDormant: intent.confidence < CONFIDENCE_DORMANT_THRESHOLD ||
-                (Date.now() - intent.lastSeenAt.getTime()) / (1000 * 60 * 60 * 24) >= daysThreshold,
-        }));
+        }).select('_id lastSeenAt confidence category').limit(1000);
+        // Collect unique categories to batch-fetch overrides
+        const categories = [...new Set(activeIntents.map((i) => i.category))];
+        const thresholdOverrides = new Map();
+        for (const cat of categories) {
+            const override = await getDormancyThreshold(cat);
+            if (override !== null)
+                thresholdOverrides.set(cat, override);
+        }
+        return activeIntents.map((intent) => {
+            const categoryThreshold = thresholdOverrides.get(intent.category);
+            const threshold = categoryThreshold ?? daysThreshold;
+            const daysSince = (Date.now() - intent.lastSeenAt.getTime()) / (1000 * 60 * 60 * 24);
+            return {
+                intentId: intent._id.toString(),
+                daysSinceLastActivity: Math.floor(daysSince),
+                currentConfidence: intent.confidence,
+                shouldMarkDormant: intent.confidence < CONFIDENCE_DORMANT_THRESHOLD ||
+                    daysSince >= threshold,
+            };
+        });
     }
     /**
      * Calculate revival score for a dormant intent
@@ -59,7 +102,7 @@ export class IntentScoringService {
     /**
      * Compute revival score based on multiple factors
      */
-    computeRevivalScore(dormant) {
+    async computeRevivalScore(dormant) {
         // Base score from intent strength
         const intentStrength = dormant.intent ? dormant.intent.confidence : 0.5;
         // Dormancy sweet spot bonus (7-14 days is optimal)
@@ -74,8 +117,8 @@ export class IntentScoringService {
         else if (daysDormant > 30) {
             dormancyBonus = 0.05;
         }
-        // Timing factor (weekends for travel, meal times for dining)
-        const timingBonus = this.calculateTimingBonus(dormant.category);
+        // Timing factor (weekends for travel, meal times for dining) — with feedback loop overrides
+        const timingBonus = await this.calculateTimingBonus(dormant.category);
         // Recency of nudge (if nudged recently, lower score)
         let nudgePenalty = 0;
         if (dormant.lastNudgeSent) {
@@ -96,12 +139,27 @@ export class IntentScoringService {
         return Math.min(1.0, Math.max(0.0, rawScore));
     }
     /**
-     * Calculate timing bonus based on category
+     * Calculate timing bonus based on category — merges feedback loop overrides
      */
-    calculateTimingBonus(category) {
+    async calculateTimingBonus(category) {
         const now = new Date();
         const hour = now.getHours();
         const dayOfWeek = now.getDay();
+        // Check for feedback loop tuning overrides
+        const override = await getTimingOverride(category);
+        if (override) {
+            if (category === 'TRAVEL' && override.weekendBonus !== undefined) {
+                return dayOfWeek === 0 || dayOfWeek === 6 ? override.weekendBonus : 0.05;
+            }
+            if (category === 'DINING' && override.mealBonus !== undefined) {
+                if ((hour >= 11 && hour <= 14) || (hour >= 18 && hour <= 21)) {
+                    return override.mealBonus;
+                }
+                return 0.05;
+            }
+            logger.debug(`[FeedbackLoop] Applied timing override for ${category}`, { override });
+        }
+        // Default timing bonuses
         if (category === 'TRAVEL') {
             return dayOfWeek === 0 || dayOfWeek === 6 ? 0.2 : 0.05;
         }
@@ -166,24 +224,37 @@ export class IntentScoringService {
      * Get revival candidates sorted by score
      */
     async getRevivalCandidates(limit = 100, minScore = 0.3) {
-        const dormantIntents = await DormantIntent.find({
-            status: 'active',
-            revivalScore: { $gte: minScore },
-        })
-            .sort({ revivalScore: -1 })
-            .limit(limit);
-        const results = [];
-        for (const di of dormantIntents) {
-            const intent = await Intent.findById(di.intentId);
-            results.push({
-                dormantIntent: di,
-                intent,
-                revivalScore: di.revivalScore,
-                suggestedNudge: this.generateNudgeMessage(di.intentKey, di.category, 'scheduled'),
-                idealTiming: di.idealRevivalAt || new Date(),
-            });
-        }
-        return results;
+        // Use aggregation with $lookup instead of N+1 queries
+        const results = await DormantIntent.aggregate([
+            { $match: { status: 'active', revivalScore: { $gte: minScore } } },
+            { $sort: { revivalScore: -1 } },
+            { $limit: limit },
+            {
+                $lookup: {
+                    from: 'intents',
+                    localField: 'intentId',
+                    foreignField: '_id',
+                    as: 'intentData',
+                },
+            },
+            {
+                $project: {
+                    dormantIntent: '$$ROOT',
+                    intent: { $arrayElemAt: ['$intentData', 0] },
+                    revivalScore: 1,
+                    intentKey: 1,
+                    category: 1,
+                    idealRevivalAt: 1,
+                },
+            },
+        ]);
+        return results.map(r => ({
+            dormantIntent: r.dormantIntent,
+            intent: r.intent,
+            revivalScore: r.revivalScore,
+            suggestedNudge: this.generateNudgeMessage(r.intentKey, r.category, 'scheduled'),
+            idealTiming: r.idealRevivalAt || new Date(),
+        }));
     }
     /**
      * Calculate average velocity between signals

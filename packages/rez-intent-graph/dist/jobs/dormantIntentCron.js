@@ -2,7 +2,7 @@
 // Daily job to detect dormant intents and schedule revival nudges
 // DANGEROUS: Automatically triggers nudge delivery with skip-permission
 import { dormantIntentService } from '../services/DormantIntentService.js';
-import { nudgeQueue, createNudgeJob } from '../services/nudge-queue.js';
+import { nudgeQueue, createNudgeJob, NudgeQueueModel } from '../services/nudge-queue.js';
 export class DormantIntentCronJob {
     isRunning = false;
     lastRunAt;
@@ -31,6 +31,8 @@ export class DormantIntentCronJob {
             // Log queue stats
             const stats = await nudgeQueue.getStats();
             console.log(`[DormantIntentCron] Queue stats: ${stats.total} jobs total`);
+            // Process dead letter queue — log failed jobs for manual review
+            await this.processDeadLetterQueue();
             this.lastRunAt = new Date();
             const duration = Date.now() - startTime;
             console.log(`[DormantIntentCron] Completed in ${duration}ms`);
@@ -76,6 +78,26 @@ export class DormantIntentCronJob {
             }
         }
         return queued;
+    }
+    /**
+     * Process dead letter queue — log failed nudge jobs for manual review
+     */
+    async processDeadLetterQueue() {
+        try {
+            const deadJobs = await NudgeQueueModel?.find({ queue: 'dead_letter', status: 'failed' }).limit(100);
+            if (deadJobs?.length) {
+                console.warn(`[Cron] ${deadJobs.length} nudges in DLQ:`, deadJobs.map((j) => ({
+                    jobId: j.jobId,
+                    intentKey: j.job?.intentKey,
+                    userId: j.job?.userId,
+                    error: j.error,
+                    attempts: j.attempts,
+                })));
+            }
+        }
+        catch (error) {
+            console.error('[DormantIntentCron] DLQ processing failed:', error);
+        }
     }
     /**
      * Start the cron job scheduler

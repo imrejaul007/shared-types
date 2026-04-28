@@ -1,4 +1,5 @@
-interface NudgeJob {
+import mongoose from 'mongoose';
+export interface NudgeJob {
     id: string;
     type: 'intent_revival_nudge' | 'price_drop_nudge' | 'seasonality_nudge' | 'manual_nudge';
     payload: {
@@ -19,37 +20,35 @@ interface NudgeJob {
         priority: 'low' | 'medium' | 'high' | 'critical';
     };
 }
-declare class NudgeQueueService {
-    private redisAvailable;
-    constructor();
+declare let NudgeQueueModel: mongoose.Model<any>;
+export declare class NudgeQueueService {
     /**
      * Enqueue a nudge job
      */
-    enqueue(job: NudgeJob): Promise<{
+    enqueue(job: NudgeJob, queueType?: string): Promise<{
         success: boolean;
         queuePosition?: number;
     }>;
     /**
-     * Enqueue to Redis (production)
+     * Dequeue the next pending job from a queue.
+     * Accepts queue types ('revival', 'priority', 'bulk') or legacy priorities
+     * ('low', 'medium', 'high', 'critical') for backward compatibility.
      */
-    private enqueueRedis;
+    dequeue(queueTypeOrPriority?: string): Promise<NudgeJob | null>;
     /**
-     * Enqueue to in-memory queue (fallback)
+     * Mark a job as completed and remove it
      */
-    private enqueueMemory;
+    complete(jobId: string): Promise<void>;
     /**
-     * Dequeue next job from queue
+     * Handle a failed job: retry with backoff or move to DLQ
      */
-    dequeue(priority?: 'low' | 'medium' | 'high' | 'critical'): Promise<NudgeJob | null>;
-    private dequeueRedis;
-    private dequeueMemory;
+    fail(jobId: string, error: string): Promise<void>;
     /**
-     * Get queue length
+     * Get count of pending jobs in a queue
      */
-    getQueueLength(priority?: 'low' | 'medium' | 'high' | 'critical'): Promise<number>;
-    private getQueueLengthForPriority;
+    getQueueLength(queueType?: string): Promise<number>;
     /**
-     * Move failed job to dead letter queue
+     * Move failed job to dead letter queue (legacy API compatibility)
      */
     moveToDeadLetter(job: NudgeJob, reason: string): Promise<void>;
     /**
@@ -67,9 +66,10 @@ declare class NudgeQueueService {
         byPriority: Record<string, number>;
         deadLetter: number;
     }>;
-    private getQueueForPriority;
+    private priorityToNumber;
 }
 export declare const nudgeQueue: NudgeQueueService;
+export { NudgeQueueModel };
 export declare function createNudgeJob(params: {
     dormantIntentId: string;
     userId: string;
@@ -82,5 +82,4 @@ export declare function createNudgeJob(params: {
     triggerType?: 'intent_revival_nudge' | 'price_drop_nudge' | 'seasonality_nudge' | 'manual_nudge';
     priority?: 'low' | 'medium' | 'high' | 'critical';
 }): NudgeJob;
-export {};
 //# sourceMappingURL=nudge-queue.d.ts.map

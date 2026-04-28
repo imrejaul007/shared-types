@@ -11,6 +11,97 @@ const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
 const providers_1 = require("../knowledge/providers");
 const sanitize_1 = require("../sanitizers/sanitize");
 const analytics_1 = require("../analytics");
+const commerceMemoryContext_1 = require("../memory/commerceMemoryContext");
+const rez_intent_graph_1 = require("rez-intent-graph");
+const logger_1 = require("../logger");
+// ── Intent Capture from Chat ───────────────────────────────────────────────────
+async function captureIntentFromChat(userId, message, _response) {
+    const lower = message.toLowerCase();
+    // Detect hotel/travel intent
+    const hotelKeywords = [
+        'hotel', 'stay', 'room', 'book', 'travel', 'trip',
+        'goa', 'mumbai', 'bangalore', 'delhi', 'checkout', 'checkin'
+    ];
+    if (hotelKeywords.some(k => lower.includes(k))) {
+        const intentKey = `chat_${Date.now()}_hotel_${message.substring(0, 50).replace(/\s+/g, '_')}`;
+        rez_intent_graph_1.intentCaptureService.capture({
+            userId,
+            appType: 'chat_ai',
+            eventType: 'search',
+            category: 'TRAVEL',
+            intentKey,
+            metadata: { message: message.substring(0, 200), channel: 'chat' },
+        }).catch(() => { });
+    }
+    // Detect dining/restaurant intent
+    const diningKeywords = [
+        'restaurant', 'food', 'dinner', 'lunch', 'cafe',
+        'order', 'eat', 'meal', 'biryani', 'pizza', 'menu'
+    ];
+    if (diningKeywords.some(k => lower.includes(k))) {
+        const intentKey = `chat_${Date.now()}_dining_${message.substring(0, 50).replace(/\s+/g, '_')}`;
+        rez_intent_graph_1.intentCaptureService.capture({
+            userId,
+            appType: 'chat_ai',
+            eventType: 'search',
+            category: 'DINING',
+            intentKey,
+            metadata: { message: message.substring(0, 200), channel: 'chat' },
+        }).catch(() => { });
+    }
+    // Detect retail/shopping intent
+    const retailKeywords = ['buy', 'shop', 'product', 'price', 'discount', 'clothes', 'shoes'];
+    if (retailKeywords.some(k => lower.includes(k))) {
+        const intentKey = `chat_${Date.now()}_retail_${message.substring(0, 50).replace(/\s+/g, '_')}`;
+        rez_intent_graph_1.intentCaptureService.capture({
+            userId,
+            appType: 'chat_ai',
+            eventType: 'search',
+            category: 'RETAIL',
+            intentKey,
+            metadata: { message: message.substring(0, 200), channel: 'chat' },
+        }).catch(() => { });
+    }
+}
+function getDominantAffinity(profile) {
+    const { travelAffinity, diningAffinity, retailAffinity } = profile;
+    const max = Math.max(travelAffinity, diningAffinity, retailAffinity);
+    if (max === travelAffinity)
+        return 'TRAVEL';
+    if (max === diningAffinity)
+        return 'DINING';
+    if (max === retailAffinity)
+        return 'RETAIL';
+    return 'MIXED';
+}
+function buildPromptWithIntentGraph(ctx) {
+    let prompt = ctx.customerInfo;
+    if (ctx.knowledgeContext) {
+        prompt += '\n' + ctx.knowledgeContext;
+    }
+    if (ctx.historyContext) {
+        prompt += '\n' + ctx.historyContext;
+    }
+    if (ctx.intentGraph) {
+        const ig = ctx.intentGraph;
+        if (ig.activeIntents.length > 0) {
+            prompt += '\n\n### User\'s Active Interests:\n';
+            ig.activeIntents.forEach(i => {
+                prompt += `- ${i.category}: ${i.key} (confidence: ${i.confidence.toFixed(2)}, ${i.lastSeen})\n`;
+            });
+        }
+        if (ig.dormantIntents.length > 0) {
+            prompt += '\n### Dormant Interests (potential nudges):\n';
+            ig.dormantIntents.slice(0, 3).forEach(d => {
+                prompt += `- ${d.category}: ${d.key} (revival score: ${d.revivalScore.toFixed(2)}, ${d.daysDormant}d dormant)\n`;
+            });
+        }
+        if (ig.profile?.dominantCategory) {
+            prompt += `\n### User Profile: Primary interest in ${ig.profile.dominantCategory}\n`;
+        }
+    }
+    return prompt;
+}
 exports.BOOKING_TOOLS = [
     {
         name: 'create_hotel_booking',
@@ -244,15 +335,18 @@ class AIChatHandler {
         // Get relevant knowledge for the query
         const relevantKnowledge = await this.knowledgeBase.getRelevantEntries(customerContext || {}, sanitizedMessage);
         // Build context for AI
-        const context = this.buildContext(customerContext, relevantKnowledge, chatHistory);
+        const aiContext = await this.buildContext(customerContext, relevantKnowledge, chatHistory);
         // Generate response
         let response;
         if (this.client) {
-            response = await this.generateAIResponse(sanitizedMessage, context, relevantKnowledge);
+            response = await this.generateAIResponse(sanitizedMessage, aiContext, relevantKnowledge);
         }
         else {
             response = await this.generateRuleBasedResponse(sanitizedMessage, relevantKnowledge, customerContext);
         }
+        // Capture intent from chat message
+        const userId = customerContext?.customerId || 'anonymous';
+        await captureIntentFromChat(userId, sanitizedMessage, response.message);
         // Track for learning
         this.trackInteraction(sanitizedMessage, response.message, customerContext, {
             confidence: response.confidence,
@@ -305,7 +399,7 @@ class AIChatHandler {
             knowledgeUsed: [],
         };
     }
-    buildContext(context, knowledge, history) {
+    async buildContext(context, knowledge, history) {
         const parts = [];
         // Customer info (without sensitive data)
         if (context) {
@@ -318,23 +412,63 @@ class AIChatHandler {
                 parts.push(`Previous visits: ${safeContext.visitCount}`);
         }
         // Knowledge base context
+        const knowledgeParts = [];
         if (knowledge.length > 0) {
-            parts.push('Relevant Information:');
+            knowledgeParts.push('Relevant Information:');
             knowledge.forEach(k => {
-                parts.push(`- ${k.title}: ${k.content}`);
+                knowledgeParts.push(`- ${k.title}: ${k.content}`);
             });
         }
         // Recent conversation history (last 4 messages)
+        const historyParts = [];
         if (history && history.length > 0) {
             const recentHistory = history.slice(-4);
-            parts.push('Recent conversation:');
+            historyParts.push('Recent conversation:');
             recentHistory.forEach(m => {
-                parts.push(`${m.sender === 'user' ? 'Customer' : 'Assistant'}: ${m.content}`);
+                historyParts.push(`${m.sender === 'user' ? 'Customer' : 'Assistant'}: ${m.content}`);
             });
         }
-        return parts.join('\n');
+        // Load intent graph context
+        let intentGraph;
+        const userId = context?.customerId || 'anonymous';
+        try {
+            const memoryCtx = await (0, commerceMemoryContext_1.getCommerceMemoryContext)(userId);
+            if (memoryCtx) {
+                intentGraph = {
+                    activeIntents: memoryCtx.activeIntents.map(i => ({
+                        key: i.key,
+                        category: i.category,
+                        confidence: i.confidence,
+                        lastSeen: i.lastSeen,
+                    })),
+                    dormantIntents: memoryCtx.dormantIntents.map(d => ({
+                        key: d.key,
+                        category: d.category,
+                        revivalScore: d.revivalScore,
+                        daysDormant: d.daysDormant,
+                    })),
+                    profile: memoryCtx.profile ? {
+                        dominantCategory: getDominantAffinity(memoryCtx.profile),
+                        affinities: {
+                            travel: memoryCtx.profile.travelAffinity / 100,
+                            dining: memoryCtx.profile.diningAffinity / 100,
+                            retail: memoryCtx.profile.retailAffinity / 100,
+                        },
+                    } : null,
+                };
+            }
+        }
+        catch (err) {
+            logger_1.logger.debug('[AIHandler] Failed to load intent graph context:', err);
+        }
+        return {
+            customerInfo: parts.join('\n'),
+            knowledgeContext: knowledgeParts.join('\n'),
+            historyContext: historyParts.join('\n'),
+            intentGraph,
+        };
     }
-    async generateAIResponse(message, context, knowledge) {
+    async generateAIResponse(message, aiContext, knowledge) {
         if (!this.client) {
             throw new Error('AI client not configured');
         }
@@ -356,12 +490,13 @@ You have access to knowledge about:
 - Available promotions and offers
 
 When responding, reference relevant knowledge naturally in your conversation.`;
+        const prompt = buildPromptWithIntentGraph(aiContext);
         const msg = await this.client.messages.create({
             model: 'claude-sonnet-4-7',
             max_tokens: 1024,
             system: systemPrompt,
             messages: [
-                { role: 'user', content: `Context:\n${context}\n\nCustomer question: ${message}` },
+                { role: 'user', content: `Context:\n${prompt}\n\nCustomer question: ${message}` },
             ],
         });
         const responseText = msg.content[0].type === 'text' ? msg.content[0].text : '';

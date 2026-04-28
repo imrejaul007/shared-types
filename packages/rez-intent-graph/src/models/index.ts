@@ -11,6 +11,8 @@ export { MerchantKnowledge } from './MerchantKnowledge.js';
 export { Nudge } from './Nudge.js';
 export { MerchantDemandSignal } from './MerchantDemandSignal.js';
 export { NudgeSchedule } from './NudgeSchedule.js';
+export { VibeProfile } from './VibeProfile.js';
+export { MicroMoment } from './MicroMoment.js';
 
 export type {
   IIntent,

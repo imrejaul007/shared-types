@@ -15,6 +15,10 @@ export declare class DormantIntentCronJob {
      */
     private queueScheduledNudges;
     /**
+     * Process dead letter queue — log failed nudge jobs for manual review
+     */
+    private processDeadLetterQueue;
+    /**
      * Start the cron job scheduler
      */
     start(): void;

@@ -14,3 +14,11 @@ export type { UserAffinityProfile, EnrichedContext } from './CrossAppAggregation
 
 export { MerchantKnowledgeService, merchantKnowledgeService } from './MerchantKnowledgeService.js';
 export type { KnowledgeEntry, ChatContext } from './MerchantKnowledgeService.js';
+
+export { VibeScoringService, vibeScoringService } from './VibeScoringService.js';
+
+export { NudgeTimingService, nudgeTimingService } from './NudgeTimingService.js';
+export type { UserTimingProfile } from './NudgeTimingService.js';
+
+export { CrossAppBridgingService, crossAppBridgingService } from './CrossAppBridgingService.js';
+export type { IntentBridge } from './CrossAppBridgingService.js';

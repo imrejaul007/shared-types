@@ -42,7 +42,7 @@ export declare class IntentScoringService {
      */
     private computeRevivalScore;
     /**
-     * Calculate timing bonus based on category
+     * Calculate timing bonus based on category — merges feedback loop overrides
      */
     private calculateTimingBonus;
     /**

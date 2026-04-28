@@ -56,11 +56,11 @@ export declare class IntentCaptureService {
     /**
      * Get active intents for a user
      */
-    getActiveIntents(userId: string): Promise<IIntent[]>;
+    getActiveIntents(userId: string, page?: number, limit?: number): Promise<IIntent[]>;
     /**
      * Get all intents for a user across apps
      */
-    getUserIntents(userId: string): Promise<IIntent[]>;
+    getUserIntents(userId: string, page?: number, limit?: number): Promise<IIntent[]>;
     /**
      * Get intents by app type
      */

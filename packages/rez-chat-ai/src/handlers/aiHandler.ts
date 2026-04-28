@@ -15,6 +15,137 @@ import {
 import { UnifiedKnowledgeBase, createKnowledgeBase, MerchantKnowledgeData } from '../knowledge/providers';
 import { defaultSanitizer, sanitizeCustomerContext } from '../sanitizers/sanitize';
 import { detectIntent, getLearningSystem } from '../analytics';
+import { getCommerceMemoryContext } from '../memory/commerceMemoryContext';
+import { intentCaptureService } from 'rez-intent-graph';
+import { logger } from '../logger';
+
+// ── Intent Graph Context ────────────────────────────────────────────────────────
+
+export interface IntentGraphContext {
+  activeIntents: Array<{
+    key: string;
+    category: string;
+    confidence: number;
+    lastSeen: string;
+  }>;
+  dormantIntents: Array<{
+    key: string;
+    category: string;
+    revivalScore: number;
+    daysDormant: number;
+  }>;
+  profile: {
+    dominantCategory?: string;
+    affinities?: Record<string, number>;
+  } | null;
+}
+
+export interface AIContext {
+  customerInfo: string;
+  knowledgeContext: string;
+  historyContext: string;
+  intentGraph?: IntentGraphContext;
+}
+
+// ── Intent Capture from Chat ───────────────────────────────────────────────────
+
+async function captureIntentFromChat(
+  userId: string,
+  message: string,
+  _response: string
+): Promise<void> {
+  const lower = message.toLowerCase();
+
+  // Detect hotel/travel intent
+  const hotelKeywords = [
+    'hotel', 'stay', 'room', 'book', 'travel', 'trip',
+    'goa', 'mumbai', 'bangalore', 'delhi', 'checkout', 'checkin'
+  ];
+  if (hotelKeywords.some(k => lower.includes(k))) {
+    const intentKey = `chat_${Date.now()}_hotel_${message.substring(0, 50).replace(/\s+/g, '_')}`;
+    intentCaptureService.capture({
+      userId,
+      appType: 'chat_ai',
+      eventType: 'search',
+      category: 'TRAVEL',
+      intentKey,
+      metadata: { message: message.substring(0, 200), channel: 'chat' },
+    }).catch(() => {});
+  }
+
+  // Detect dining/restaurant intent
+  const diningKeywords = [
+    'restaurant', 'food', 'dinner', 'lunch', 'cafe',
+    'order', 'eat', 'meal', 'biryani', 'pizza', 'menu'
+  ];
+  if (diningKeywords.some(k => lower.includes(k))) {
+    const intentKey = `chat_${Date.now()}_dining_${message.substring(0, 50).replace(/\s+/g, '_')}`;
+    intentCaptureService.capture({
+      userId,
+      appType: 'chat_ai',
+      eventType: 'search',
+      category: 'DINING',
+      intentKey,
+      metadata: { message: message.substring(0, 200), channel: 'chat' },
+    }).catch(() => {});
+  }
+
+  // Detect retail/shopping intent
+  const retailKeywords = ['buy', 'shop', 'product', 'price', 'discount', 'clothes', 'shoes'];
+  if (retailKeywords.some(k => lower.includes(k))) {
+    const intentKey = `chat_${Date.now()}_retail_${message.substring(0, 50).replace(/\s+/g, '_')}`;
+    intentCaptureService.capture({
+      userId,
+      appType: 'chat_ai',
+      eventType: 'search',
+      category: 'RETAIL',
+      intentKey,
+      metadata: { message: message.substring(0, 200), channel: 'chat' },
+    }).catch(() => {});
+  }
+}
+
+function getDominantAffinity(profile: { travelAffinity: number; diningAffinity: number; retailAffinity: number }): string {
+  const { travelAffinity, diningAffinity, retailAffinity } = profile;
+  const max = Math.max(travelAffinity, diningAffinity, retailAffinity);
+  if (max === travelAffinity) return 'TRAVEL';
+  if (max === diningAffinity) return 'DINING';
+  if (max === retailAffinity) return 'RETAIL';
+  return 'MIXED';
+}
+
+function buildPromptWithIntentGraph(ctx: AIContext): string {
+  let prompt = ctx.customerInfo;
+
+  if (ctx.knowledgeContext) {
+    prompt += '\n' + ctx.knowledgeContext;
+  }
+
+  if (ctx.historyContext) {
+    prompt += '\n' + ctx.historyContext;
+  }
+
+  if (ctx.intentGraph) {
+    const ig = ctx.intentGraph;
+    if (ig.activeIntents.length > 0) {
+      prompt += '\n\n### User\'s Active Interests:\n';
+      ig.activeIntents.forEach(i => {
+        prompt += `- ${i.category}: ${i.key} (confidence: ${i.confidence.toFixed(2)}, ${i.lastSeen})\n`;
+      });
+    }
+    if (ig.dormantIntents.length > 0) {
+      prompt += '\n### Dormant Interests (potential nudges):\n';
+      ig.dormantIntents.slice(0, 3).forEach(d => {
+        prompt += `- ${d.category}: ${d.key} (revival score: ${d.revivalScore.toFixed(2)}, ${d.daysDormant}d dormant)\n`;
+      });
+    }
+    if (ig.profile?.dominantCategory) {
+      prompt += `\n### User Profile: Primary interest in ${ig.profile.dominantCategory}\n`;
+    }
+  }
+
+  return prompt;
+}
 
 // ── Tool Handlers ───────────────────────────────────────────────────────────────
 
@@ -293,15 +424,19 @@ export class AIChatHandler {
     );
 
     // Build context for AI
-    const context = this.buildContext(customerContext, relevantKnowledge, chatHistory);
+    const aiContext = await this.buildContext(customerContext, relevantKnowledge, chatHistory);
 
     // Generate response
     let response: AIChatResponse;
     if (this.client) {
-      response = await this.generateAIResponse(sanitizedMessage, context, relevantKnowledge);
+      response = await this.generateAIResponse(sanitizedMessage, aiContext, relevantKnowledge);
     } else {
       response = await this.generateRuleBasedResponse(sanitizedMessage, relevantKnowledge, customerContext);
     }
+
+    // Capture intent from chat message
+    const userId = customerContext?.customerId || 'anonymous';
+    await captureIntentFromChat(userId, sanitizedMessage, response.message);
 
     // Track for learning
     this.trackInteraction(sanitizedMessage, response.message, customerContext, {
@@ -377,11 +512,11 @@ export class AIChatHandler {
     };
   }
 
-  private buildContext(
+  private async buildContext(
     context: CustomerContext | undefined,
     knowledge: KnowledgeEntry[],
     history: AIChatMessage[] | undefined
-  ): string {
+  ): Promise<AIContext> {
     const parts: string[] = [];
 
     // Customer info (without sensitive data)
@@ -393,28 +528,68 @@ export class AIChatHandler {
     }
 
     // Knowledge base context
+    const knowledgeParts: string[] = [];
     if (knowledge.length > 0) {
-      parts.push('Relevant Information:');
+      knowledgeParts.push('Relevant Information:');
       knowledge.forEach(k => {
-        parts.push(`- ${k.title}: ${k.content}`);
+        knowledgeParts.push(`- ${k.title}: ${k.content}`);
       });
     }
 
     // Recent conversation history (last 4 messages)
+    const historyParts: string[] = [];
     if (history && history.length > 0) {
       const recentHistory = history.slice(-4);
-      parts.push('Recent conversation:');
+      historyParts.push('Recent conversation:');
       recentHistory.forEach(m => {
-        parts.push(`${m.sender === 'user' ? 'Customer' : 'Assistant'}: ${m.content}`);
+        historyParts.push(`${m.sender === 'user' ? 'Customer' : 'Assistant'}: ${m.content}`);
       });
     }
 
-    return parts.join('\n');
+    // Load intent graph context
+    let intentGraph: IntentGraphContext | undefined;
+    const userId = context?.customerId || 'anonymous';
+    try {
+      const memoryCtx = await getCommerceMemoryContext(userId);
+      if (memoryCtx) {
+        intentGraph = {
+          activeIntents: memoryCtx.activeIntents.map(i => ({
+            key: i.key,
+            category: i.category,
+            confidence: i.confidence,
+            lastSeen: i.lastSeen,
+          })),
+          dormantIntents: memoryCtx.dormantIntents.map(d => ({
+            key: d.key,
+            category: d.category,
+            revivalScore: d.revivalScore,
+            daysDormant: d.daysDormant,
+          })),
+          profile: memoryCtx.profile ? {
+            dominantCategory: getDominantAffinity(memoryCtx.profile),
+            affinities: {
+              travel: memoryCtx.profile.travelAffinity / 100,
+              dining: memoryCtx.profile.diningAffinity / 100,
+              retail: memoryCtx.profile.retailAffinity / 100,
+            },
+          } : null,
+        };
+      }
+    } catch (err) {
+      logger.debug('[AIHandler] Failed to load intent graph context:', err as Record<string, unknown>);
+    }
+
+    return {
+      customerInfo: parts.join('\n'),
+      knowledgeContext: knowledgeParts.join('\n'),
+      historyContext: historyParts.join('\n'),
+      intentGraph,
+    };
   }
 
   private async generateAIResponse(
     message: string,
-    context: string,
+    aiContext: AIContext,
     knowledge: KnowledgeEntry[]
   ): Promise<AIChatResponse> {
     if (!this.client) {
@@ -440,12 +615,14 @@ You have access to knowledge about:
 
 When responding, reference relevant knowledge naturally in your conversation.`;
 
+    const prompt = buildPromptWithIntentGraph(aiContext);
+
     const msg = await this.client.messages.create({
       model: 'claude-sonnet-4-7',
       max_tokens: 1024,
       system: systemPrompt,
       messages: [
-        { role: 'user', content: `Context:\n${context}\n\nCustomer question: ${message}` },
+        { role: 'user', content: `Context:\n${prompt}\n\nCustomer question: ${message}` },
       ],
     });
 
