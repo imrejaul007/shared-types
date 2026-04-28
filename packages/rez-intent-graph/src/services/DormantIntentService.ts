@@ -12,6 +12,7 @@ import {
 } from '../models/index.js';
 import type { IDormantIntent } from '../models/DormantIntent.js';
 import type { IIntent } from '../models/Intent.js';
+import { nudgeTimingService } from './NudgeTimingService.js';
 
 const DORMANCY_THRESHOLD_DAYS = 7;
 const MIN_CONFIDENCE = 0.3;
@@ -110,7 +111,7 @@ export class DormantIntentService {
     const intents = await Intent.find({
       status: 'ACTIVE',
       lastSeenAt: { $lt: thresholdDate },
-    });
+    }).limit(1000);
 
     let markedDormant = 0;
 
@@ -145,7 +146,7 @@ export class DormantIntentService {
    * Calculate and update revival scores for all active dormant intents
    */
   async updateRevivalScores(): Promise<number> {
-    const dormantIntents = await DormantIntent.find({ status: 'active' });
+    const dormantIntents = await DormantIntent.find({ status: 'active' }).limit(500);
 
     let updated = 0;
     for (const di of dormantIntents) {
@@ -184,9 +185,11 @@ export class DormantIntentService {
   /**
    * Get dormant intents for a specific user
    */
-  async getUserDormantIntents(userId: string): Promise<IDormantIntent[]> {
+  async getUserDormantIntents(userId: string, page = 1, limit = 20): Promise<IDormantIntent[]> {
     return DormantIntent.find({ userId, status: 'active' })
-      .sort({ revivalScore: -1 });
+      .sort({ revivalScore: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
   }
 
   /**
@@ -196,33 +199,39 @@ export class DormantIntentService {
     merchantId: string,
     category: string
   ): Promise<Array<{ userId: string; intentKey: string; category: string; revivalScore: number }>> {
-    // Find intents with this merchant
-    const intents = await Intent.find({ merchantId, category, status: 'DORMANT' });
+    // Use aggregation with $lookup instead of N+1 queries
+    const filter: any = { status: 'active' };
+    if (merchantId) filter.merchantId = merchantId;
+    if (category) filter.category = category;
 
-    const results: Array<{
-      userId: string;
-      intentKey: string;
-      category: string;
-      revivalScore: number;
-    }> = [];
+    const results = await DormantIntent.aggregate([
+      { $match: filter },
+      { $limit: 100 },
+      {
+        $lookup: {
+          from: 'intents',
+          localField: 'intentId',
+          foreignField: '_id',
+          as: 'intentData',
+        },
+      },
+      { $unwind: { path: '$intentData', preserveNullAndEmptyArrays: false } },
+      {
+        $project: {
+          userId: '$intentData.userId',
+          intentKey: '$intentData.intentKey',
+          category: '$intentData.category',
+          revivalScore: 1,
+        },
+      },
+    ]);
 
-    for (const intent of intents) {
-      const dormant = await DormantIntent.findOne({
-        intentId: intent._id,
-        status: 'active',
-      });
-
-      if (dormant) {
-        results.push({
-          userId: intent.userId,
-          intentKey: intent.intentKey,
-          category: intent.category,
-          revivalScore: dormant.revivalScore,
-        });
-      }
-    }
-
-    return results.slice(0, 100);
+    return results.map(r => ({
+      userId: r.userId,
+      intentKey: r.intentKey,
+      category: r.category,
+      revivalScore: r.revivalScore,
+    }));
   }
 
   /**
@@ -333,14 +342,23 @@ export class DormantIntentService {
     channel: 'push' | 'email' | 'sms' | 'in_app',
     message: string
   ): Promise<void> {
-    await Nudge.create({
+    // Learn user's optimal timing profile and get next optimal send window
+    const userProfile = await nudgeTimingService.learnUserTimingProfile(userId);
+    const validChannel = channel === 'in_app' ? 'push' : channel;
+    const optimalSendTime = nudgeTimingService.getNextOptimalSendTime(userProfile, validChannel);
+
+    const nudge = await Nudge.create({
       dormantIntentId: new mongoose.Types.ObjectId(dormantIntentId),
       userId,
       channel,
       message,
       status: 'pending',
+      scheduledFor: optimalSendTime,
       createdAt: new Date(),
     });
+
+    // Log the timing decision
+    console.info(`[DormantIntent] Nudge scheduled for ${optimalSendTime.toISOString()} (optimal: ${userProfile.pushOptimalHour}h for push, ${userProfile.emailOptimalHour}h for email, ${userProfile.smsOptimalHour}h for sms)`);
   }
 
   /**

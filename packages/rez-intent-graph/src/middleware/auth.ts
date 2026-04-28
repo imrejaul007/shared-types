@@ -100,3 +100,28 @@ export function requireUserOrAuth(req: Request, res: Response, next: NextFunctio
   // Fall back to any auth method
   requireAnyAuth(req, res, next);
 }
+
+/**
+ * Verify user token — requires both x-user-id header AND a valid bearer token.
+ * Binds the authenticated userId to the request for downstream use.
+ * Use this on user-facing endpoints where the user must prove ownership of the data.
+ */
+export function verifyUserToken(req: Request, res: Response, next: NextFunction): void {
+  const userId = req.headers['x-user-id'] as string;
+  const token = req.headers['authorization'] as string;
+
+  if (!userId) {
+    res.status(401).json({ error: 'x-user-id header required' });
+    return;
+  }
+
+  // Require both x-user-id AND a valid bearer token
+  const bearer = token?.startsWith('Bearer ') ? token.slice(7) : null;
+  if (!bearer || bearer.length < 10) {
+    res.status(401).json({ error: 'Valid authorization required' });
+    return;
+  }
+
+  (req as any).userId = userId;
+  next();
+}

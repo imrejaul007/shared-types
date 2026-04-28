@@ -2,7 +2,8 @@
 // Handles delivery of intent revival nudges across channels
 // MongoDB implementation
 
-import { Nudge } from '../models/index.js';
+import mongoose from 'mongoose';
+import { Nudge, NudgeSchedule } from '../models/index.js';
 import { dormantIntentService } from '../services/DormantIntentService.js';
 import { sendUserNotification } from '../integrations/external-services.js';
 
@@ -11,7 +12,7 @@ import { sendUserNotification } from '../integrations/external-services.js';
 export type NudgeChannel = 'push' | 'email' | 'sms' | 'in_app';
 export type NudgeStatus = 'pending' | 'sent' | 'delivered' | 'clicked' | 'converted' | 'failed';
 
-export interface Nudge {
+export interface NudgeRecord {
   id: string;
   dormantIntentId: string;
   userId: string;
@@ -159,6 +160,26 @@ const NUDGE_TEMPLATES: Record<string, Record<string, Record<NudgeChannel, string
   },
 };
 
+// ── Send Nudge Params & Result ────────────────────────────────────────────────
+
+export interface SendNudgeParams {
+  dormantIntentId: string;
+  userId: string;
+  intentKey: string;
+  category: string;
+  message: string;
+  channel: NudgeChannel;
+  revivalScore: number;
+  triggerType?: string;
+}
+
+export interface SendNudgeResult {
+  success: boolean;
+  reason?: string;
+  nudgeId?: string;
+  error?: string;
+}
+
 // ── Nudge Delivery Service ─────────────────────────────────────────────────
 
 export class NudgeDeliveryService {
@@ -178,7 +199,7 @@ export class NudgeDeliveryService {
     message: string;
     channel: NudgeChannel;
     template?: string;
-  }): Promise<Nudge> {
+  }): Promise<NudgeRecord> {
     const handler = this.channelHandlers.get(params.channel);
     if (!handler) {
       throw new Error(`No handler registered for channel: ${params.channel}`);
@@ -225,8 +246,32 @@ export class NudgeDeliveryService {
     return { processed: candidates.length, sent, failed };
   }
 
-  async sendNudge(candidate: any): Promise<Nudge> {
+  async sendNudge(candidate: any): Promise<NudgeRecord> {
     const { dormantIntent, suggestedNudge } = candidate;
+
+    // Check user preferences before sending
+    const schedule = await NudgeSchedule.findOne({
+      userId: dormantIntent.userId,
+      category: dormantIntent.category,
+      channel: 'push',
+      active: true,
+    });
+
+    if (schedule) {
+      const revivalScore = candidate.revivalScore ?? 0;
+      if (revivalScore < schedule.minRevivalScore) {
+        console.debug(`[NudgeDelivery] Skipping nudge — revival score ${revivalScore} below user preference ${schedule.minRevivalScore}`);
+        return {
+          id: `skipped_${Date.now()}`,
+          dormantIntentId: dormantIntent._id?.toString() || '',
+          userId: dormantIntent.userId,
+          channel: 'push',
+          message: suggestedNudge || '',
+          status: 'failed',
+        };
+      }
+    }
+
     const category = dormantIntent.category;
     const triggerType = this.inferTriggerType(dormantIntent);
     const template = this.getTemplate(category, triggerType);
@@ -235,47 +280,102 @@ export class NudgeDeliveryService {
     const message = this.renderTemplate(template, channel, dormantIntent, suggestedNudge);
 
     const handler = this.channelHandlers.get(channel);
-    if (handler) {
-      try {
-        const result = await handler.send({
-          userId: dormantIntent.userId,
-          message,
-          data: {
-            intentKey: dormantIntent.intentKey,
-            category: dormantIntent.category,
-            dormantIntentId: dormantIntent._id?.toString(),
-          },
-        });
-
-        // Record nudge sent
-        const nudge = await Nudge.create({
-          dormantIntentId: dormantIntent._id,
-          userId: dormantIntent.userId,
-          channel,
-          message,
-          status: result.success ? 'sent' : 'failed',
-          sentAt: new Date(),
-          createdAt: new Date(),
-        });
-
-        await dormantIntentService.recordNudgeSent(dormantIntent._id.toString());
-
-        return {
-          id: nudge._id.toString(),
-          dormantIntentId: dormantIntent._id?.toString() || '',
-          userId: dormantIntent.userId,
-          channel,
-          message,
-          status: result.success ? 'sent' : 'failed',
-          sentAt: new Date(),
-        };
-      } catch (error) {
-        console.error('[NudgeDelivery] Handler failed:', error);
-        throw error;
-      }
+    if (!handler) {
+      throw new Error(`No handler registered for channel: ${channel}`);
     }
 
-    throw new Error(`No handler registered for channel: ${channel}`);
+    try {
+      const result = await handler.send({
+        userId: dormantIntent.userId,
+        message,
+        data: {
+          intentKey: dormantIntent.intentKey,
+          category: dormantIntent.category,
+          dormantIntentId: dormantIntent._id?.toString(),
+        },
+      });
+
+      // Create nudge record
+      const nudge = await this.createNudge(
+        dormantIntent._id,
+        dormantIntent.userId,
+        channel,
+        message,
+        result.success ? 'sent' : 'failed',
+        result.error
+      );
+
+      await dormantIntentService.recordNudgeSent(dormantIntent._id.toString());
+
+      return {
+        id: nudge._id.toString(),
+        dormantIntentId: dormantIntent._id?.toString() || '',
+        userId: dormantIntent.userId,
+        channel,
+        message,
+        status: result.success ? 'sent' : 'failed',
+        sentAt: new Date(),
+      };
+    } catch (error) {
+      console.error('[NudgeDelivery] Handler failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send nudge to a specific user with explicit parameters
+   */
+  async sendNudgeTo(params: SendNudgeParams): Promise<SendNudgeResult> {
+    // Check user preferences
+    const schedule = await NudgeSchedule.findOne({
+      userId: params.userId,
+      category: params.category,
+      channel: params.channel,
+      active: true,
+    });
+
+    if (schedule && params.revivalScore < schedule.minRevivalScore) {
+      console.debug(`[NudgeDelivery] Skipping nudge — revival score ${params.revivalScore} below user preference ${schedule.minRevivalScore}`);
+      return { success: false, reason: 'below_min_score' };
+    }
+
+    const handler = this.channelHandlers.get(params.channel);
+    if (!handler) {
+      return { success: false, reason: `No handler for channel: ${params.channel}` };
+    }
+
+    try {
+      const result = await handler.send({
+        userId: params.userId,
+        message: params.message,
+        data: {
+          intentKey: params.intentKey,
+          dormantIntentId: params.dormantIntentId,
+        },
+      });
+
+      const dormantOid = mongoose.Types.ObjectId.isValid(params.dormantIntentId)
+        ? new mongoose.Types.ObjectId(params.dormantIntentId)
+        : undefined;
+
+      const nudge = await this.createNudge(
+        dormantOid,
+        params.userId,
+        params.channel,
+        params.message,
+        result.success ? 'sent' : 'failed',
+        result.error
+      );
+
+      return {
+        success: result.success,
+        nudgeId: nudge._id.toString(),
+        error: result.error,
+      };
+    } catch (error) {
+      console.error('[NudgeDelivery] sendNudgeTo failed:', error);
+      return { success: false, error: String(error) };
+    }
   }
 
   async recordNudgeSent(
@@ -286,15 +386,17 @@ export class NudgeDeliveryService {
     nudgeId?: string
   ): Promise<void> {
     try {
-      await Nudge.create({
-        dormantIntentId,
+      const dormantOid = mongoose.Types.ObjectId.isValid(dormantIntentId)
+        ? new mongoose.Types.ObjectId(dormantIntentId)
+        : undefined;
+
+      await this.createNudge(
+        dormantOid,
         userId,
-        channel: channel as NudgeChannel,
+        channel as NudgeChannel,
         message,
-        status: 'sent',
-        sentAt: new Date(),
-        createdAt: new Date(),
-      });
+        'sent'
+      );
 
       await dormantIntentService.recordNudgeSent(dormantIntentId);
       console.log('[NudgeDelivery] Nudge recorded:', { dormantIntentId, userId, channel, nudgeId });
@@ -333,7 +435,8 @@ export class NudgeDeliveryService {
     byChannel: Record<string, number>;
     conversionRate: number;
   }> {
-    const nudges = await Nudge.find();
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const nudges = await Nudge.find({ createdAt: { $gte: thirtyDaysAgo } }).limit(10000);
 
     const byStatus: Record<string, number> = {};
     const byChannel: Record<string, number> = {};
@@ -355,7 +458,31 @@ export class NudgeDeliveryService {
 
   // ── Private Helpers ────────────────────────────────────────────────────────
 
+  /**
+   * Create a Nudge record in MongoDB
+   */
+  private async createNudge(
+    dormantIntentId: mongoose.Types.ObjectId | undefined,
+    userId: string,
+    channel: NudgeChannel,
+    message: string,
+    status: 'pending' | 'sent' | 'delivered' | 'clicked' | 'converted' | 'failed' = 'sent',
+    error?: string
+  ): Promise<any> {
+    return Nudge.create({
+      ...(dormantIntentId ? { dormantIntentId } : {}),
+      userId,
+      channel,
+      message,
+      status,
+      error,
+      sentAt: status === 'sent' || status === 'delivered' || status === 'clicked' || status === 'converted' ? new Date() : undefined,
+      createdAt: new Date(),
+    });
+  }
+
   private registerDefaultHandlers(): void {
+    // Push handler
     this.channelHandlers.set('push', {
       send: async (params) => {
         try {
@@ -373,32 +500,48 @@ export class NudgeDeliveryService {
       },
     });
 
+    // Email handler — logs clearly and stores nudge record
     this.channelHandlers.set('email', {
       send: async (params) => {
-        console.log('[NudgeDelivery] Email notification:', {
-          userId: params.userId,
-          message: params.message,
-          email: (params.data as any)?.email,
+        console.info(`[NudgeDelivery] EMAIL to ${params.userId}:`, {
+          to: `user_${params.userId}@placeholder.com`,
+          subject: 'ReZ Mind - Your intent is waiting!',
+          body: params.message,
         });
-        return { success: true };
+
+        // Attempt real delivery via notification service
+        try {
+          const result = await sendUserNotification(
+            params.userId,
+            'ReZ Mind',
+            params.message,
+            params.data as Record<string, unknown>
+          );
+          return { success: result.success, channel: 'email', error: result.error };
+        } catch (error) {
+          return { success: false, error: String(error), channel: 'email' };
+        }
       },
     });
 
+    // SMS handler — logs clearly and stores nudge record
     this.channelHandlers.set('sms', {
       send: async (params) => {
-        console.log('[NudgeDelivery] SMS notification:', {
-          userId: params.userId,
+        console.info(`[NudgeDelivery] SMS to ${params.userId}:`, {
           message: params.message,
-          phone: (params.data as any)?.phone,
+          phone: (params.data as any)?.phone || `user_${params.userId}@placeholder.com`,
         });
-        return { success: true };
+        // SMS delivery would use a real SMS provider here
+        // For now, treat as success since we logged it
+        return { success: true, channel: 'sms' };
       },
     });
 
+    // In-app handler
     this.channelHandlers.set('in_app', {
       send: async (params) => {
-        console.log('[NudgeDelivery] In-app message:', params);
-        return { success: true };
+        console.info(`[NudgeDelivery] In-app message to ${params.userId}:`, params);
+        return { success: true, channel: 'in_app' };
       },
     });
   }
@@ -463,7 +606,7 @@ export interface NudgeChannelHandler {
     userId: string;
     message: string;
     data?: Record<string, unknown>;
-  }): Promise<{ success: boolean; error?: string }>;
+  }): Promise<{ success: boolean; error?: string; channel?: string }>;
 }
 
 export const nudgeDeliveryService = new NudgeDeliveryService();

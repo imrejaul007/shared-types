@@ -70,19 +70,23 @@ POST /api/intent/cron/detect-dormant
 
 ### 2. Revival Score Calculation
 
-Revival score is calculated based on:
+Revival score is calculated based on multiple factors:
 
-| Factor | Weight | Description |
-|--------|--------|-------------|
-| Intent Strength | 40% | Original confidence score |
-| Days Dormant | 25% | Longer = higher urgency |
-| Category Affinity | 20% | User's affinity for category |
-| Price Match | 15% | Current price vs. search price |
+| Factor | Description |
+|--------|-------------|
+| Intent Strength | Original confidence score, weighted at 0.4 |
+| Dormancy Bonus | 0.15 (7-14 days), 0.10 (14-30 days), 0.05 (>30 days) |
+| Timing Bonus | TRAVEL weekend 0.2, DINING meal times 0.15, else 0.05 |
+| Dormancy Score | (1 - dormancyScore) × 0.15 |
+| Nudge Penalty | 0.3 (<3 days since nudge), 0.15 (<7 days) |
+| Nudge Resistance | nudgeCount × 0.1, max 0.3 |
 
 **Formula:**
 ```
-revivalScore = (confidence × 0.4) + (min(daysDormant/30, 1) × 0.25) + (affinity/100 × 0.2) + priceMatchBonus
+revivalScore = intentStrength × 0.4 + dormancyBonus + timingBonus × 0.15 + (1 − dormancyScore) × 0.15 − nudgePenalty − nudgeResistance
 ```
+
+The score is clamped to the range [0.0, 1.0]. The feedback loop agent continuously tunes timing bonuses and dormancy thresholds per category based on actual nudge conversion data.
 
 ### 3. Trigger Events
 

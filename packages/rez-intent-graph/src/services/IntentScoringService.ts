@@ -4,6 +4,11 @@
 
 import { Intent, DormantIntent } from '../models/index.js';
 import type { IIntent } from '../models/Intent.js';
+import { sharedMemory } from '../agents/shared-memory.js';
+
+const logger = {
+  debug: (msg: string, meta?: Record<string, unknown>) => console.debug(`[IntentScoringService] ${msg}`, meta || ''),
+};
 
 export interface ScoringContext {
   intentId: string;
@@ -36,6 +41,40 @@ export interface RevivalCandidate {
 
 const DORMANCY_THRESHOLD_DAYS = 7;
 const CONFIDENCE_DORMANT_THRESHOLD = 0.3;
+
+// ── Tuning Override Helpers ─────────────────────────────────────────────────────
+
+interface TimingOverride {
+  weekendBonus?: number;
+  mealBonus?: number;
+  preferredHour?: number;
+}
+
+/**
+ * Read timing override set by the feedback loop agent.
+ * Returns null if no override exists (uses defaults).
+ */
+async function getTimingOverride(category: string): Promise<TimingOverride | null> {
+  try {
+    const override = await sharedMemory.get<TimingOverride>(`timing:override:${category}`);
+    return override || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Read per-category dormancy threshold set by the feedback loop agent.
+ * Returns null if no override exists (uses default).
+ */
+async function getDormancyThreshold(category: string): Promise<number | null> {
+  try {
+    const threshold = await sharedMemory.get<number>(`dormancy:threshold:${category}`);
+    return threshold ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export class IntentScoringService {
   /**
@@ -77,18 +116,29 @@ export class IntentScoringService {
     const activeIntents = await Intent.find({
       status: 'ACTIVE',
       lastSeenAt: { $lt: thresholdDate },
-    }).select('_id lastSeenAt confidence');
+    }).select('_id lastSeenAt confidence category').limit(1000);
 
-    return activeIntents.map((intent: any) => ({
-      intentId: intent._id.toString(),
-      daysSinceLastActivity: Math.floor(
-        (Date.now() - intent.lastSeenAt.getTime()) / (1000 * 60 * 60 * 24)
-      ),
-      currentConfidence: intent.confidence,
-      shouldMarkDormant:
-        intent.confidence < CONFIDENCE_DORMANT_THRESHOLD ||
-        (Date.now() - intent.lastSeenAt.getTime()) / (1000 * 60 * 60 * 24) >= daysThreshold,
-    }));
+    // Collect unique categories to batch-fetch overrides
+    const categories = [...new Set(activeIntents.map((i: any) => i.category))];
+    const thresholdOverrides = new Map<string, number>();
+    for (const cat of categories) {
+      const override = await getDormancyThreshold(cat);
+      if (override !== null) thresholdOverrides.set(cat, override);
+    }
+
+    return activeIntents.map((intent: any) => {
+      const categoryThreshold = thresholdOverrides.get(intent.category);
+      const threshold = categoryThreshold ?? daysThreshold;
+      const daysSince = (Date.now() - intent.lastSeenAt.getTime()) / (1000 * 60 * 60 * 24);
+      return {
+        intentId: intent._id.toString(),
+        daysSinceLastActivity: Math.floor(daysSince),
+        currentConfidence: intent.confidence,
+        shouldMarkDormant:
+          intent.confidence < CONFIDENCE_DORMANT_THRESHOLD ||
+          daysSince >= threshold,
+      };
+    });
   }
 
   /**
@@ -105,7 +155,7 @@ export class IntentScoringService {
   /**
    * Compute revival score based on multiple factors
    */
-  private computeRevivalScore(dormant: any): number {
+  private async computeRevivalScore(dormant: any): Promise<number> {
     // Base score from intent strength
     const intentStrength = dormant.intent ? dormant.intent.confidence : 0.5;
 
@@ -120,8 +170,8 @@ export class IntentScoringService {
       dormancyBonus = 0.05;
     }
 
-    // Timing factor (weekends for travel, meal times for dining)
-    const timingBonus = this.calculateTimingBonus(dormant.category);
+    // Timing factor (weekends for travel, meal times for dining) — with feedback loop overrides
+    const timingBonus = await this.calculateTimingBonus(dormant.category);
 
     // Recency of nudge (if nudged recently, lower score)
     let nudgePenalty = 0;
@@ -147,13 +197,29 @@ export class IntentScoringService {
   }
 
   /**
-   * Calculate timing bonus based on category
+   * Calculate timing bonus based on category — merges feedback loop overrides
    */
-  private calculateTimingBonus(category: string): number {
+  private async calculateTimingBonus(category: string): Promise<number> {
     const now = new Date();
     const hour = now.getHours();
     const dayOfWeek = now.getDay();
 
+    // Check for feedback loop tuning overrides
+    const override = await getTimingOverride(category);
+    if (override) {
+      if (category === 'TRAVEL' && override.weekendBonus !== undefined) {
+        return dayOfWeek === 0 || dayOfWeek === 6 ? override.weekendBonus : 0.05;
+      }
+      if (category === 'DINING' && override.mealBonus !== undefined) {
+        if ((hour >= 11 && hour <= 14) || (hour >= 18 && hour <= 21)) {
+          return override.mealBonus;
+        }
+        return 0.05;
+      }
+      logger.debug(`[FeedbackLoop] Applied timing override for ${category}`, { override });
+    }
+
+    // Default timing bonuses
     if (category === 'TRAVEL') {
       return dayOfWeek === 0 || dayOfWeek === 6 ? 0.2 : 0.05;
     }
@@ -237,27 +303,38 @@ export class IntentScoringService {
     limit = 100,
     minScore = 0.3
   ): Promise<RevivalCandidate[]> {
-    const dormantIntents = await DormantIntent.find({
-      status: 'active',
-      revivalScore: { $gte: minScore },
-    })
-      .sort({ revivalScore: -1 })
-      .limit(limit);
+    // Use aggregation with $lookup instead of N+1 queries
+    const results = await DormantIntent.aggregate([
+      { $match: { status: 'active', revivalScore: { $gte: minScore } } },
+      { $sort: { revivalScore: -1 } },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: 'intents',
+          localField: 'intentId',
+          foreignField: '_id',
+          as: 'intentData',
+        },
+      },
+      {
+        $project: {
+          dormantIntent: '$$ROOT',
+          intent: { $arrayElemAt: ['$intentData', 0] },
+          revivalScore: 1,
+          intentKey: 1,
+          category: 1,
+          idealRevivalAt: 1,
+        },
+      },
+    ]);
 
-    const results: RevivalCandidate[] = [];
-
-    for (const di of dormantIntents) {
-      const intent = await Intent.findById(di.intentId);
-      results.push({
-        dormantIntent: di,
-        intent,
-        revivalScore: di.revivalScore,
-        suggestedNudge: this.generateNudgeMessage(di.intentKey, di.category, 'scheduled'),
-        idealTiming: di.idealRevivalAt || new Date(),
-      });
-    }
-
-    return results;
+    return results.map(r => ({
+      dormantIntent: r.dormantIntent,
+      intent: r.intent,
+      revivalScore: r.revivalScore,
+      suggestedNudge: this.generateNudgeMessage(r.intentKey, r.category, 'scheduled'),
+      idealTiming: r.idealRevivalAt || new Date(),
+    }));
   }
 
   /**

@@ -345,7 +345,7 @@ export class CrossAppAggregationService {
 
     const profiles = await CrossAppIntentProfile.find({
       [affinityField]: { $gte: minAffinity },
-    }).select('userId');
+    }).select('userId').limit(100);
 
     return profiles.map((p) => p.userId);
   }
@@ -354,18 +354,11 @@ export class CrossAppAggregationService {
    * Batch sync profiles (for cron job)
    */
   async batchSyncProfiles(userIds: string[]): Promise<number> {
-    let synced = 0;
+    const results = await Promise.allSettled(
+      userIds.map(userId => this.syncCrossAppProfile(userId))
+    );
 
-    for (const userId of userIds) {
-      try {
-        await this.syncCrossAppProfile(userId);
-        synced++;
-      } catch (error) {
-        console.error(`Failed to sync profile for ${userId}:`, error);
-      }
-    }
-
-    return synced;
+    return results.filter(r => r.status === 'fulfilled').length;
   }
 
   /**

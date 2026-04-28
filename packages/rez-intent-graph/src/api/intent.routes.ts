@@ -2,13 +2,25 @@
 // Express routes for RTMN Commerce Memory Intent Graph
 // Uses MongoDB for data storage
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { intentCaptureService } from '../services/IntentCaptureService.js';
 import { dormantIntentService } from '../services/DormantIntentService.js';
 import { crossAppAggregationService } from '../services/CrossAppAggregationService.js';
+import { vibeScoringService } from '../services/VibeScoringService.js';
 import { Intent, Nudge } from '../models/index.js';
-import { verifyInternalToken, verifyApiKey, verifyCronSecret } from '../middleware/auth.js';
+import { verifyInternalToken, verifyApiKey, verifyCronSecret, verifyUserToken } from '../middleware/auth.js';
 import { captureLimiter, nudgeLimiter } from '../middleware/rateLimit.js';
+
+// Helper to check userId param matches authenticated user
+function requireUserMatch(req: Request, res: Response, next: NextFunction) {
+  const headerUserId = (req as any).userId;
+  const paramUserId = req.params.userId;
+  if (headerUserId !== paramUserId) {
+    res.status(403).json({ error: 'Cannot access another user\'s data' });
+    return;
+  }
+  next();
+}
 
 const router = Router();
 
@@ -50,10 +62,12 @@ router.post('/capture', captureLimiter, async (req: Request, res: Response) => {
  * GET /api/intent/active/:userId
  * Get active intents for a user
  */
-router.get('/active/:userId', async (req: Request, res: Response) => {
+router.get('/active/:userId', verifyUserToken, requireUserMatch, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    const intents = await intentCaptureService.getActiveIntents(userId);
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+    const intents = await intentCaptureService.getActiveIntents(userId, page, limit);
     res.json(intents);
   } catch (error) {
     console.error('[IntentAPI] Get active intents failed:', error);
@@ -67,10 +81,12 @@ router.get('/active/:userId', async (req: Request, res: Response) => {
  * GET /api/intent/user/:userId
  * Get all intents for a user
  */
-router.get('/user/:userId', async (req: Request, res: Response) => {
+router.get('/user/:userId', verifyUserToken, requireUserMatch, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    const intents = await intentCaptureService.getUserIntents(userId);
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+    const intents = await intentCaptureService.getUserIntents(userId, page, limit);
     res.json(intents);
   } catch (error) {
     console.error('[IntentAPI] Get user intents failed:', error);
@@ -84,10 +100,12 @@ router.get('/user/:userId', async (req: Request, res: Response) => {
  * GET /api/intent/dormant/:userId
  * Get dormant intents for a user
  */
-router.get('/dormant/:userId', async (req: Request, res: Response) => {
+router.get('/dormant/:userId', verifyUserToken, requireUserMatch, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    const dormantIntents = await dormantIntentService.getUserDormantIntents(userId);
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+    const dormantIntents = await dormantIntentService.getUserDormantIntents(userId, page, limit);
     res.json(dormantIntents);
   } catch (error) {
     console.error('[IntentAPI] Get dormant intents failed:', error);
@@ -101,7 +119,7 @@ router.get('/dormant/:userId', async (req: Request, res: Response) => {
  * GET /api/intent/profile/:userId
  * Get cross-app intent profile for a user
  */
-router.get('/profile/:userId', async (req: Request, res: Response) => {
+router.get('/profile/:userId', verifyUserToken, requireUserMatch, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     const profile = await crossAppAggregationService.getProfile(userId);
@@ -118,7 +136,7 @@ router.get('/profile/:userId', async (req: Request, res: Response) => {
  * GET /api/intent/enriched/:userId
  * Get comprehensive enriched context for an agent
  */
-router.get('/enriched/:userId', async (req: Request, res: Response) => {
+router.get('/enriched/:userId', verifyUserToken, requireUserMatch, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     const context = await crossAppAggregationService.getEnrichedContext(userId);
@@ -233,7 +251,7 @@ router.get('/merchant-demand/:merchantId', async (req: Request, res: Response) =
  * GET /api/intent/affinities/:userId
  * Get user affinity scores across categories
  */
-router.get('/affinities/:userId', async (req: Request, res: Response) => {
+router.get('/affinities/:userId', verifyUserToken, requireUserMatch, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     const affinities = await crossAppAggregationService.getUserAffinities(userId);
@@ -315,12 +333,15 @@ router.post('/nudge/send', verifyInternalToken, nudgeLimiter, async (req: Reques
  * GET /api/intent/nudge/history/:userId
  * Get nudge history for a user
  */
-router.get('/nudge/history/:userId', async (req: Request, res: Response) => {
+router.get('/nudge/history/:userId', verifyUserToken, requireUserMatch, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
     const nudges = await Nudge.find({ userId })
       .sort({ createdAt: -1 })
-      .limit(50);
+      .skip((page - 1) * limit)
+      .limit(limit);
     res.json(nudges);
   } catch (error) {
     console.error('[IntentAPI] Get nudge history failed:', error);
@@ -348,6 +369,41 @@ router.get('/stats', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('[IntentAPI] Get stats failed:', error);
     res.status(500).json({ error: 'Failed to get stats' });
+  }
+});
+
+// ── Vibe Profile ──────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/intent/vibe/:userId
+ * Get vibe profile for a user
+ */
+router.get('/vibe/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const vibe = await vibeScoringService.getVibeProfile(userId);
+    res.json(vibe || { userId, primaryVibe: 'unknown', confidence: 0 });
+  } catch (error) {
+    console.error('[IntentAPI] Get vibe profile failed:', error);
+    res.status(500).json({ error: 'Failed to get vibe profile' });
+  }
+});
+
+// ── Micro Moments ────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/intent/micro-moments/:userId
+ * Get recent micro moments for a user
+ */
+router.get('/micro-moments/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const limit = Math.min(parseInt(req.query.limit as string) || 5, 20);
+    const moments = await vibeScoringService.getRecentMicroMoments(userId, limit);
+    res.json(moments);
+  } catch (error) {
+    console.error('[IntentAPI] Get micro moments failed:', error);
+    res.status(500).json({ error: 'Failed to get micro moments' });
   }
 });
 

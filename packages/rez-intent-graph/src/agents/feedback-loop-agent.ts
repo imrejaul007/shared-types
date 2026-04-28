@@ -19,6 +19,7 @@ const logger = {
   info: (msg: string, meta?: Record<string, unknown>) => console.log(`[FeedbackLoopAgent] ${msg}`, meta || ''),
   warn: (msg: string, meta?: Record<string, unknown>) => console.warn(`[FeedbackLoopAgent] ${msg}`, meta || ''),
   error: (msg: string, meta?: Record<string, unknown>) => console.error(`[FeedbackLoopAgent] ${msg}`, meta || ''),
+  debug: (msg: string, meta?: Record<string, unknown>) => console.debug(`[FeedbackLoopAgent] ${msg}`, meta || ''),
 };
 
 // ── Agent Configuration ────────────────────────────────────────────────────────
@@ -38,6 +39,8 @@ const DRIFT_THRESHOLDS = {
   scarcityScore: 0.25, // 25% change
   demandSignal: 0.30, // 30% change
 };
+
+const DORMANCY_THRESHOLD_DAYS = 7;
 
 // ── Health metrics ──────────────────────────────────────────────────────────────
 
@@ -355,6 +358,70 @@ async function applyRecommendations(recommendations: OptimizationRecommendation[
 
       default:
         logger.warn('Unknown agent for recommendation', { agent: rec.agent });
+    }
+
+    // ── Apply tuning overrides to scoring engine ─────────────────────────────────
+    for (const recommendation of recommendations) {
+      if (recommendation.confidence < 0.7) continue;
+
+      if (recommendation.type === 'timing_change' && recommendation.confidence >= 0.7) {
+        // Update the timing bonus for this category
+        const category = typeof recommendation.currentValue === 'string'
+          ? recommendation.currentValue
+          : 'GENERAL';
+        logger.info(`[FeedbackLoop] Applying timing recommendation for ${category}: ${JSON.stringify(recommendation.recommendedValue)}`);
+
+        // Parse recommendedValue for timing adjustments (could be hour_XX or an object)
+        let adjustments: Record<string, unknown> = { weekendBonus: 0.2, mealBonus: 0.15 };
+        if (typeof recommendation.recommendedValue === 'string' && recommendation.recommendedValue.startsWith('hour_')) {
+          // Timing-specific recommendation — store the preferred hour
+          adjustments = { preferredHour: parseInt(recommendation.recommendedValue.replace('hour_', ''), 10) };
+        }
+
+        // Store in a tuning config that IntentScoringService reads
+        await sharedMemory.set(
+          `timing:override:${category}`,
+          adjustments,
+          7 * 24 * 60 * 60 // 7 day TTL
+        );
+      }
+
+      if (recommendation.type === 'threshold_adjust' && recommendation.confidence >= 0.7) {
+        // Update the dormancy threshold for this category
+        const threshold = typeof recommendation.recommendedValue === 'number'
+          ? recommendation.recommendedValue
+          : typeof recommendation.recommendedValue === 'string'
+            ? parseInt(recommendation.recommendedValue, 10)
+            : DORMANCY_THRESHOLD_DAYS;
+        await sharedMemory.set(
+          `dormancy:threshold:GENERAL`,
+          threshold,
+          7 * 24 * 60 * 60
+        );
+        logger.info(`[FeedbackLoop] Applying dormancy threshold ${threshold}`);
+      }
+
+      if (recommendation.type === 'pause_strategy') {
+        // Actually pause the user's nudge schedule
+        try {
+          const { dormantIntentService } = await import('../services/DormantIntentService.js');
+          const affectedUsers = (recommendation as unknown as Record<string, unknown>).affectedUsers as string[] || [];
+          for (const userId of affectedUsers) {
+            const dormantIntents = await dormantIntentService.getUserDormantIntents(userId);
+            for (const d of dormantIntents) {
+              const cat = typeof recommendation.currentValue === 'string'
+                ? recommendation.currentValue
+                : 'GENERAL';
+              if (d.category === cat) {
+                await dormantIntentService.pauseNudges(d._id.toString());
+                logger.info(`[FeedbackLoop] Paused nudges for user ${userId}, intent ${d._id}`);
+              }
+            }
+          }
+        } catch (err) {
+          logger.debug('[FeedbackLoop] Failed to pause nudges:', err as Record<string, unknown>);
+        }
+      }
     }
 
     // Store recommendation
