@@ -1,6 +1,7 @@
 // ── ReZ Agent OS - Error Tracking ─────────────────────────────────────────────
 // Error monitoring and alerting system
 
+import crypto from 'crypto';
 import { logger } from '../logger';
 
 export type ErrorSeverity = 'low' | 'medium' | 'high' | 'critical';
@@ -60,7 +61,7 @@ export class ErrorTracker {
     conversationId?: string;
     retryable?: boolean;
   }): string {
-    const id = `err_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = `err_${crypto.randomUUID()}`;
 
     const trackedError: TrackedError = {
       id,

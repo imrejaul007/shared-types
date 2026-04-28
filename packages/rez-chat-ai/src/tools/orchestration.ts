@@ -1,6 +1,7 @@
 // ── Cross-App Orchestration Tools ─────────────────────────────────────────────────
 // Tools that coordinate actions across multiple ReZ apps and services
 
+import crypto from 'crypto';
 import { ToolHandlerConfig, CustomerContext, ToolResult } from '../types';
 import { logger } from '../logger';
 
@@ -33,7 +34,7 @@ export const bookHotelWithPreferencesTool: ToolHandlerConfig = {
 
       const booking = {
         bookingId: `BK${Date.now()}`,
-        confirmationCode: `GHC${Math.random().toString(36).substring(7).toUpperCase()}`,
+        confirmationCode: `GHC${crypto.randomUUID().replace(/-/g, '').substring(0, 10).toUpperCase()}`,
         hotelName: 'Grand Hotel',
         checkIn: params.checkIn,
         checkOut: params.checkOut,
@@ -112,7 +113,7 @@ export const planDinnerDateTool: ToolHandlerConfig = {
       // Step 2: Make reservation
       const reservation = {
         reservationId: `RES${Date.now()}`,
-        confirmationCode: `DIN${Math.random().toString(36).substring(7).toUpperCase()}`,
+        confirmationCode: `DIN${crypto.randomUUID().replace(/-/g, '').substring(0, 10).toUpperCase()}`,
         restaurantName: restaurant.name,
         date: params.date,
         time: params.time,
@@ -187,7 +188,7 @@ export const placeOrderWithLoyaltyTool: ToolHandlerConfig = {
       // Step 3: Place order
       const order = {
         orderId: `ORD${Date.now()}`,
-        orderNumber: `#${Math.floor(Math.random() * 9000) + 1000}`,
+        orderNumber: `#${Number.parseInt(crypto.randomUUID().replace(/-/g, ''), 16) % 9000 + 1000}`,
         subtotal: 350,
         discount: pointValue,
         total: Math.max(0, 350 - pointValue),

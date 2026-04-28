@@ -1,6 +1,7 @@
 // ── Learning Engine ──────────────────────────────────────────────────────────────
 // Core learning logic for AI improvement over time
 
+import crypto from 'crypto';
 import { AIChatMessage } from '../types';
 import { CustomerContext } from '../types';
 import {
@@ -229,7 +230,7 @@ export class PatternAnalyzer {
       }
     } else {
       this.patterns.set(normalizedPattern, {
-        id: `pattern_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        id: `pattern_${crypto.randomUUID()}`,
         pattern: message,
         normalizedPattern,
         intent,
@@ -333,7 +334,7 @@ export class KnowledgeGapDetector {
         }
       } else {
         this.gaps.set(key, {
-          id: `gap_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          id: `gap_${crypto.randomUUID()}`,
           category: intent,
           industryCategory,
           questionPattern: message.slice(0, 100),
@@ -501,7 +502,7 @@ export class ImprovementRecommender {
     const gaps = this.gapDetector.getUnresolvedGaps(3);
     for (const gap of gaps) {
       recommendations.push({
-        id: `improve_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        id: `improve_${crypto.randomUUID()}`,
         type: 'add_knowledge',
         target: gap.category,
         reason: `Unresolved gap detected ${gap.unresolvedCount} times`,
@@ -519,7 +520,7 @@ export class ImprovementRecommender {
     const failingPatterns = this.patternAnalyzer.getFailingPatterns();
     for (const pattern of failingPatterns) {
       recommendations.push({
-        id: `improve_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        id: `improve_${crypto.randomUUID()}`,
         type: 'update_response',
         target: pattern.intent,
         reason: `Low success rate (${(pattern.successRate * 100).toFixed(1)}%) for intent: ${pattern.intent}`,
@@ -537,7 +538,7 @@ export class ImprovementRecommender {
     const lowConfidence = this.patternAnalyzer.getLowConfidencePatterns();
     for (const pattern of lowConfidence) {
       recommendations.push({
-        id: `improve_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        id: `improve_${crypto.randomUUID()}`,
         type: 'improve_context',
         target: pattern.intent,
         reason: `Low confidence (${(pattern.avgConfidence * 100).toFixed(1)}%) for pattern: ${pattern.pattern}`,
@@ -555,7 +556,7 @@ export class ImprovementRecommender {
     const areas = this.qualityAnalyzer.getImprovementAreas();
     for (const area of areas) {
       recommendations.push({
-        id: `improve_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        id: `improve_${crypto.randomUUID()}`,
         type: 'update_response',
         target: 'general',
         reason: area,

@@ -1,6 +1,7 @@
 // ── Comprehensive Tool Handlers ──────────────────────────────────────────────────
 // All tools the AI can use to help customers
 
+import crypto from 'crypto';
 import {
   CustomerContext,
   ToolHandler,
