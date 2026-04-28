@@ -2,6 +2,12 @@
 // Phase 7: Each merchant shares their knowledge base
 // ReZ Mind collects and indexes merchant knowledge for autonomous chat
 // MongoDB implementation
+/**
+ * Escape regex special characters to prevent ReDoS and injection attacks
+ */
+function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 import { MerchantKnowledge } from '../models/index.js';
 import { sharedMemory } from '../agents/shared-memory.js';
 export class MerchantKnowledgeService {
@@ -68,10 +74,12 @@ export class MerchantKnowledgeService {
         if (params.category)
             searchQuery.type = params.category;
         // Push text search into MongoDB using regex on title (content search remains client-side for safety)
+        // CRITICAL: escape regex special chars to prevent ReDoS attacks
         if (params.query) {
+            const escaped = escapeRegex(params.query);
             searchQuery.$or = [
-                { title: { $regex: params.query, $options: 'i' } },
-                { tags: { $regex: params.query, $options: 'i' } },
+                { title: { $regex: escaped, $options: 'i' } },
+                { tags: { $regex: escaped, $options: 'i' } },
             ];
         }
         const entries = await MerchantKnowledge.find(searchQuery)

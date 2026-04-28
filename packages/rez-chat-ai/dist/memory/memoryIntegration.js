@@ -169,28 +169,42 @@ class MemoryService {
             const enriched = await rez_intent_graph_1.crossAppAggregationService.getEnrichedContext(userId);
             if (!enriched)
                 return;
-            // Store dominant category as a preference
-            if (enriched.crossAppProfile?.dominantCategory) {
+            // Compute dominant category from affinities (not stored on profile)
+            if (enriched.crossAppProfile) {
+                const { travelAffinity, diningAffinity, retailAffinity } = enriched.crossAppProfile;
+                const dominantCategory = travelAffinity >= diningAffinity && travelAffinity >= retailAffinity
+                    ? 'TRAVEL'
+                    : diningAffinity >= retailAffinity
+                        ? 'DINING'
+                        : 'RETAIL';
                 await this.store.setPreference(userId, {
                     category: 'general',
                     key: 'dominantCategory',
-                    value: enriched.crossAppProfile.dominantCategory,
+                    value: dominantCategory,
                     confidence: 0.8,
                     source: 'behavior',
                 });
             }
-            // Store affinities
-            const affinities = {};
+            // Store affinities as individual preferences
             if (enriched.crossAppProfile) {
-                affinities.travel = enriched.crossAppProfile.travelAffinity;
-                affinities.dining = enriched.crossAppProfile.diningAffinity;
-                affinities.retail = enriched.crossAppProfile.retailAffinity;
-            }
-            if (Object.keys(affinities).length > 0) {
                 await this.store.setPreference(userId, {
                     category: 'general',
-                    key: 'affinities',
-                    value: affinities,
+                    key: 'travelAffinity',
+                    value: enriched.crossAppProfile.travelAffinity,
+                    confidence: 0.7,
+                    source: 'behavior',
+                });
+                await this.store.setPreference(userId, {
+                    category: 'general',
+                    key: 'diningAffinity',
+                    value: enriched.crossAppProfile.diningAffinity,
+                    confidence: 0.7,
+                    source: 'behavior',
+                });
+                await this.store.setPreference(userId, {
+                    category: 'general',
+                    key: 'retailAffinity',
+                    value: enriched.crossAppProfile.retailAffinity,
                     confidence: 0.7,
                     source: 'behavior',
                 });

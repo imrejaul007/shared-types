@@ -26,30 +26,33 @@ function calculateRate(count, total) {
 // Uses sharedMemory for nudge event data instead of raw SQL tables
 async function buildUserProfile(userId) {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    // Get nudge events from sharedMemory
-    const nudgeKeys = await sharedMemory.keys(`nudge:${userId}:*`);
+    // Get nudge events from sharedMemory — batch with Promise.allSettled
+    const nudgeKeys = (await sharedMemory.keys(`nudge:${userId}:*`)).slice(0, 200);
+    const nudgeResults = await Promise.allSettled(nudgeKeys.map((key) => sharedMemory.get(key)));
     const nudgeEvents = [];
-    for (const key of nudgeKeys) {
-        const event = await sharedMemory.get(key);
-        if (event && event.timestamp) {
-            const timestamp = new Date(event.timestamp);
-            if (timestamp >= thirtyDaysAgo) {
-                nudgeEvents.push({
-                    nudgeId: event.nudgeId,
-                    channel: event.channel,
-                    timestamp,
-                    eventType: event.eventType || 'sent',
-                });
+    for (const result of nudgeResults) {
+        if (result.status === 'fulfilled' && result.value) {
+            const event = result.value;
+            if (event.timestamp) {
+                const timestamp = new Date(event.timestamp);
+                if (timestamp >= thirtyDaysAgo) {
+                    nudgeEvents.push({
+                        nudgeId: event.nudgeId,
+                        channel: event.channel,
+                        timestamp,
+                        eventType: event.eventType || 'sent',
+                    });
+                }
             }
         }
     }
-    // Get conversions from sharedMemory
-    const conversionKeys = await sharedMemory.keys(`conversion:${userId}:*`);
+    // Get conversions from sharedMemory — batch with Promise.allSettled
+    const conversionKeys = (await sharedMemory.keys(`conversion:${userId}:*`)).slice(0, 200);
+    const conversionResults = await Promise.allSettled(conversionKeys.map((key) => sharedMemory.get(key)));
     const conversionNudgeIds = new Set();
-    for (const key of conversionKeys) {
-        const conversion = await sharedMemory.get(key);
-        if (conversion?.nudgeId) {
-            conversionNudgeIds.add(conversion.nudgeId);
+    for (const result of conversionResults) {
+        if (result.status === 'fulfilled' && result.value?.nudgeId) {
+            conversionNudgeIds.add(result.value.nudgeId);
         }
     }
     // Calculate rates per channel
@@ -310,12 +313,13 @@ export async function runPersonalizationAgent() {
     const start = Date.now();
     try {
         logger.info('Running personalization update');
-        // Process any pending nudge events stored in sharedMemory
-        const pendingEventKeys = await sharedMemory.keys('nudge:*:pending');
+        // Process any pending nudge events stored in sharedMemory — batch fetch
+        const pendingEventKeys = (await sharedMemory.keys('nudge:*:pending')).slice(0, 200);
+        const pendingResults = await Promise.allSettled(pendingEventKeys.map((key) => sharedMemory.get(key)));
         const pendingEvents = [];
-        for (const key of pendingEventKeys) {
-            const event = await sharedMemory.get(key);
-            if (event) {
+        for (const result of pendingResults) {
+            if (result.status === 'fulfilled' && result.value) {
+                const event = result.value;
                 pendingEvents.push({
                     nudgeId: event.nudgeId,
                     userId: event.userId,
@@ -326,10 +330,14 @@ export async function runPersonalizationAgent() {
                 });
             }
         }
-        for (const event of pendingEvents) {
-            await processNudgeEvent(event);
-            // Remove from pending
-            await sharedMemory.delete(`nudge:${event.userId}:${event.nudgeId}:pending`);
+        // Process events concurrently with limited concurrency
+        const PROCESS_BATCH = 10;
+        for (let i = 0; i < pendingEvents.length; i += PROCESS_BATCH) {
+            const batch = pendingEvents.slice(i, i + PROCESS_BATCH);
+            await Promise.allSettled(batch.map(async (event) => {
+                await processNudgeEvent(event);
+                await sharedMemory.delete(`nudge:${event.userId}:${event.nudgeId}:pending`);
+            }));
         }
         logger.info('Personalization update complete', { events: pendingEvents.length });
         return {

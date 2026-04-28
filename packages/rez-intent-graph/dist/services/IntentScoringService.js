@@ -1,6 +1,7 @@
 // ── Intent Scoring Service ────────────────────────────────────────────────────
 // Calculates confidence scores, dormancy detection, and revival scoring
 // MongoDB implementation
+import crypto from 'crypto';
 import { Intent, DormantIntent } from '../models/index.js';
 import { sharedMemory } from '../agents/shared-memory.js';
 const logger = {
@@ -211,7 +212,7 @@ export class IntentScoringService {
             ],
         };
         const categoryTemplates = templates[category] || templates.RETAIL;
-        const template = categoryTemplates[Math.floor(Math.random() * categoryTemplates.length)];
+        const template = categoryTemplates[Math.floor(Number.parseInt(crypto.randomUUID().replace(/-/g, ''), 16) % categoryTemplates.length)];
         return template.replace('{intent}', this.formatIntentKey(intentKey));
     }
     formatIntentKey(key) {

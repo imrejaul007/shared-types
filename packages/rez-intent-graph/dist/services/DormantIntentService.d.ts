@@ -32,6 +32,7 @@ export declare class DormantIntentService {
     private calculateInitialRevivalScore;
     /**
      * Calculate and update revival scores for all active dormant intents
+     * Fixed: replaced N+1 loop with aggregation pipeline + bulk update
      */
     updateRevivalScores(): Promise<number>;
     /**
@@ -77,6 +78,9 @@ export declare class DormantIntentService {
     private updateCrossAppDormancy;
     /**
      * Get scheduled revival candidates (due for nudge)
+     */
+    /**
+     * Get scheduled revival candidates — fixed N+1: uses aggregation $lookup
      */
     getScheduledRevivals(): Promise<RevivalCandidate[]>;
 }

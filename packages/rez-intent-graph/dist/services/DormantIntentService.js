@@ -72,13 +72,17 @@ export class DormantIntentService {
             lastSeenAt: { $lt: thresholdDate },
         }).limit(1000);
         let markedDormant = 0;
-        for (const intent of intents) {
-            // Check if confidence is below threshold
-            if (intent.confidence < MIN_CONFIDENCE) {
-                const result = await this.markDormant(intent._id.toString());
-                if (result)
-                    markedDormant++;
-            }
+        // Process in batches of 50 with Promise.allSettled for concurrency
+        const BATCH_SIZE = 50;
+        for (let i = 0; i < intents.length; i += BATCH_SIZE) {
+            const batch = intents.slice(i, i + BATCH_SIZE);
+            const results = await Promise.allSettled(batch.map((intent) => {
+                if (intent.confidence < MIN_CONFIDENCE) {
+                    return this.markDormant(intent._id.toString());
+                }
+                return Promise.resolve(null);
+            }));
+            markedDormant += results.filter((r) => r.status === 'fulfilled' && r.value !== null).length;
         }
         return { processed: intents.length, markedDormant };
     }
@@ -96,31 +100,91 @@ export class DormantIntentService {
     }
     /**
      * Calculate and update revival scores for all active dormant intents
+     * Fixed: replaced N+1 loop with aggregation pipeline + bulk update
      */
     async updateRevivalScores() {
-        const dormantIntents = await DormantIntent.find({ status: 'active' }).limit(500);
-        let updated = 0;
-        for (const di of dormantIntents) {
-            const daysDormant = di.daysDormant + Math.floor((Date.now() - (di.updatedAt?.getTime() || Date.now())) / (1000 * 60 * 60 * 24));
-            // Recalculate revival score based on current factors
-            const intent = await Intent.findById(di.intentId);
-            let score = 0;
-            if (intent) {
-                // Decay score over time
-                const decayFactor = Math.exp(-daysDormant / 60);
-                score = di.revivalScore * decayFactor * 0.8;
-                // Add signal richness bonus
-                score += Math.min(0.2, intent.signals.length * 0.02);
-            }
-            await DormantIntent.updateOne({ _id: di._id }, {
-                $set: {
-                    revivalScore: Math.min(0.9, score),
-                    daysDormant,
+        // Single aggregation: join DormantIntent with Intent data, calculate new scores
+        const updates = await DormantIntent.aggregate([
+            { $match: { status: 'active' } },
+            { $limit: 500 },
+            {
+                $lookup: {
+                    from: 'intents',
+                    localField: 'intentId',
+                    foreignField: '_id',
+                    as: 'intentData',
                 },
-            });
-            updated++;
-        }
-        return updated;
+            },
+            {
+                $unwind: { path: '$intentData', preserveNullAndEmptyArrays: true },
+            },
+            {
+                $addFields: {
+                    newDaysDormant: {
+                        $add: [
+                            '$daysDormant',
+                            {
+                                $floor: {
+                                    $divide: [
+                                        { $subtract: [Date.now(), { $ifNull: ['$updatedAt', new Date()] }] },
+                                        86400000, // ms per day
+                                    ],
+                                },
+                            },
+                        ],
+                    },
+                },
+            },
+            {
+                $addFields: {
+                    newScore: {
+                        $cond: {
+                            if: { $eq: [{ $type: '$intentData' }, 'missing'] },
+                            then: 0,
+                            else: {
+                                $min: [
+                                    0.9,
+                                    {
+                                        $add: [
+                                            {
+                                                $multiply: [
+                                                    '$revivalScore',
+                                                    { $multiply: [{ $exp: { $multiply: [-1, { $divide: ['$newDaysDormant', 60] }] } }, 0.8] },
+                                                ],
+                                            },
+                                            { $min: [0.2, { $multiply: [{ $size: { $ifNull: ['$intentData.signals', []] } }, 0.02] }] },
+                                        ],
+                                    },
+                                ],
+                            },
+                        },
+                    },
+                },
+            },
+            {
+                $project: {
+                    _id: 1,
+                    newDaysDormant: 1,
+                    newScore: 1,
+                },
+            },
+        ]);
+        if (updates.length === 0)
+            return 0;
+        // Bulk update all scores in one operation
+        const bulkOps = updates.map((u) => ({
+            updateOne: {
+                filter: { _id: u._id },
+                update: {
+                    $set: {
+                        revivalScore: u.newScore,
+                        daysDormant: u.newDaysDormant,
+                    },
+                },
+            },
+        }));
+        const result = await DormantIntent.bulkWrite(bulkOps, { ordered: false });
+        return result.modifiedCount;
     }
     /**
      * Get dormant intents for a specific user
@@ -311,29 +375,52 @@ export class DormantIntentService {
     /**
      * Get scheduled revival candidates (due for nudge)
      */
+    /**
+     * Get scheduled revival candidates — fixed N+1: uses aggregation $lookup
+     */
     async getScheduledRevivals() {
         const now = new Date();
-        const dormantIntents = await DormantIntent.find({
-            status: 'active',
-            $or: [
-                { idealRevivalAt: { $lte: now } },
-                { idealRevivalAt: { $exists: false } },
-            ],
-        }).sort({ revivalScore: -1 }).limit(100);
-        const results = [];
-        for (const di of dormantIntents) {
-            const intent = await Intent.findById(di.intentId);
-            if (intent) {
-                results.push({
-                    dormantIntent: di,
-                    intent,
-                    revivalScore: di.revivalScore,
-                    suggestedNudge: this.generateNudgeMessage(di.intentKey, di.category, 'scheduled'),
-                    idealTiming: di.idealRevivalAt || now,
-                });
-            }
-        }
-        return results;
+        // Single aggregation with $lookup to get intent data
+        const results = await DormantIntent.aggregate([
+            {
+                $match: {
+                    status: 'active',
+                    $or: [
+                        { idealRevivalAt: { $lte: now } },
+                        { idealRevivalAt: { $exists: false } },
+                    ],
+                },
+            },
+            { $sort: { revivalScore: -1 } },
+            { $limit: 100 },
+            {
+                $lookup: {
+                    from: 'intents',
+                    localField: 'intentId',
+                    foreignField: '_id',
+                    as: 'intentData',
+                },
+            },
+            {
+                $unwind: { path: '$intentData', preserveNullAndEmptyArrays: false },
+            },
+            {
+                $project: {
+                    dormantIntent: '$$ROOT',
+                    intent: '$intentData',
+                    revivalScore: 1,
+                    idealTiming: { $ifNull: ['$idealRevivalAt', now] },
+                },
+            },
+        ]);
+        // Convert aggregation results back to RevivalCandidate format
+        return results.map((r) => ({
+            dormantIntent: r.dormantIntent,
+            intent: r.intent,
+            revivalScore: r.revivalScore,
+            suggestedNudge: this.generateNudgeMessage(r.dormantIntent.intentKey, r.dormantIntent.category, 'scheduled'),
+            idealTiming: r.idealTiming,
+        }));
     }
 }
 export const dormantIntentService = new DormantIntentService();

@@ -2,6 +2,7 @@
 // Real integrations with ReZ ecosystem services via HTTP API
 // Connects intent-graph to wallet, order, payment, and operational services
 // Includes retry + circuit breaker for resilient autonomous operations
+import crypto from 'crypto';
 import { sharedMemory } from '../agents/shared-memory.js';
 import { SERVICE_URLS } from '../config/services.js';
 const logger = {
@@ -147,6 +148,12 @@ async function httpRequest(url, options = {}) {
  */
 export async function chargeWallet(userId, amount, description, options = {}) {
     try {
+        // Safety cap: wallet operations must have a configurable max amount (default: 0 = disabled)
+        const MAX_CHARGE_AMOUNT = parseInt(process.env.MAX_WALLET_CHARGE_AMOUNT || '0', 10);
+        if (MAX_CHARGE_AMOUNT > 0 && amount > MAX_CHARGE_AMOUNT) {
+            logger.error('[Wallet] Charge rejected — exceeds max amount', { userId, amount, maxAmount: MAX_CHARGE_AMOUNT });
+            return { success: false, error: `Amount exceeds maximum allowed: ${MAX_CHARGE_AMOUNT}` };
+        }
         // Map referenceType to wallet source
         const sourceMap = {
             order: 'order_payment',
@@ -421,7 +428,7 @@ export async function submitGuestRequest(request) {
             }
         }
         // Fallback: publish to shared memory for other services to consume
-        const requestId = `pms_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const requestId = `pms_${crypto.randomUUID()}`;
         await sharedMemory.publish({
             from: 'intent-graph',
             to: 'pms-service',
@@ -453,7 +460,7 @@ export async function submitGuestRequest(request) {
  */
 export async function createTask(task) {
     try {
-        const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const taskId = `task_${crypto.randomUUID()}`;
         await sharedMemory.publish({
             from: 'intent-graph',
             to: 'task-queue',
@@ -484,7 +491,7 @@ export async function createTask(task) {
  */
 export async function sendStaffNotification(notification) {
     try {
-        const notificationId = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const notificationId = `notif_${crypto.randomUUID()}`;
         await sharedMemory.publish({
             from: 'intent-graph',
             to: 'notification-service',
@@ -513,7 +520,7 @@ export async function sendStaffNotification(notification) {
  */
 export async function sendUserNotification(userId, title, body, data) {
     try {
-        const notificationId = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const notificationId = `notif_${crypto.randomUUID()}`;
         await sharedMemory.publish({
             from: 'intent-graph',
             to: 'notification-service',
@@ -541,7 +548,7 @@ export async function sendUserNotification(userId, title, body, data) {
  */
 export async function sendToMerchantOS(order) {
     try {
-        const merchantOrderId = `merch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const merchantOrderId = `merch_${crypto.randomUUID()}`;
         await sharedMemory.publish({
             from: 'intent-graph',
             to: 'merchant-os',

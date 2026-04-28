@@ -107,7 +107,7 @@ class TEESealProvider {
         const iv = crypto.randomBytes(12);
         const enclaveKey = crypto.randomBytes(32);
         // Derive encryption key from enclave-bound key
-        const encryptionKey = crypto.pbkdf2Sync(Buffer.concat([enclaveKey, this.enclaveMeasurement]), iv, 100000, 32, 'sha256');
+        const encryptionKey = crypto.pbkdf2Sync(Buffer.concat([enclaveKey, Buffer.from(this.enclaveMeasurement)]), iv, 100000, 32, 'sha256');
         const cipher = crypto.createCipheriv('aes-256-gcm', encryptionKey, iv);
         const ciphertext = Buffer.concat([cipher.update(data), cipher.final()]);
         const authTag = cipher.getAuthTag();
@@ -132,7 +132,7 @@ class TEESealProvider {
         const ciphertext = Buffer.from(sealed.ciphertext, 'base64');
         const authTag = Buffer.from(sealed.authTag, 'base64');
         // Derive the same encryption key
-        const encryptionKey = crypto.pbkdf2Sync(Buffer.concat([enclaveKey, this.enclaveMeasurement]), iv, 100000, 32, 'sha256');
+        const encryptionKey = crypto.pbkdf2Sync(Buffer.concat([enclaveKey, Buffer.from(this.enclaveMeasurement)]), iv, 100000, 32, 'sha256');
         // Decrypt and verify
         const decipher = crypto.createDecipheriv('aes-256-gcm', encryptionKey, iv);
         decipher.setAuthTag(authTag);
@@ -293,14 +293,15 @@ function initializeTEEContext(config) {
     const credentials = new TEEProtectedCredentials(teeConfig);
     const sessionManager = new TEESessionManager(teeConfig);
     const sealProvider = new TEESealProvider(teeConfig);
-    teeContext = {
+    const result = {
         sessionId: crypto.randomUUID(),
         enclaveMeasurement: sealProvider.getEnclaveMeasurement(),
-        attestationQuote: teeConfig.attestationEnabled ? null : undefined,
+        attestationQuote: null,
         credentials,
         sessionManager,
     };
-    return teeContext;
+    teeContext = result;
+    return result;
 }
 function getTEEContext() {
     return teeContext;

@@ -1,6 +1,7 @@
 // ── Nudge Delivery Service ─────────────────────────────────────────────────────
 // Handles delivery of intent revival nudges across channels
 // MongoDB implementation
+import crypto from 'crypto';
 import mongoose from 'mongoose';
 import { Nudge, NudgeSchedule } from '../models/index.js';
 import { dormantIntentService } from '../services/DormantIntentService.js';
@@ -415,7 +416,7 @@ export class NudgeDeliveryService {
     renderTemplate(templates, channel, intent, suggestedNudge) {
         if (suggestedNudge)
             return suggestedNudge;
-        const template = templates[Math.floor(Math.random() * templates.length)];
+        const template = templates[Math.floor(Number.parseInt(crypto.randomUUID().replace(/-/g, ''), 16) % templates.length)];
         const formattedIntent = this.formatIntentKey(intent.intentKey);
         return template
             .replace('{intent}', formattedIntent)

@@ -3,12 +3,10 @@
 import { Router } from 'express';
 import { merchantKnowledgeService, } from '../integrations/merchantKnowledge.js';
 import { autonomousChatService } from '../chat/autonomousChat.js';
-import { verifyInternalToken, requireUserOrAuth } from '../middleware/auth.js';
+import { verifyInternalToken, verifyApiKey, requireUserOrAuth } from '../middleware/auth.js';
 import { strictLimiter } from '../middleware/rateLimit.js';
 const router = Router();
-// ═══════════════════════════════════════════════════════════════════════════════════
-// MERCHANT KNOWLEDGE MANAGEMENT
-// ═══════════════════════════════════════════════════════════════════════════════════
+// ── Merchant Knowledge Management ────────────────────────────────────────────────
 /**
  * POST /api/knowledge/merchant/:merchantId/entries
  * Add a knowledge entry for a merchant
@@ -62,8 +60,9 @@ router.post('/knowledge/merchant/:merchantId/bulk', verifyInternalToken, async (
 /**
  * GET /api/knowledge/merchant/:merchantId
  * Get merchant's full knowledge base
+ * Auth: API key required (merchant-specific data)
  */
-router.get('/knowledge/merchant/:merchantId', async (req, res) => {
+router.get('/knowledge/merchant/:merchantId', verifyApiKey, async (req, res) => {
     const { merchantId } = req.params;
     try {
         const knowledgeBase = await merchantKnowledgeService.getKnowledgeBase(merchantId);
@@ -81,8 +80,9 @@ router.get('/knowledge/merchant/:merchantId', async (req, res) => {
 /**
  * GET /api/knowledge/merchant/:merchantId/search
  * Search merchant knowledge
+ * Auth: API key required
  */
-router.get('/knowledge/merchant/:merchantId/search', async (req, res) => {
+router.get('/knowledge/merchant/:merchantId/search', verifyApiKey, async (req, res) => {
     const { merchantId } = req.params;
     const { q, type, limit } = req.query;
     if (!q) {
@@ -94,7 +94,7 @@ router.get('/knowledge/merchant/:merchantId/search', async (req, res) => {
             merchantId,
             query: q,
             category: type,
-            limit: limit ? parseInt(limit) : 20,
+            limit: limit ? Math.min(parseInt(limit), 50) : 20,
         });
         res.json({ results, count: results.length });
     }
@@ -125,7 +125,7 @@ router.put('/knowledge/entries/:entryId', verifyInternalToken, async (req, res) 
     }
     catch (error) {
         console.error('[KnowledgeAPI] Update entry failed:', error);
-        res.status(500).json({ error: 'Failed to update entry' });
+        res.status(500).json({ error: 'Failed to update knowledge entry' });
     }
 });
 /**
@@ -140,12 +140,10 @@ router.delete('/knowledge/entries/:entryId', verifyInternalToken, async (req, re
     }
     catch (error) {
         console.error('[KnowledgeAPI] Delete entry failed:', error);
-        res.status(500).json({ error: 'Failed to delete entry' });
+        res.status(500).json({ error: 'Failed to delete knowledge entry' });
     }
 });
-// ═══════════════════════════════════════════════════════════════════════════════════
-// AUTONOMOUS CHAT
-// ═══════════════════════════════════════════════════════════════════════════════════
+// ── Autonomous Chat ──────────────────────────────────────────────────────────────
 /**
  * POST /api/chat/message
  * Send a chat message and get autonomous response
@@ -208,8 +206,9 @@ router.post('/chat/end-session', requireUserOrAuth, async (req, res) => {
 /**
  * GET /api/chat/context/:userId
  * Get chat context for a user (merchant knowledge + user intents)
+ * Auth: user auth + merchant API key
  */
-router.get('/chat/context/:userId', requireUserOrAuth, async (req, res) => {
+router.get('/chat/context/:userId', verifyApiKey, async (req, res) => {
     const { userId } = req.params;
     const { merchantId, query } = req.query;
     if (!query) {
@@ -233,9 +232,7 @@ router.get('/chat/context/:userId', requireUserOrAuth, async (req, res) => {
         res.status(500).json({ error: 'Failed to get chat context' });
     }
 });
-// ═══════════════════════════════════════════════════════════════════════════════════
-// MERCHANT UPLOAD HELPERS
-// ═══════════════════════════════════════════════════════════════════════════════════
+// ── Merchant Upload Helpers ───────────────────────────────────────────────────────
 /**
  * POST /api/knowledge/merchant/:merchantId/menu
  * Upload menu items as knowledge entries

@@ -26,6 +26,7 @@ export interface CustomerContext {
     bookings?: BookingSummary[];
     totalSpent?: number;
     visitCount?: number;
+    activeApps?: string[];
 }
 export interface OrderSummary {
     orderId: string;
@@ -115,5 +116,15 @@ export interface ChatConfig {
     enableToolUse: boolean;
     confidenceThreshold: number;
     escalationKeywords: string[];
+}
+export interface ToolHandlerConfig {
+    name: string;
+    description: string;
+    parameters: Record<string, {
+        type: string;
+        description: string;
+        required: boolean;
+    }>;
+    execute: (params: Record<string, unknown>, context: CustomerContext) => Promise<ToolResult>;
 }
 //# sourceMappingURL=index.d.ts.map

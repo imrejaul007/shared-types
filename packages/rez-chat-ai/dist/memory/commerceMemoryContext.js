@@ -27,18 +27,21 @@ async function getCommerceMemoryContext(userId, options = {}) {
             key: intent.key,
             category: intent.category,
             confidence: intent.confidence,
-            lastSeen: formatTimeAgo(intent.lastSeen),
+            lastSeen: formatTimeAgo(intent.lastSeen.toISOString()),
             displayName: formatIntentDisplayName(intent.key, intent.category),
         }));
         // Format dormant intents
-        const dormantIntents = filteredDormant.map((intent) => ({
-            key: intent.key,
-            category: intent.category,
-            daysDormant: intent.daysDormant,
-            revivalScore: intent.revivalScore,
-            displayName: formatIntentDisplayName(intent.key, intent.category),
-            actionSuggestion: getActionSuggestion(intent),
-        }));
+        const dormantIntents = filteredDormant.map((intent) => {
+            const displayName = formatIntentDisplayName(intent.key, intent.category);
+            return {
+                key: intent.key,
+                category: intent.category,
+                daysDormant: intent.daysDormant,
+                revivalScore: intent.revivalScore,
+                displayName,
+                actionSuggestion: getActionSuggestion({ ...intent, displayName, actionSuggestion: '' }),
+            };
+        });
         // Format profile
         const profile = filteredProfile
             ? {

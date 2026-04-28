@@ -1,7 +1,3 @@
-/**
- * Cross-App Aggregation Service - MongoDB
- * Aggregates user intent data across all ReZ apps
- */
 import type { ICrossAppIntentProfile } from '../models/CrossAppIntentProfile.js';
 export interface UserAffinityProfile {
     userId: string;

@@ -4,7 +4,7 @@
 import { Router } from 'express';
 import { Intent, DormantIntent } from '../models/index.js';
 import { crossAppAggregationService } from '../services/CrossAppAggregationService.js';
-import { verifyInternalToken } from '../middleware/auth.js';
+import { verifyInternalToken, verifyUserToken } from '../middleware/auth.js';
 import { strictLimiter } from '../middleware/rateLimit.js';
 const router = Router();
 // ── Get Commerce Memory Context ──────────────────────────────────────────────────
@@ -12,10 +12,17 @@ const router = Router();
  * GET /api/commerce-memory/context/:userId
  * Get comprehensive Commerce Memory context for a user
  * Used by Chat AI and Support Provider
+ * Requires: userId param + auth token (internal service or user auth)
  */
-router.get('/context/:userId', async (req, res) => {
+router.get('/context/:userId', verifyUserToken, async (req, res) => {
     try {
         const { userId } = req.params;
+        // Ensure the authenticated user can only access their own data
+        const authenticatedUserId = req.userId;
+        if (authenticatedUserId && authenticatedUserId !== userId) {
+            res.status(403).json({ error: 'Cannot access another user\'s data' });
+            return;
+        }
         // Get active intents
         const activeIntents = await Intent.find({ userId, status: 'ACTIVE' }, {
             intentKey: 1,
@@ -77,8 +84,9 @@ router.get('/context/:userId', async (req, res) => {
  * POST /api/commerce-memory/revival/trigger
  * Trigger revival for a dormant intent
  * Used by Support Provider
+ * Requires: internal service token
  */
-router.post('/revival/trigger', async (req, res) => {
+router.post('/revival/trigger', verifyInternalToken, strictLimiter, async (req, res) => {
     try {
         const { userId, intentKey } = req.body;
         if (!userId || !intentKey) {
@@ -105,6 +113,7 @@ router.post('/revival/trigger', async (req, res) => {
  * POST /api/commerce-memory/offer/send
  * Send a personalized offer for a dormant intent
  * Used by Support Provider
+ * Requires: internal service token
  */
 router.post('/offer/send', verifyInternalToken, strictLimiter, async (req, res) => {
     try {
@@ -132,10 +141,17 @@ router.post('/offer/send', verifyInternalToken, strictLimiter, async (req, res) 
 /**
  * GET /api/commerce-memory/enriched/:userId
  * Get enriched context for AI agents
+ * Requires: user auth (userId param + valid bearer token)
  */
-router.get('/enriched/:userId', async (req, res) => {
+router.get('/enriched/:userId', verifyUserToken, async (req, res) => {
     try {
         const { userId } = req.params;
+        // Ensure the authenticated user can only access their own data
+        const authenticatedUserId = req.userId;
+        if (authenticatedUserId && authenticatedUserId !== userId) {
+            res.status(403).json({ error: 'Cannot access another user\'s data' });
+            return;
+        }
         const context = await crossAppAggregationService.getEnrichedContext(userId);
         res.json(context);
     }
@@ -147,7 +163,7 @@ router.get('/enriched/:userId', async (req, res) => {
 // ── Health Check ──────────────────────────────────────────────────────────────
 /**
  * GET /api/commerce-memory/health
- * Health check endpoint
+ * Health check endpoint — public
  */
 router.get('/health', (_req, res) => {
     res.json({ status: 'healthy', timestamp: new Date().toISOString() });
@@ -171,13 +187,11 @@ function formatRelativeTime(date) {
 }
 function generateRecommendations(activeIntents, dormantIntents) {
     const recommendations = [];
-    // Recommend revival for high-score dormant intents
     for (const dormant of dormantIntents) {
         if (dormant.revivalScore > 0.7) {
             recommendations.push(`High-potential revival: ${dormant.intentKey.replace(/_/g, ' ')}`);
         }
     }
-    // Recommend follow-up for high-confidence active intents
     for (const active of activeIntents) {
         if (active.confidence > 0.8) {
             recommendations.push(`Strong intent detected: ${active.intentKey.replace(/_/g, ' ')}`);

@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 /**
  * Cross-App Aggregation Service - MongoDB
  * Aggregates user intent data across all ReZ apps
@@ -99,7 +100,7 @@ export class CrossAppAggregationService {
             ],
         };
         const templates = highScoreMessages[category] || highScoreMessages.RETAIL;
-        return templates[Math.floor(Math.random() * templates.length)];
+        return templates[Math.floor(Number.parseInt(crypto.randomUUID().replace(/-/g, ''), 16) % templates.length)];
     }
     /**
      * Sync cross-app profile with current intents
@@ -204,7 +205,7 @@ export class CrossAppAggregationService {
             category,
             firstSeenAt: { $gte: since },
             status: { $in: ['ACTIVE', 'DORMANT'] },
-        }).select('intentKey confidence status');
+        }).select('intentKey confidence status').limit(1000);
         const fulfilledCount = await Intent.countDocuments({
             merchantId,
             category,
