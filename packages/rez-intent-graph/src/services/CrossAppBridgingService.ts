@@ -39,13 +39,15 @@ export class CrossAppBridgingService {
       if (!match) continue;
 
       const extractedKey = match[1];
+      const targetPattern = pattern.targetPattern(extractedKey);
 
-      // Find existing intents that match the target pattern
+      // Find existing intents that match the target pattern — limit to prevent unbounded query
       const targetIntents = await Intent.find({
         userId,
         category: pattern.targetCategory,
         status: { $in: ['ACTIVE', 'DORMANT'] },
-      });
+        intentKey: { $regex: `^${targetPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, $options: 'i' },
+      }).limit(20);
 
       for (const target of targetIntents) {
         // Check if the target already bridges to source

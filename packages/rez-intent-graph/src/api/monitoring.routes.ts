@@ -13,20 +13,19 @@ import {
   type DashboardMetrics,
 } from '../monitoring/metrics.js';
 import { getCircuitBreakerStatus, getAllServiceHealth } from '../integrations/external-services.js';
+import { verifyInternalToken } from '../middleware/auth.js';
 
 const router = Router();
 
-// ── Health Check ────────────────────────────────────────────────────────────────
+// ── Health Check (Public) ────────────────────────────────────────────────────────
 
 /**
  * GET /api/monitoring/health
- * Overall system health
+ * Overall system health — public
  */
 router.get('/health', async (_req: Request, res: Response) => {
   try {
     const healthStatus = await healthChecker.check();
-
-    // Add service health
     const serviceHealth = await getAllServiceHealth();
     const servicesHealthy = Object.values(serviceHealth).filter((h) => h).length;
     const servicesTotal = Object.values(serviceHealth).length;
@@ -46,9 +45,9 @@ router.get('/health', async (_req: Request, res: Response) => {
 
 /**
  * GET /api/monitoring/health/detailed
- * Detailed health with all checks
+ * Detailed health with all checks — requires auth
  */
-router.get('/health/detailed', async (_req: Request, res: Response) => {
+router.get('/health/detailed', verifyInternalToken, async (_req: Request, res: Response) => {
   try {
     const healthStatus = await healthChecker.check();
     const circuitBreaker = getCircuitBreakerStatus();
@@ -71,9 +70,9 @@ router.get('/health/detailed', async (_req: Request, res: Response) => {
 
 /**
  * GET /api/monitoring/metrics
- * All current metrics summary
+ * All current metrics summary — requires auth
  */
-router.get('/metrics', (_req: Request, res: Response) => {
+router.get('/metrics', verifyInternalToken, (_req: Request, res: Response) => {
   const summaries = metricsStore.getAllSummaries();
   res.json({
     timestamp: Date.now(),
@@ -84,9 +83,9 @@ router.get('/metrics', (_req: Request, res: Response) => {
 
 /**
  * GET /api/monitoring/metrics/:name
- * Get specific metric
+ * Get specific metric — requires auth
  */
-router.get('/metrics/:name', (req: Request, res: Response) => {
+router.get('/metrics/:name', verifyInternalToken, (req: Request, res: Response) => {
   const { name } = req.params;
   const { labels, limit } = req.query;
 
@@ -113,9 +112,9 @@ router.get('/metrics/:name', (req: Request, res: Response) => {
 
 /**
  * POST /api/monitoring/metrics/record
- * Record a custom metric
+ * Record a custom metric — requires auth
  */
-router.post('/metrics/record', (req: Request, res: Response) => {
+router.post('/metrics/record', verifyInternalToken, (req: Request, res: Response) => {
   const { name, value, type = 'counter', labels } = req.body;
 
   if (!name || value === undefined) {
@@ -129,7 +128,7 @@ router.post('/metrics/record', (req: Request, res: Response) => {
 
 /**
  * GET /api/monitoring/metrics/export
- * Export metrics in Prometheus format
+ * Export metrics in Prometheus format — public (used by Prometheus scraping)
  */
 router.get('/metrics/export', (_req: Request, res: Response) => {
   const summaries = metricsStore.getAllSummaries();
@@ -161,18 +160,18 @@ router.get('/metrics/export', (_req: Request, res: Response) => {
 
 /**
  * GET /api/monitoring/alerts
- * Get active alerts
+ * Get active alerts — requires auth
  */
-router.get('/alerts', (_req: Request, res: Response) => {
+router.get('/alerts', verifyInternalToken, (_req: Request, res: Response) => {
   const alerts = alertManager.getActiveAlerts();
   res.json({ alerts, count: alerts.length });
 });
 
 /**
  * GET /api/monitoring/alerts/history
- * Get alert history
+ * Get alert history — requires auth
  */
-router.get('/alerts/history', (req: Request, res: Response) => {
+router.get('/alerts/history', verifyInternalToken, (req: Request, res: Response) => {
   const { limit } = req.query;
   const history = alertManager.getAlertHistory(limit ? parseInt(limit as string) : 100);
   res.json({ history, count: history.length });
@@ -180,9 +179,9 @@ router.get('/alerts/history', (req: Request, res: Response) => {
 
 /**
  * POST /api/monitoring/alerts/:id/acknowledge
- * Acknowledge an alert
+ * Acknowledge an alert — requires auth
  */
-router.post('/alerts/:id/acknowledge', (req: Request, res: Response) => {
+router.post('/alerts/:id/acknowledge', verifyInternalToken, (req: Request, res: Response) => {
   const { id } = req.params;
   const success = alertManager.acknowledge(id);
   res.json({ success });
@@ -190,9 +189,9 @@ router.post('/alerts/:id/acknowledge', (req: Request, res: Response) => {
 
 /**
  * POST /api/monitoring/alerts/:id/clear
- * Clear an alert
+ * Clear an alert — requires auth
  */
-router.post('/alerts/:id/clear', (req: Request, res: Response) => {
+router.post('/alerts/:id/clear', verifyInternalToken, (req: Request, res: Response) => {
   const { id } = req.params;
   const success = alertManager.clear(id);
   res.json({ success });
@@ -200,9 +199,9 @@ router.post('/alerts/:id/clear', (req: Request, res: Response) => {
 
 /**
  * POST /api/monitoring/alerts/trigger
- * Manually trigger an alert
+ * Manually trigger an alert — requires auth
  */
-router.post('/alerts/trigger', (req: Request, res: Response) => {
+router.post('/alerts/trigger', verifyInternalToken, (req: Request, res: Response) => {
   const { metric, severity, message, value, threshold } = req.body;
 
   if (!metric || !severity || !message) {
@@ -218,9 +217,9 @@ router.post('/alerts/trigger', (req: Request, res: Response) => {
 
 /**
  * GET /api/monitoring/dashboard
- * Get dashboard metrics
+ * Get dashboard metrics — requires auth
  */
-router.get('/dashboard', async (_req: Request, res: Response) => {
+router.get('/dashboard', verifyInternalToken, async (_req: Request, res: Response) => {
   try {
     const dashboard = await getDashboardMetrics();
     res.json(dashboard);
@@ -233,9 +232,9 @@ router.get('/dashboard', async (_req: Request, res: Response) => {
 
 /**
  * POST /api/monitoring/thresholds
- * Set alert threshold
+ * Set alert threshold — requires auth
  */
-router.post('/thresholds', (req: Request, res: Response) => {
+router.post('/thresholds', verifyInternalToken, (req: Request, res: Response) => {
   const { metric, threshold } = req.body;
 
   if (!metric || threshold === undefined) {
@@ -249,9 +248,9 @@ router.post('/thresholds', (req: Request, res: Response) => {
 
 /**
  * GET /api/monitoring/thresholds/check
- * Check all thresholds
+ * Check all thresholds — requires auth
  */
-router.get('/thresholds/check', (_req: Request, res: Response) => {
+router.get('/thresholds/check', verifyInternalToken, (_req: Request, res: Response) => {
   const results: Array<{ metric: string; exceeded: boolean; value: number; threshold: number }> = [];
 
   metricsStore.getAllSummaries().forEach((summary) => {
@@ -271,9 +270,9 @@ router.get('/thresholds/check', (_req: Request, res: Response) => {
 
 /**
  * GET /api/monitoring/websocket
- * Get WebSocket server stats
+ * Get WebSocket server stats — requires auth
  */
-router.get('/websocket', (_req: Request, res: Response) => {
+router.get('/websocket', verifyInternalToken, (_req: Request, res: Response) => {
   const stats = wsServer.getStats();
   res.json(stats);
 });

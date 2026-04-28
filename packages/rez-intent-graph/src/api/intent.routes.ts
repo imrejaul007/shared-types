@@ -8,14 +8,19 @@ import { dormantIntentService } from '../services/DormantIntentService.js';
 import { crossAppAggregationService } from '../services/CrossAppAggregationService.js';
 import { vibeScoringService } from '../services/VibeScoringService.js';
 import { Intent, Nudge } from '../models/index.js';
-import { verifyInternalToken, verifyApiKey, verifyCronSecret, verifyUserToken } from '../middleware/auth.js';
+import {
+  verifyInternalToken,
+  verifyApiKey,
+  verifyCronSecret,
+  verifyUserToken,
+} from '../middleware/auth.js';
 import { captureLimiter, nudgeLimiter } from '../middleware/rateLimit.js';
 
 // Helper to check userId param matches authenticated user
 function requireUserMatch(req: Request, res: Response, next: NextFunction) {
   const headerUserId = (req as any).userId;
   const paramUserId = req.params.userId;
-  if (headerUserId !== paramUserId) {
+  if (headerUserId && paramUserId && headerUserId !== paramUserId) {
     res.status(403).json({ error: 'Cannot access another user\'s data' });
     return;
   }
@@ -28,9 +33,11 @@ const router = Router();
 
 /**
  * POST /api/intent/capture
- * Capture a new intent event
+ * Capture a new intent event.
+ * Auth: requires API key or internal token (anyone can capture events).
+ * Rate limited to prevent abuse.
  */
-router.post('/capture', captureLimiter, async (req: Request, res: Response) => {
+router.post('/capture', verifyApiKey, captureLimiter, async (req: Request, res: Response) => {
   try {
     const { userId, appType, intentKey, eventType, category, intentQuery, metadata, merchantId } = req.body;
 
@@ -152,8 +159,9 @@ router.get('/enriched/:userId', verifyUserToken, requireUserMatch, async (req: R
 /**
  * POST /api/intent/revival
  * Trigger revival for a dormant intent
+ * Auth: internal service token only
  */
-router.post('/revival', async (req: Request, res: Response) => {
+router.post('/revival', verifyInternalToken, async (req: Request, res: Response) => {
   try {
     const { dormantIntentId, triggerType } = req.body;
 
@@ -182,8 +190,9 @@ router.post('/revival', async (req: Request, res: Response) => {
 /**
  * POST /api/intent/revived/:dormantIntentId
  * Mark a dormant intent as revived (user converted)
+ * Auth: internal service token only
  */
-router.post('/revived/:dormantIntentId', async (req: Request, res: Response) => {
+router.post('/revived/:dormantIntentId', verifyInternalToken, async (req: Request, res: Response) => {
   try {
     const { dormantIntentId } = req.params;
     await dormantIntentService.markRevived(dormantIntentId);
@@ -199,8 +208,9 @@ router.post('/revived/:dormantIntentId', async (req: Request, res: Response) => 
 /**
  * GET /api/intent/scheduled-revivals
  * Get dormant intents due for nudge
+ * Auth: internal service token only
  */
-router.get('/scheduled-revivals', async (req: Request, res: Response) => {
+router.get('/scheduled-revivals', verifyInternalToken, async (req: Request, res: Response) => {
   try {
     const candidates = await dormantIntentService.getScheduledRevivals();
     res.json(candidates);
@@ -215,8 +225,9 @@ router.get('/scheduled-revivals', async (req: Request, res: Response) => {
 /**
  * POST /api/intent/pause/:dormantIntentId
  * Pause nudges for a dormant intent
+ * Auth: internal service token only
  */
-router.post('/pause/:dormantIntentId', async (req: Request, res: Response) => {
+router.post('/pause/:dormantIntentId', verifyInternalToken, async (req: Request, res: Response) => {
   try {
     const { dormantIntentId } = req.params;
     await dormantIntentService.pauseNudges(dormantIntentId);
@@ -232,8 +243,9 @@ router.post('/pause/:dormantIntentId', async (req: Request, res: Response) => {
 /**
  * GET /api/intent/merchant-demand/:merchantId
  * Get demand signals for a merchant
+ * Auth: internal service token only (merchant-specific data)
  */
-router.get('/merchant-demand/:merchantId', async (req: Request, res: Response) => {
+router.get('/merchant-demand/:merchantId', verifyInternalToken, async (req: Request, res: Response) => {
   try {
     const { merchantId } = req.params;
     const category = (req.query.category as string) || 'DINING';
@@ -298,7 +310,7 @@ router.post('/cron/update-scores', verifyCronSecret, async (req: Request, res: R
 
 /**
  * POST /api/intent/nudge/send
- * Manually send a nudge — requires auth
+ * Manually send a nudge — requires internal service token
  */
 router.post('/nudge/send', verifyInternalToken, nudgeLimiter, async (req: Request, res: Response) => {
   try {
@@ -308,7 +320,6 @@ router.post('/nudge/send', verifyInternalToken, nudgeLimiter, async (req: Reques
       return res.status(400).json({ error: 'userId and intentKey are required' });
     }
 
-    // Find dormant intent
     const dormant = await dormantIntentService.getUserDormantIntents(userId);
     const match = dormant.find((d) => d.intentKey === intentKey);
 
@@ -354,8 +365,9 @@ router.get('/nudge/history/:userId', verifyUserToken, requireUserMatch, async (r
 /**
  * GET /api/intent/stats
  * Get intent graph statistics
+ * Auth: internal service token only
  */
-router.get('/stats', async (req: Request, res: Response) => {
+router.get('/stats', verifyInternalToken, async (req: Request, res: Response) => {
   try {
     const summary = await crossAppAggregationService.getCrossAppSummary();
     const intentCount = await Intent.countDocuments();
@@ -377,8 +389,9 @@ router.get('/stats', async (req: Request, res: Response) => {
 /**
  * GET /api/intent/vibe/:userId
  * Get vibe profile for a user
+ * Auth: user auth (userId param + valid bearer token)
  */
-router.get('/vibe/:userId', async (req: Request, res: Response) => {
+router.get('/vibe/:userId', verifyUserToken, requireUserMatch, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     const vibe = await vibeScoringService.getVibeProfile(userId);
@@ -394,8 +407,9 @@ router.get('/vibe/:userId', async (req: Request, res: Response) => {
 /**
  * GET /api/intent/micro-moments/:userId
  * Get recent micro moments for a user
+ * Auth: user auth (userId param + valid bearer token)
  */
-router.get('/micro-moments/:userId', async (req: Request, res: Response) => {
+router.get('/micro-moments/:userId', verifyUserToken, requireUserMatch, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     const limit = Math.min(parseInt(req.query.limit as string) || 5, 20);

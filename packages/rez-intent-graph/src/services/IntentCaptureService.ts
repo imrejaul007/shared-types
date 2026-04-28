@@ -296,7 +296,7 @@ export class IntentCaptureService {
     const intents = await Intent.find({
       userId,
       status: { $in: ['ACTIVE', 'FULFILLED'] },
-    }).select('appType');
+    }).select('appType').limit(1000);
 
     const counts: Record<string, number> = { hotel_ota: 0, restaurant: 0, retail: 0, hotel_guest: 0, rez_now: 0 };
 

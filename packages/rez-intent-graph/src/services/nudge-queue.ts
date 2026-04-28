@@ -2,6 +2,7 @@
 // MongoDB-backed priority queue for dormant intent revival nudges
 // Replaces fake Redis/in-memory queue with proper MongoDB TTL-based storage
 
+import crypto from 'crypto';
 import mongoose from 'mongoose';
 
 // ── Logger ────────────────────────────────────────────────────────────────────
@@ -92,7 +93,7 @@ export class NudgeQueueService {
    * Enqueue a nudge job
    */
   async enqueue(job: NudgeJob, queueType: string = 'revival'): Promise<{ success: boolean; queuePosition?: number }> {
-    const jobId = job.id || `nudge_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const jobId = job.id || `nudge_${crypto.randomUUID()}`;
     const priority = this.priorityToNumber(job.metadata.priority);
 
     await NudgeQueueModel.create({

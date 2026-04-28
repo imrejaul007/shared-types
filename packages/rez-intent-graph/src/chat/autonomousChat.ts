@@ -2,6 +2,7 @@
 // Phase 7: ReZ Chat communicates autonomously with consumers
 // Uses merchant knowledge + user intent context for personalized responses
 
+import crypto from 'crypto';
 import { merchantKnowledgeService, type MerchantKnowledgeEntry } from '../integrations/merchantKnowledge.js';
 import { intentGraphMemory } from '../integrations/agentOsIntegration.js';
 import { sharedMemory } from '../agents/shared-memory.js';
@@ -375,7 +376,7 @@ export class AutonomousChatService {
    */
   private getRandomTemplate(type: keyof typeof RESPONSE_TEMPLATES): string {
     const templates = RESPONSE_TEMPLATES[type];
-    return templates[Math.floor(Math.random() * templates.length)];
+    return templates[Math.floor(Number.parseInt(crypto.randomUUID().replace(/-/g, ''), 16) % templates.length)];
   }
 
   /**

@@ -65,25 +65,46 @@ async function evaluateScoringAccuracy(): Promise<{
 }> {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  // Get scored intents from sharedMemory with actual outcomes from MongoDB
-  const scoredIntentKeys = await sharedMemory.keys('scored:intents:*');
+  // Get scored intent keys from sharedMemory
+  const scoredIntentKeys = (await sharedMemory.keys('scored:intents:*')).slice(0, 1000);
   const scoredIntents: Array<{ intentId: string; predictedProb: number; actualFulfilled: boolean }> = [];
 
-  for (const key of scoredIntentKeys) {
-    const scored = await sharedMemory.get<ScoredIntent>(key);
-    if (!scored) continue;
+  // Batch fetch scored intents from sharedMemory using Promise.allSettled
+  const scoredResults = await Promise.allSettled(
+    scoredIntentKeys.map((key) => sharedMemory.get<ScoredIntent>(key))
+  );
 
-    // Get actual outcome from MongoDB
-    const intent = await Intent.findById(scored.intentId).select('status lastSeenAt');
+  const validScored: Array<{ intentId: string; predictedProb: number }> = [];
+  for (const result of scoredResults) {
+    if (result.status === 'fulfilled' && result.value) {
+      validScored.push({
+        intentId: result.value.intentId,
+        predictedProb: result.value.predictedConversionProb,
+      });
+    }
+  }
+
+  if (validScored.length === 0) {
+    return { accuracy: 0, drift: 0, recommendations: [] };
+  }
+
+  // Batch fetch intents from MongoDB using $in query (single query instead of N queries)
+  const intentIds = validScored.map((s) => s.intentId).slice(0, 1000);
+  const intents = await Intent.find({ _id: { $in: intentIds } })
+    .select('status lastSeenAt')
+    .lean();
+
+  const intentMap = new Map(intents.map((i) => [i._id.toString(), i]));
+
+  for (const scored of validScored) {
+    const intent = intentMap.get(scored.intentId);
     if (!intent || intent.lastSeenAt < sevenDaysAgo) continue;
 
     scoredIntents.push({
       intentId: scored.intentId,
-      predictedProb: scored.predictedConversionProb,
+      predictedProb: scored.predictedProb,
       actualFulfilled: intent.status === 'FULFILLED',
     });
-
-    if (scoredIntents.length >= 1000) break;
   }
 
   if (scoredIntents.length < 50) {

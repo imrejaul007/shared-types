@@ -109,12 +109,13 @@ const DEFAULT_CONFIG: AutonomousConfig = {
   enabled: false,
   dangerousMode: false,
   maxConcurrentAgents: 4,
-  allowWalletOperations: true,
-  allowPriceAdjustments: true,
-  allowAutoRevival: true,
-  allowBudgetReallocation: true,
-  allowStrategyPause: true,
-  emergencyStopThreshold: 100,
+  // All dangerous operations default to FALSE — must be explicitly enabled
+  allowWalletOperations: false,
+  allowPriceAdjustments: false,
+  allowAutoRevival: false,
+  allowBudgetReallocation: false,
+  allowStrategyPause: false,
+  emergencyStopThreshold: 10, // Lower threshold for safety
   heartbeatIntervalMs: 60000,
 };
 
