@@ -1,7 +1,7 @@
 # REZ Ecosystem — Issues Report
 
 **Date:** 2026-04-30
-**Status:** In Progress — OPS-002, OPS-004, SEC-002 resolved 2026-04-29; TECH-001 code complete 2026-04-30
+**Status:** In Progress — OPS-002, OPS-004, SEC-001, SEC-002 resolved 2026-04-30; TECH-001 code complete 2026-04-30
 **Prepared by:** Claude Code (Automated Ecosystem Audit)
 
 ---
@@ -238,6 +238,25 @@ Refresh token rotation was not implemented in the initial OAuth2 flow.
 5. Add `token_type: "refresh"` and `expires_in` to refresh token responses
 
 **Effort:** 1-2 weeks
+
+**STATUS: RESOLVED (2026-04-30)**
+
+Implementation in `rez-auth-service/src/routes/oauthPartnerRoutes.ts`:
+
+1. **Token rotation**: On every refresh, a new `refresh_token` is generated and the old one is deleted (already existed)
+
+2. **Token reuse detection** (NEW):
+   - Before rotating, mark the old token hash in `oauth:refresh_used:{hash}` with 30-day TTL
+   - On refresh, check if the presented token's hash exists in used tokens
+   - If reused: log security event, revoke ALL tokens for that user/client, return `401 TOKEN_REUSE_DETECTED`
+
+3. **Family tracking**: Store `oauth:refresh_family:{userId}:{clientId}:current` to track current valid token
+
+4. **Security logging**: On reuse detection, log IP, user agent, user ID for forensics
+
+**Redis keys added:**
+- `oauth:refresh_used:{sha256(old_token)}` - Tracks rotated tokens for reuse detection
+- `oauth:refresh_family:{userId}:{clientId}:current` - Current valid token hash
 
 ---
 
@@ -988,7 +1007,7 @@ Not all Rendez API routes were audited for auth middleware coverage. Some routes
 | OPS-006 | No Observability Stack | P1 | OPS | DevOps | 3-4w | Open |
 | OPS-007 | No Staging Parity | P2 | OPS | DevOps | 2-3w | Open |
 | OPS-008 | No SLA/SLO | P2 | BIZ+OPS | Business | 1w | Open |
-| SEC-001 | No token rotation | P0 | SEC | Auth Team | 1-2w | Open |
+| SEC-001 | No token rotation | P0 | SEC | Auth Team | 1-2w | Resolved |
 | SEC-002 | No WAF/DDoS | P0 | SEC | DevOps | 1-2d | Ready to Deploy |
 | SEC-003 | No centralized validation | P1 | SEC+TECH | All Teams | 2-3w | Open |
 | SEC-004 | No KYC/AML | P1 | SEC+BIZ | Wallet+Legal | 4-8w | Open |
