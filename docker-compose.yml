@@ -5,51 +5,107 @@
 #   Full stack:    docker compose up
 #   Backend only:  docker compose up auth-api merchant-api rendez-backend
 #   Frontend only: docker compose up nextabizz-web hotel-panel
-#   With deps:     docker compose up -d mongodb redis postgres
+#   With deps:     docker compose up -d mongodb-primary mongodb-secondary-1 mongodb-secondary-2 redis postgres
 #
 # Ports exposed:
-#   MongoDB:       27017
-#   Redis:         6379
-#   PostgreSQL:    5432
-#   REZ Auth:      4002
-#   REZ Merchant:   4005
-#   REZ Wallet:    4001
-#   REZ Payment:   4006
-#   Rendez:        4000
-#   Hotel OTA API: 3000
-#   NextaBiZ Web:  3001
-#   Hotel Panel:   3002
-#   REZ Now:       3003
+#   MongoDB Primary:     27017
+#   MongoDB Secondary 1:  27018
+#   MongoDB Secondary 2:  27019
+#   Redis:               6379
+#   PostgreSQL:          5432
+#   REZ Auth:            4002
+#   REZ Merchant:         4005
+#   REZ Wallet:          4001
+#   REZ Payment:         4006
+#   Rendez:              4000
+#   Hotel OTA API:       3000
+#   NextaBiZ Web:       3001
+#   Hotel Panel:         3002
+#   REZ Now:            3003
+#
+# MongoDB Replica Set:
+#   Primary:   mongodb://mongodb-primary:27017
+#   All nodes: mongodb://mongodb-primary:27017,mongodb-secondary-1:27017,mongodb-secondary-2:27017/?replicaSet=rs0
 # ============================================================
 
 services:
   # ── Databases & Cache ────────────────────────────────────
 
-  mongodb:
+  # ── MongoDB Replica Set (3-node for production-like local dev) ──
+  # Format: mongodb://mongodb-primary:27017,mongodb-secondary-1:27017,mongodb-secondary-2:27017/?replicaSet=rs0
+
+  mongodb-primary:
     image: mongo:7
-    container_name: rez-mongodb
+    container_name: rez-mongodb-primary
     restart: unless-stopped
     ports:
       - '27017:27017'
     volumes:
-      - mongodb_data:/data/db
-    command: mongod --replSet rs0 --bind_ip_all
+      - mongodb_primary_data:/data/db
+    command: mongod --replSet rs0 --bind_ip_all --priority 2
     healthcheck:
       test: ['CMD', 'mongosh', '--eval', 'db.runCommand({ping:1})']
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - rez-network
+
+  mongodb-secondary-1:
+    image: mongo:7
+    container_name: rez-mongodb-secondary-1
+    restart: unless-stopped
+    ports:
+      - '27018:27017'
+    volumes:
+      - mongodb_secondary1_data:/data/db
+    command: mongod --replSet rs0 --bind_ip_all --priority 1
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', 'db.runCommand({ping:1})']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rez-network
+
+  mongodb-secondary-2:
+    image: mongo:7
+    container_name: rez-mongodb-secondary-2
+    restart: unless-stopped
+    ports:
+      - '27019:27017'
+    volumes:
+      - mongodb_secondary2_data:/data/db
+    command: mongod --replSet rs0 --bind_ip_all --priority 1 --hidden true
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', 'db.runCommand({ping:1})']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rez-network
 
   mongodb-init:
     image: mongo:7
     container_name: rez-mongodb-init
     depends_on:
-      mongodb:
+      mongodb-primary:
         condition: service_healthy
-    entrypoint: ['mongosh', '--host', 'mongodb', '--eval', '''
+      mongodb-secondary-1:
+        condition: service_healthy
+      mongodb-secondary-2:
+        condition: service_healthy
+    entrypoint: ['mongosh', '--host', 'mongodb-primary', '--eval', '''
       try {
-        rs.initiate({_id: "rs0", members: [{_id: 0, host: "mongodb:27017"}]});
-        print("Replica set initialized");
+        rs.initiate({
+          _id: "rs0",
+          members: [
+            {_id: 0, host: "mongodb-primary:27017", priority: 2},
+            {_id: 1, host: "mongodb-secondary-1:27017", priority: 1},
+            {_id: 2, host: "mongodb-secondary-2:27017", priority: 1, hidden: true}
+          ]
+        });
+        print("Replica set initialized with 3 nodes");
       } catch (e) {
         if (e.message.includes("already initialized")) {
           print("Replica set already initialized");
@@ -58,6 +114,9 @@ services:
         }
       }
     ''']
+    networks:
+      - rez-network
+    restart: 'no'
 
   redis:
     image: redis:7-alpine
@@ -317,7 +376,11 @@ services:
   # ── Shared Volumes ────────────────────────────────────
 
 volumes:
-  mongodb_data:
+  mongodb_primary_data:
+    driver: local
+  mongodb_secondary1_data:
+    driver: local
+  mongodb_secondary2_data:
     driver: local
   redis_data:
     driver: local
@@ -327,5 +390,8 @@ volumes:
 # ── Networks ─────────────────────────────────────────────
 networks:
   default:
+    name: rez-network
+    driver: bridge
+  rez-network:
     name: rez-network
     driver: bridge

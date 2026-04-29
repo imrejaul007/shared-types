@@ -1,7 +1,7 @@
 # REZ Ecosystem — Issues Report
 
-**Date:** 2026-04-29
-**Status:** In Progress — OPS-002, OPS-004, SEC-002 resolved 2026-04-29
+**Date:** 2026-04-30
+**Status:** In Progress — OPS-002, OPS-004, SEC-002 resolved 2026-04-29; TECH-001 in progress 2026-04-30
 **Prepared by:** Claude Code (Automated Ecosystem Audit)
 
 ---
@@ -344,6 +344,36 @@ Default MongoDB setup was used. Replica set requires additional infrastructure.
 5. Document and test failover procedure
 
 **Effort:** 1-2 weeks
+
+**STATUS: IN PROGRESS (2026-04-30)**
+
+Changes made:
+
+| File | Change |
+|------|--------|
+| `docker-compose.yml` | Updated to 3-node replica set (primary + 2 secondary) with proper health checks |
+| `docker-compose.example.env` | Added replica set URI format and read preference options |
+| `rez-auth-service/src/config/mongodb.ts` | Added replica set support, read preference, auth source, reconnection logging |
+| `rez-merchant-service/src/config/mongodb.ts` | Added replica set support, read preference, auth source, reconnection logging |
+
+**Local Development Setup:**
+```bash
+# Start MongoDB replica set
+docker compose up -d mongodb-primary mongodb-secondary-1 mongodb-secondary-2 mongodb-init
+
+# Connection URI for services
+MONGODB_URI=mongodb://localhost:27017,localhost:27018,localhost:27019/rez_dev?replicaSet=rs0
+
+# For analytics/reporting (read from secondary)
+MONGODB_READ_PREFERENCE=secondary
+```
+
+**Remaining (requires manual setup):**
+1. Create MongoDB Atlas cluster (or set up production self-hosted replica set)
+2. Update Render environment variables with replica set URI
+3. Set up MongoDB Atlas backup (continuous + point-in-time recovery)
+4. Document and test failover procedure
+5. Set up monitoring/alerting for replica set health
 
 ---
 
@@ -963,7 +993,7 @@ Not all Rendez API routes were audited for auth middleware coverage. Some routes
 | SEC-004 | No KYC/AML | P1 | SEC+BIZ | Wallet+Legal | 4-8w | Open |
 | SEC-005 | No MFA | P2 | SEC | Auth Team | 2-3w | Open |
 | SEC-006 | No PCI-DSS docs | P2 | SEC+BIZ | Payment+Legal | 2-4w | Open |
-| TECH-001 | MongoDB no replica set | P0 | TECH+OPS | DevOps | 1-2w | Open |
+| TECH-001 | MongoDB no replica set | P0 | TECH+OPS | DevOps | 1-2w | In Progress |
 | TECH-002 | Unbounded queries | P1 | TECH | Hotel OTA | 3-5w | Open |
 | TECH-003 | PostgreSQL no pooler | P1 | TECH | Rendez | 1-2d | Open |
 | TECH-004 | Hotel OTA flat structure | P1 | TECH | Hotel OTA | 8-12w | Open |
