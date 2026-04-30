@@ -611,6 +611,36 @@ Input validation is implemented per-route, inconsistently. No centralized valida
 
 **Effort:** 2-3 weeks (includes schema definition + middleware + migration)
 
+**STATUS: PARTIALLY RESOLVED (2026-04-30)**
+
+Schemas and middleware created in `packages/shared-types/src/validation/`:
+
+| File | Purpose |
+|------|---------|
+| `user.ts` | User schemas: phone, email, registration, login, profile update |
+| `common.ts` | Common schemas: pagination, objectId, date range, search, slug |
+| `middleware.ts` | Express middleware: validateBody, validateQuery, validateParams |
+| `index.ts` | Package exports |
+
+**Usage:**
+```typescript
+import {
+  userRegistrationSchema,
+  paginationSchema,
+  validateBody,
+  validateQuery,
+} from '@rez/shared-types/validation';
+
+// Use in routes
+router.post('/users', validateBody(userRegistrationSchema), createUser);
+router.get('/users', validateQuery(paginationSchema), listUsers);
+```
+
+**Remaining:**
+- Migrate existing routes to use validation middleware (ongoing)
+- Add more domain schemas (bookings, payments, merchant)
+- ESLint rule to enforce validation
+
 ---
 
 ### SEC-004: No KYC/AML Flow for Wallet Users
@@ -1129,7 +1159,7 @@ Not all Rendez API routes were audited for auth middleware coverage. Some routes
 | OPS-008 | No SLA/SLO | P2 | BIZ+OPS | Business | 1w | Open |
 | SEC-001 | No token rotation | P0 | SEC | Auth Team | 1-2w | Resolved |
 | SEC-002 | No WAF/DDoS | P0 | SEC | DevOps | 1-2d | Ready to Deploy |
-| SEC-003 | No centralized validation | P1 | SEC+TECH | All Teams | 2-3w | Open |
+| SEC-003 | No centralized validation | P1 | SEC+TECH | All Teams | 2-3w | Partial |
 | SEC-004 | No KYC/AML | P1 | SEC+BIZ | Wallet+Legal | 4-8w | Open |
 | SEC-005 | No MFA | P2 | SEC | Auth Team | 2-3w | Open |
 | SEC-006 | No PCI-DSS docs | P2 | SEC+BIZ | Payment+Legal | 2-4w | Open |
