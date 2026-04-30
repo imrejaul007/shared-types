@@ -88,7 +88,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, error: 'Internal server error' });
 });
 
-const PORT = parseInt(process.env.PORT || '4011', 10);
+const PORT = parseInt(process.env.PORT || '4015', 10);
 
 const server = app.listen(PORT, () => {
   console.log(`rez-hotel-service running on :${PORT}`);

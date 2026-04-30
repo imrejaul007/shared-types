@@ -4,7 +4,7 @@
 import axios from 'axios';
 
 const ORDER_SERVICE = process.env.ORDER_SERVICE_URL || 'http://localhost:4001';
-const PAYMENT_SERVICE = process.env.PAYMENT_SERVICE_URL || 'http://localhost:4003';
+const PAYMENT_SERVICE = process.env.PAYMENT_SERVICE_URL || 'http://localhost:4002';
 
 export class HotelBridge {
 
