@@ -52,6 +52,32 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', service: 'rez-hotel-service' });
 });
 
+app.get('/health/detailed', async (req, res) => {
+  const checks = {};
+  let isHealthy = true;
+
+  // Check MongoDB with latency
+  try {
+    const mongoose = require('mongoose');
+    const mongoStart = Date.now();
+    if (mongoose.connection.readyState !== 1) throw new Error('not connected');
+    await mongoose.connection.db.admin().ping();
+    checks.database = { status: 'up', latencyMs: Date.now() - mongoStart };
+  } catch (err) {
+    checks.database = { status: 'down', error: err.message };
+    isHealthy = false;
+  }
+
+  const overallStatus = isHealthy ? 'healthy' : 'unhealthy';
+  res.status(overallStatus === 'healthy' ? 200 : 503).json({
+    status: overallStatus,
+    timestamp: new Date().toISOString(),
+    version: process.env.SERVICE_VERSION || '1.0.0',
+    uptime: process.uptime(),
+    checks,
+  });
+});
+
 // Routes
 app.use('/api/hotels', makcorpsRoutes);
 
