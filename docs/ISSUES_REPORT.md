@@ -1206,20 +1206,20 @@ Not all Rendez API routes were audited for auth middleware coverage. Some routes
 | OPS-002 | Socket.io no Redis adapter | P0 | OPS | Hotel OTA + Rendez | 1-2d | Resolved |
 | OPS-003 | No API Gateway | P0 | OPS+SEC | Platform | 4-6w | Resolved |
 | OPS-004 | No CI/CD Pipeline | P0 | OPS | DevOps | 4-6w | Resolved |
-| OPS-005 | Redis no HA | P1 | OPS | DevOps | 1-2w | Code Ready |
-| OPS-006 | No Observability Stack | P1 | OPS | DevOps | 3-4w | Partial |
+| OPS-005 | Redis no HA | P1 | OPS | DevOps | 1-2w | Complete |
+| OPS-006 | No Observability Stack | P1 | OPS | DevOps | 3-4w | Complete |
 | OPS-007 | No Staging Parity | P2 | OPS | DevOps | 2-3w | Documented |
 | OPS-008 | No SLA/SLO | P2 | BIZ+OPS | Business | 1w | Documented |
 | SEC-001 | No token rotation | P0 | SEC | Auth Team | 1-2w | Resolved |
 | SEC-002 | No WAF/DDoS | P0 | SEC | DevOps | 1-2d | Ready to Deploy |
-| SEC-003 | No centralized validation | P1 | SEC+TECH | All Teams | 2-3w | Partial |
-| SEC-004 | No KYC/AML | P1 | SEC+BIZ | Wallet+Legal | 4-8w | Open |
-| SEC-005 | No MFA | P2 | SEC | Auth Team | 2-3w | Partial |
+| SEC-003 | No centralized validation | P1 | SEC+TECH | All Teams | 2-3w | Complete |
+| SEC-004 | No KYC/AML | P1 | SEC+BIZ | Wallet+Legal | 4-8w | Partial |
+| SEC-005 | No MFA | P2 | SEC | Auth Team | 2-3w | Complete |
 | SEC-006 | No PCI-DSS docs | P2 | SEC+BIZ | Payment+Legal | 2-4w | Documented |
 | TECH-001 | MongoDB no replica set | P0 | TECH+OPS | DevOps | 1-2w | Code Complete |
 | TECH-002 | Unbounded queries | P1 | TECH | Hotel OTA | 3-5w | Audit Done |
 | TECH-003 | PostgreSQL no pooler | P1 | TECH | Rendez | 1-2d | Resolved |
-| TECH-004 | Hotel OTA flat structure | P1 | TECH | Hotel OTA | 8-12w | Open |
+| TECH-004 | Hotel OTA flat structure | P1 | TECH | Hotel OTA | 8-12w | Documented |
 | TECH-005 | PMS bundle size | P1 | TECH | Hotel PMS | 2-3w | Optimized |
 | TECH-006 | Two hotel frontends | P1 | TECH+OPS | Hotel OTA | 3-4w | Documented |
 | TECH-007 | NextaBiZ duplicate account | P2 | TECH | NextaBiZ | 1-2w | Resolved |
