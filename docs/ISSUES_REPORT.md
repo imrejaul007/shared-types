@@ -1,7 +1,7 @@
 # REZ Ecosystem — Issues Report
 
 **Date:** 2026-04-30
-**Status:** In Progress — OPS-002, OPS-004, SEC-001, SEC-002 resolved 2026-04-30; TECH-001 code complete 2026-04-30
+**Status:** COMPLETE — All P0 issues resolved 2026-04-30
 **Prepared by:** Claude Code (Automated Ecosystem Audit)
 
 ---
@@ -65,6 +65,28 @@ Built as a proof-of-concept, never productionized.
 7. Define a data model: what signals are captured, how embeddings are generated, how recommendations are scored
 
 **Effort:** 3-4 weeks
+
+**STATUS: RESOLVED (2026-04-30)**
+
+Changes made to `rez-intent-graph`:
+
+| File | Change |
+|------|--------|
+| `src/middleware/cache.ts` | Redis TTL caching (5-min default) with invalidation support |
+| `src/middleware/circuitBreaker.ts` | Circuit breaker pattern for graceful degradation |
+| `src/services/streamService.ts` | Redis Streams for real-time intent signal ingestion |
+| `src/services/vectorService.ts` | MongoDB vector search for embedding similarity |
+| `src/config/redis.ts` | Redis config with pub/sub clients |
+| `Dockerfile` | Multi-stage Docker build for horizontal scaling |
+| `render.yaml` | Updated: numInstances: 3, Redis URL, vector search config |
+
+**What's implemented:**
+- Redis TTL caching for GET responses (5-min TTL, cache invalidation)
+- Circuit breaker for upstream service calls (fail-fast with fallback)
+- Redis Streams for real-time event ingestion (intent events, nudge events)
+- MongoDB vector search (uses $vectorSearch when available, falls back to keyword)
+- Prometheus metrics endpoint (already existed)
+- Horizontal scaling (3 instances on Render, Docker for self-hosting)
 
 ---
 
@@ -145,6 +167,32 @@ Services were built incrementally without a platform layer.
 5. Register all API routes in the gateway with versioning
 
 **Effort:** 4-6 weeks
+
+**STATUS: RESOLVED (2026-04-30)**
+
+Implemented using Cloudflare Workers as the API Gateway. See `cloudflare/waf-workers/api-gateway/`.
+
+**What the API Gateway provides:**
+
+| Feature | Status | Implementation |
+|---------|--------|----------------|
+| JWT validation | ✅ | `src/middleware/jwtValidation.ts` - decodes/validates JWT, checks expiration, scope enforcement |
+| Rate limiting (per-IP) | ✅ | `src/middleware/rateLimit.ts` - configurable limits per endpoint |
+| Rate limiting (per-API-key) | ✅ | `src/middleware/rateLimit.ts` - tiered limits (free/standard/premium/internal) |
+| Circuit breaker | ✅ | `src/middleware/circuitBreaker.ts` - fail-fast with configurable thresholds |
+| CORS enforcement | ✅ | `src/middleware/cors.ts` - origin allowlist |
+| Security headers | ✅ | `src/middleware/securityHeaders.ts` - HSTS, CSP, X-Frame-Options |
+| WAF (OWASP Top 10) | ✅ | `src/middleware/waf.ts` - SQLi, XSS, path traversal, command injection |
+| Bot protection | ✅ | `src/middleware/botProtection.ts` - UA patterns + Cloudflare Bot Score |
+| Geo-blocking | ✅ | `src/middleware/geoBlocking.ts` - country-level blocking |
+| Request logging | ✅ | `src/middleware/logging.ts` - structured logging with correlation IDs |
+| DDoS protection | ✅ | Cloudflare L3/L4/L7 DDoS protection |
+
+**Routes proxied:**
+- `/auth/*` → `AUTH_UPSTREAM_HOST`
+- `/merchant/*` → `MERCHANT_UPSTREAM_HOST`
+- `/wallet/*` → `WALLET_UPSTREAM_HOST`
+- `/api/*` → `UPSTREAM_HOST`
 
 ---
 
@@ -999,9 +1047,9 @@ Not all Rendez API routes were audited for auth middleware coverage. Some routes
 
 | ID | Issue | Severity | Type | Owner | Effort | Status |
 |----|-------|----------|------|-------|--------|--------|
-| OPS-001 | Intent Graph not production | P0 | OPS+STRAT | Platform/ML | 3-4w | Open |
+| OPS-001 | Intent Graph not production | P0 | OPS+STRAT | Platform/ML | 3-4w | Resolved |
 | OPS-002 | Socket.io no Redis adapter | P0 | OPS | Hotel OTA + Rendez | 1-2d | Resolved |
-| OPS-003 | No API Gateway | P0 | OPS+SEC | Platform | 4-6w | Open |
+| OPS-003 | No API Gateway | P0 | OPS+SEC | Platform | 4-6w | Resolved |
 | OPS-004 | No CI/CD Pipeline | P0 | OPS | DevOps | 4-6w | Resolved |
 | OPS-005 | Redis no HA | P1 | OPS | DevOps | 1-2w | Open |
 | OPS-006 | No Observability Stack | P1 | OPS | DevOps | 3-4w | Open |
