@@ -139,7 +139,7 @@ export declare const OrderPaymentSchema: z.ZodObject<{
         totalCoinsValue?: number | undefined;
     }>>;
 }, "strict", z.ZodTypeAny, {
-    status: "refunded" | "pending" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
+    status: "pending" | "refunded" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
     method: "upi" | "card" | "wallet" | "netbanking" | "cod" | "razorpay" | "stripe";
     transactionId?: string | undefined;
     paymentGateway?: string | undefined;
@@ -155,7 +155,7 @@ export declare const OrderPaymentSchema: z.ZodObject<{
         totalCoinsValue?: number | undefined;
     } | undefined;
 }, {
-    status: "refunded" | "pending" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
+    status: "pending" | "refunded" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
     method: "upi" | "card" | "wallet" | "netbanking" | "cod" | "razorpay" | "stripe";
     transactionId?: string | undefined;
     paymentGateway?: string | undefined;
@@ -264,7 +264,7 @@ export declare const OrderDeliverySchema: z.ZodObject<{
     instructions: z.ZodOptional<z.ZodString>;
     deliveryOTP: z.ZodOptional<z.ZodString>;
 }, "strict", z.ZodTypeAny, {
-    status: "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "pending" | "failed";
+    status: "pending" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "failed";
     method: "scheduled" | "pickup" | "drive_thru" | "dine_in" | "standard" | "express";
     address: {
         name: string;
@@ -290,7 +290,7 @@ export declare const OrderDeliverySchema: z.ZodObject<{
     instructions?: string | undefined;
     deliveryOTP?: string | undefined;
 }, {
-    status: "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "pending" | "failed";
+    status: "pending" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "failed";
     method: "scheduled" | "pickup" | "drive_thru" | "dine_in" | "standard" | "express";
     address: {
         name: string;
@@ -450,7 +450,7 @@ export declare const CreateOrderSchema: z.ZodObject<{
             totalCoinsValue?: number | undefined;
         }>>;
     }, "strict", z.ZodTypeAny, {
-        status: "refunded" | "pending" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
+        status: "pending" | "refunded" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
         method: "upi" | "card" | "wallet" | "netbanking" | "cod" | "razorpay" | "stripe";
         transactionId?: string | undefined;
         paymentGateway?: string | undefined;
@@ -466,7 +466,7 @@ export declare const CreateOrderSchema: z.ZodObject<{
             totalCoinsValue?: number | undefined;
         } | undefined;
     }, {
-        status: "refunded" | "pending" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
+        status: "pending" | "refunded" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
         method: "upi" | "card" | "wallet" | "netbanking" | "cod" | "razorpay" | "stripe";
         transactionId?: string | undefined;
         paymentGateway?: string | undefined;
@@ -535,7 +535,7 @@ export declare const CreateOrderSchema: z.ZodObject<{
         instructions: z.ZodOptional<z.ZodString>;
         deliveryOTP: z.ZodOptional<z.ZodString>;
     }, "strict", z.ZodTypeAny, {
-        status: "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "pending" | "failed";
+        status: "pending" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "failed";
         method: "scheduled" | "pickup" | "drive_thru" | "dine_in" | "standard" | "express";
         address: {
             name: string;
@@ -561,7 +561,7 @@ export declare const CreateOrderSchema: z.ZodObject<{
         instructions?: string | undefined;
         deliveryOTP?: string | undefined;
     }, {
-        status: "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "pending" | "failed";
+        status: "pending" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "failed";
         method: "scheduled" | "pickup" | "drive_thru" | "dine_in" | "standard" | "express";
         address: {
             name: string;
@@ -593,7 +593,7 @@ export declare const CreateOrderSchema: z.ZodObject<{
 }, "strict", z.ZodTypeAny, {
     user: string;
     payment: {
-        status: "refunded" | "pending" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
+        status: "pending" | "refunded" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
         method: "upi" | "card" | "wallet" | "netbanking" | "cod" | "razorpay" | "stripe";
         transactionId?: string | undefined;
         paymentGateway?: string | undefined;
@@ -610,7 +610,7 @@ export declare const CreateOrderSchema: z.ZodObject<{
         } | undefined;
     };
     delivery: {
-        status: "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "pending" | "failed";
+        status: "pending" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "failed";
         method: "scheduled" | "pickup" | "drive_thru" | "dine_in" | "standard" | "express";
         address: {
             name: string;
@@ -677,7 +677,7 @@ export declare const CreateOrderSchema: z.ZodObject<{
 }, {
     user: string;
     payment: {
-        status: "refunded" | "pending" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
+        status: "pending" | "refunded" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
         method: "upi" | "card" | "wallet" | "netbanking" | "cod" | "razorpay" | "stripe";
         transactionId?: string | undefined;
         paymentGateway?: string | undefined;
@@ -694,7 +694,7 @@ export declare const CreateOrderSchema: z.ZodObject<{
         } | undefined;
     };
     delivery: {
-        status: "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "pending" | "failed";
+        status: "pending" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "failed";
         method: "scheduled" | "pickup" | "drive_thru" | "dine_in" | "standard" | "express";
         address: {
             name: string;
@@ -764,11 +764,11 @@ export declare const UpdateOrderStatusSchema: z.ZodObject<{
     reason: z.ZodOptional<z.ZodString>;
     metadata: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull]>>>;
 }, "strict", z.ZodTypeAny, {
-    status: "placed" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "cancelled" | "cancelling" | "returned" | "refunded";
+    status: "confirmed" | "cancelled" | "placed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "cancelling" | "returned" | "refunded";
     reason?: string | undefined;
     metadata?: Record<string, string | number | boolean | null> | undefined;
 }, {
-    status: "placed" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "cancelled" | "cancelling" | "returned" | "refunded";
+    status: "confirmed" | "cancelled" | "placed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "cancelling" | "returned" | "refunded";
     reason?: string | undefined;
     metadata?: Record<string, string | number | boolean | null> | undefined;
 }>;
@@ -909,7 +909,7 @@ export declare const OrderResponseSchema: z.ZodObject<{
             totalCoinsValue?: number | undefined;
         }>>;
     }, "strict", z.ZodTypeAny, {
-        status: "refunded" | "pending" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
+        status: "pending" | "refunded" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
         method: "upi" | "card" | "wallet" | "netbanking" | "cod" | "razorpay" | "stripe";
         transactionId?: string | undefined;
         paymentGateway?: string | undefined;
@@ -925,7 +925,7 @@ export declare const OrderResponseSchema: z.ZodObject<{
             totalCoinsValue?: number | undefined;
         } | undefined;
     }, {
-        status: "refunded" | "pending" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
+        status: "pending" | "refunded" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
         method: "upi" | "card" | "wallet" | "netbanking" | "cod" | "razorpay" | "stripe";
         transactionId?: string | undefined;
         paymentGateway?: string | undefined;
@@ -994,7 +994,7 @@ export declare const OrderResponseSchema: z.ZodObject<{
         instructions: z.ZodOptional<z.ZodString>;
         deliveryOTP: z.ZodOptional<z.ZodString>;
     }, "strict", z.ZodTypeAny, {
-        status: "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "pending" | "failed";
+        status: "pending" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "failed";
         method: "scheduled" | "pickup" | "drive_thru" | "dine_in" | "standard" | "express";
         address: {
             name: string;
@@ -1020,7 +1020,7 @@ export declare const OrderResponseSchema: z.ZodObject<{
         instructions?: string | undefined;
         deliveryOTP?: string | undefined;
     }, {
-        status: "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "pending" | "failed";
+        status: "pending" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "failed";
         method: "scheduled" | "pickup" | "drive_thru" | "dine_in" | "standard" | "express";
         address: {
             name: string;
@@ -1052,7 +1052,7 @@ export declare const OrderResponseSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     user: string;
     payment: {
-        status: "refunded" | "pending" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
+        status: "pending" | "refunded" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
         method: "upi" | "card" | "wallet" | "netbanking" | "cod" | "razorpay" | "stripe";
         transactionId?: string | undefined;
         paymentGateway?: string | undefined;
@@ -1069,7 +1069,7 @@ export declare const OrderResponseSchema: z.ZodObject<{
         } | undefined;
     };
     delivery: {
-        status: "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "pending" | "failed";
+        status: "pending" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "failed";
         method: "scheduled" | "pickup" | "drive_thru" | "dine_in" | "standard" | "express";
         address: {
             name: string;
@@ -1096,7 +1096,7 @@ export declare const OrderResponseSchema: z.ZodObject<{
         deliveryOTP?: string | undefined;
     };
     orderNumber: string;
-    status: "placed" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "cancelled" | "cancelling" | "returned" | "refunded";
+    status: "confirmed" | "cancelled" | "placed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "cancelling" | "returned" | "refunded";
     items: {
         product: string;
         store: string;
@@ -1139,7 +1139,7 @@ export declare const OrderResponseSchema: z.ZodObject<{
 }, {
     user: string;
     payment: {
-        status: "refunded" | "pending" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
+        status: "pending" | "refunded" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
         method: "upi" | "card" | "wallet" | "netbanking" | "cod" | "razorpay" | "stripe";
         transactionId?: string | undefined;
         paymentGateway?: string | undefined;
@@ -1156,7 +1156,7 @@ export declare const OrderResponseSchema: z.ZodObject<{
         } | undefined;
     };
     delivery: {
-        status: "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "pending" | "failed";
+        status: "pending" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "failed";
         method: "scheduled" | "pickup" | "drive_thru" | "dine_in" | "standard" | "express";
         address: {
             name: string;
@@ -1183,7 +1183,7 @@ export declare const OrderResponseSchema: z.ZodObject<{
         deliveryOTP?: string | undefined;
     };
     orderNumber: string;
-    status: "placed" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "cancelled" | "cancelling" | "returned" | "refunded";
+    status: "confirmed" | "cancelled" | "placed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "cancelling" | "returned" | "refunded";
     items: {
         product: string;
         store: string;
@@ -1361,7 +1361,7 @@ export declare const OrderListResponseSchema: z.ZodArray<z.ZodObject<{
             totalCoinsValue?: number | undefined;
         }>>;
     }, "strict", z.ZodTypeAny, {
-        status: "refunded" | "pending" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
+        status: "pending" | "refunded" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
         method: "upi" | "card" | "wallet" | "netbanking" | "cod" | "razorpay" | "stripe";
         transactionId?: string | undefined;
         paymentGateway?: string | undefined;
@@ -1377,7 +1377,7 @@ export declare const OrderListResponseSchema: z.ZodArray<z.ZodObject<{
             totalCoinsValue?: number | undefined;
         } | undefined;
     }, {
-        status: "refunded" | "pending" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
+        status: "pending" | "refunded" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
         method: "upi" | "card" | "wallet" | "netbanking" | "cod" | "razorpay" | "stripe";
         transactionId?: string | undefined;
         paymentGateway?: string | undefined;
@@ -1446,7 +1446,7 @@ export declare const OrderListResponseSchema: z.ZodArray<z.ZodObject<{
         instructions: z.ZodOptional<z.ZodString>;
         deliveryOTP: z.ZodOptional<z.ZodString>;
     }, "strict", z.ZodTypeAny, {
-        status: "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "pending" | "failed";
+        status: "pending" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "failed";
         method: "scheduled" | "pickup" | "drive_thru" | "dine_in" | "standard" | "express";
         address: {
             name: string;
@@ -1472,7 +1472,7 @@ export declare const OrderListResponseSchema: z.ZodArray<z.ZodObject<{
         instructions?: string | undefined;
         deliveryOTP?: string | undefined;
     }, {
-        status: "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "pending" | "failed";
+        status: "pending" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "failed";
         method: "scheduled" | "pickup" | "drive_thru" | "dine_in" | "standard" | "express";
         address: {
             name: string;
@@ -1504,7 +1504,7 @@ export declare const OrderListResponseSchema: z.ZodArray<z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     user: string;
     payment: {
-        status: "refunded" | "pending" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
+        status: "pending" | "refunded" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
         method: "upi" | "card" | "wallet" | "netbanking" | "cod" | "razorpay" | "stripe";
         transactionId?: string | undefined;
         paymentGateway?: string | undefined;
@@ -1521,7 +1521,7 @@ export declare const OrderListResponseSchema: z.ZodArray<z.ZodObject<{
         } | undefined;
     };
     delivery: {
-        status: "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "pending" | "failed";
+        status: "pending" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "failed";
         method: "scheduled" | "pickup" | "drive_thru" | "dine_in" | "standard" | "express";
         address: {
             name: string;
@@ -1548,7 +1548,7 @@ export declare const OrderListResponseSchema: z.ZodArray<z.ZodObject<{
         deliveryOTP?: string | undefined;
     };
     orderNumber: string;
-    status: "placed" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "cancelled" | "cancelling" | "returned" | "refunded";
+    status: "confirmed" | "cancelled" | "placed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "cancelling" | "returned" | "refunded";
     items: {
         product: string;
         store: string;
@@ -1591,7 +1591,7 @@ export declare const OrderListResponseSchema: z.ZodArray<z.ZodObject<{
 }, {
     user: string;
     payment: {
-        status: "refunded" | "pending" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
+        status: "pending" | "refunded" | "processing" | "failed" | "partially_refunded" | "awaiting_payment" | "authorized" | "paid";
         method: "upi" | "card" | "wallet" | "netbanking" | "cod" | "razorpay" | "stripe";
         transactionId?: string | undefined;
         paymentGateway?: string | undefined;
@@ -1608,7 +1608,7 @@ export declare const OrderListResponseSchema: z.ZodArray<z.ZodObject<{
         } | undefined;
     };
     delivery: {
-        status: "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "pending" | "failed";
+        status: "pending" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "returned" | "failed";
         method: "scheduled" | "pickup" | "drive_thru" | "dine_in" | "standard" | "express";
         address: {
             name: string;
@@ -1635,7 +1635,7 @@ export declare const OrderListResponseSchema: z.ZodArray<z.ZodObject<{
         deliveryOTP?: string | undefined;
     };
     orderNumber: string;
-    status: "placed" | "confirmed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "cancelled" | "cancelling" | "returned" | "refunded";
+    status: "confirmed" | "cancelled" | "placed" | "preparing" | "ready" | "dispatched" | "out_for_delivery" | "delivered" | "cancelling" | "returned" | "refunded";
     items: {
         product: string;
         store: string;

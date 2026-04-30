@@ -171,7 +171,7 @@ export declare const BaseCampaignSchema: z.ZodObject<{
     spent: z.ZodOptional<z.ZodNumber>;
     createdBy: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -196,7 +196,7 @@ export declare const BaseCampaignSchema: z.ZodObject<{
     budget?: number | undefined;
     createdBy?: string | undefined;
 }, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -350,7 +350,7 @@ export declare const CreateMarketingCampaignSchema: z.ZodObject<{
     dailyBudget: z.ZodOptional<z.ZodNumber>;
     attributionWindowDays: z.ZodOptional<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -401,7 +401,7 @@ export declare const CreateMarketingCampaignSchema: z.ZodObject<{
     dailyBudget?: number | undefined;
     attributionWindowDays?: number | undefined;
 }, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -584,7 +584,7 @@ export declare const UpdateMarketingCampaignSchema: z.ZodObject<{
     merchantId?: string | undefined;
     ctaText?: string | undefined;
     imageUrl?: string | undefined;
-    status?: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected" | undefined;
+    status?: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | undefined;
     name?: string | undefined;
     message?: string | undefined;
     type?: "marketing" | undefined;
@@ -635,7 +635,7 @@ export declare const UpdateMarketingCampaignSchema: z.ZodObject<{
     merchantId?: string | undefined;
     ctaText?: string | undefined;
     imageUrl?: string | undefined;
-    status?: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected" | undefined;
+    status?: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | undefined;
     name?: string | undefined;
     message?: string | undefined;
     type?: "marketing" | undefined;
@@ -843,7 +843,7 @@ export declare const MarketingCampaignResponseSchema: z.ZodObject<{
     createdAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     updatedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
 }, "strip", z.ZodTypeAny, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -909,7 +909,7 @@ export declare const MarketingCampaignResponseSchema: z.ZodObject<{
     errorMessage?: string | undefined;
     totalSpent?: number | undefined;
 }, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -1066,7 +1066,7 @@ export declare const CreateAdCampaignSchema: z.ZodObject<{
     totalBudget: z.ZodOptional<z.ZodNumber>;
     frequencyCapDays: z.ZodOptional<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -1111,7 +1111,7 @@ export declare const CreateAdCampaignSchema: z.ZodObject<{
     totalBudget?: number | undefined;
     frequencyCapDays?: number | undefined;
 }, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -1250,7 +1250,7 @@ export declare const UpdateAdCampaignSchema: z.ZodObject<{
     merchantId?: string | undefined;
     ctaText?: string | undefined;
     imageUrl?: string | undefined;
-    status?: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected" | undefined;
+    status?: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | undefined;
     name?: string | undefined;
     type?: "ad" | undefined;
     description?: string | undefined;
@@ -1295,7 +1295,7 @@ export declare const UpdateAdCampaignSchema: z.ZodObject<{
     merchantId?: string | undefined;
     ctaText?: string | undefined;
     imageUrl?: string | undefined;
-    status?: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected" | undefined;
+    status?: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | undefined;
     name?: string | undefined;
     type?: "ad" | undefined;
     description?: string | undefined;
@@ -1438,7 +1438,7 @@ export declare const AdCampaignResponseSchema: z.ZodObject<{
     createdAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     updatedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
 }, "strip", z.ZodTypeAny, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -1493,7 +1493,7 @@ export declare const AdCampaignResponseSchema: z.ZodObject<{
     reviewedAt?: string | Date | undefined;
     rejectionReason?: string | undefined;
 }, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -1678,7 +1678,7 @@ export declare const CreateMerchantCampaignSchema: z.ZodObject<{
     priority: z.ZodOptional<z.ZodNumber>;
     cooldownDays: z.ZodOptional<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -1732,7 +1732,7 @@ export declare const CreateMerchantCampaignSchema: z.ZodObject<{
     priority?: number | undefined;
     cooldownDays?: number | undefined;
 }, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -1917,7 +1917,7 @@ export declare const UpdateMerchantCampaignSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     spent?: number | undefined;
     merchantId?: string | undefined;
-    status?: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected" | undefined;
+    status?: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | undefined;
     name?: string | undefined;
     type?: "merchant" | undefined;
     description?: string | undefined;
@@ -1971,7 +1971,7 @@ export declare const UpdateMerchantCampaignSchema: z.ZodObject<{
 }, {
     spent?: number | undefined;
     merchantId?: string | undefined;
-    status?: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected" | undefined;
+    status?: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | undefined;
     name?: string | undefined;
     type?: "merchant" | undefined;
     description?: string | undefined;
@@ -2158,7 +2158,7 @@ export declare const MerchantCampaignResponseSchema: z.ZodObject<{
     createdAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     updatedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
 }, "strip", z.ZodTypeAny, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -2216,7 +2216,7 @@ export declare const MerchantCampaignResponseSchema: z.ZodObject<{
     cooldownDays?: number | undefined;
     redemptionCount?: number | undefined;
 }, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -2435,7 +2435,7 @@ export declare const CampaignResponseSchema: z.ZodUnion<[z.ZodObject<{
     createdAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     updatedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
 }, "strip", z.ZodTypeAny, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -2501,7 +2501,7 @@ export declare const CampaignResponseSchema: z.ZodUnion<[z.ZodObject<{
     errorMessage?: string | undefined;
     totalSpent?: number | undefined;
 }, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -2668,7 +2668,7 @@ export declare const CampaignResponseSchema: z.ZodUnion<[z.ZodObject<{
     createdAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     updatedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
 }, "strip", z.ZodTypeAny, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -2723,7 +2723,7 @@ export declare const CampaignResponseSchema: z.ZodUnion<[z.ZodObject<{
     reviewedAt?: string | Date | undefined;
     rejectionReason?: string | undefined;
 }, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -2912,7 +2912,7 @@ export declare const CampaignResponseSchema: z.ZodUnion<[z.ZodObject<{
     createdAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     updatedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
 }, "strip", z.ZodTypeAny, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -2970,7 +2970,7 @@ export declare const CampaignResponseSchema: z.ZodUnion<[z.ZodObject<{
     cooldownDays?: number | undefined;
     redemptionCount?: number | undefined;
 }, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -3189,7 +3189,7 @@ export declare const CampaignListResponseSchema: z.ZodArray<z.ZodUnion<[z.ZodObj
     createdAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     updatedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
 }, "strip", z.ZodTypeAny, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -3255,7 +3255,7 @@ export declare const CampaignListResponseSchema: z.ZodArray<z.ZodUnion<[z.ZodObj
     errorMessage?: string | undefined;
     totalSpent?: number | undefined;
 }, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -3422,7 +3422,7 @@ export declare const CampaignListResponseSchema: z.ZodArray<z.ZodUnion<[z.ZodObj
     createdAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     updatedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
 }, "strip", z.ZodTypeAny, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -3477,7 +3477,7 @@ export declare const CampaignListResponseSchema: z.ZodArray<z.ZodUnion<[z.ZodObj
     reviewedAt?: string | Date | undefined;
     rejectionReason?: string | undefined;
 }, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -3666,7 +3666,7 @@ export declare const CampaignListResponseSchema: z.ZodArray<z.ZodUnion<[z.ZodObj
     createdAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
     updatedAt: z.ZodOptional<z.ZodUnion<[z.ZodDate, z.ZodString]>>;
 }, "strip", z.ZodTypeAny, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
@@ -3724,7 +3724,7 @@ export declare const CampaignListResponseSchema: z.ZodArray<z.ZodUnion<[z.ZodObj
     cooldownDays?: number | undefined;
     redemptionCount?: number | undefined;
 }, {
-    status: "cancelled" | "completed" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused" | "rejected";
+    status: "completed" | "cancelled" | "rejected" | "failed" | "expired" | "draft" | "scheduled" | "sending" | "sent" | "pending_review" | "active" | "paused";
     name: string;
     startDate: string | Date;
     spent?: number | undefined;
