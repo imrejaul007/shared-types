@@ -1208,22 +1208,22 @@ Not all Rendez API routes were audited for auth middleware coverage. Some routes
 | OPS-004 | No CI/CD Pipeline | P0 | OPS | DevOps | 4-6w | Resolved |
 | OPS-005 | Redis no HA | P1 | OPS | DevOps | 1-2w | Code Ready |
 | OPS-006 | No Observability Stack | P1 | OPS | DevOps | 3-4w | Partial |
-| OPS-007 | No Staging Parity | P2 | OPS | DevOps | 2-3w | Open |
-| OPS-008 | No SLA/SLO | P2 | BIZ+OPS | Business | 1w | Open |
+| OPS-007 | No Staging Parity | P2 | OPS | DevOps | 2-3w | Documented |
+| OPS-008 | No SLA/SLO | P2 | BIZ+OPS | Business | 1w | Documented |
 | SEC-001 | No token rotation | P0 | SEC | Auth Team | 1-2w | Resolved |
 | SEC-002 | No WAF/DDoS | P0 | SEC | DevOps | 1-2d | Ready to Deploy |
 | SEC-003 | No centralized validation | P1 | SEC+TECH | All Teams | 2-3w | Partial |
 | SEC-004 | No KYC/AML | P1 | SEC+BIZ | Wallet+Legal | 4-8w | Open |
-| SEC-005 | No MFA | P2 | SEC | Auth Team | 2-3w | Open |
-| SEC-006 | No PCI-DSS docs | P2 | SEC+BIZ | Payment+Legal | 2-4w | Open |
+| SEC-005 | No MFA | P2 | SEC | Auth Team | 2-3w | Partial |
+| SEC-006 | No PCI-DSS docs | P2 | SEC+BIZ | Payment+Legal | 2-4w | Documented |
 | TECH-001 | MongoDB no replica set | P0 | TECH+OPS | DevOps | 1-2w | Code Complete |
 | TECH-002 | Unbounded queries | P1 | TECH | Hotel OTA | 3-5w | Audit Done |
 | TECH-003 | PostgreSQL no pooler | P1 | TECH | Rendez | 1-2d | Resolved |
 | TECH-004 | Hotel OTA flat structure | P1 | TECH | Hotel OTA | 8-12w | Open |
-| TECH-005 | PMS bundle size | P1 | TECH | Hotel PMS | 2-3w | Open |
-| TECH-006 | Two hotel frontends | P1 | TECH+OPS | Hotel OTA | 3-4w | Open |
-| TECH-007 | NextaBiZ duplicate account | P2 | TECH | NextaBiZ | 1-2w | Open |
-| TECH-008 | No feature flags | P2 | OPS+TECH | Platform | 1-2w | Open |
+| TECH-005 | PMS bundle size | P1 | TECH | Hotel PMS | 2-3w | Optimized |
+| TECH-006 | Two hotel frontends | P1 | TECH+OPS | Hotel OTA | 3-4w | Documented |
+| TECH-007 | NextaBiZ duplicate account | P2 | TECH | NextaBiZ | 1-2w | Resolved |
+| TECH-008 | No feature flags | P2 | OPS+TECH | Platform | 1-2w | Resolved |
 | TECH-009 | .env stale values | P3 | TECH | NextaBiZ | Done | Done |
 | TECH-010 | Hotel Panel port mismatch | P3 | TECH | Hotel Panel | Verify | Open |
 | TECH-011 | Barrel export TS errors | P3 | TECH | Merchant Svc | TBD | Open |
