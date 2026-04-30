@@ -190,7 +190,7 @@ export declare const UserProfileSchema: z.ZodObject<{
         preferredStones?: string[] | undefined;
         style?: string | undefined;
     } | undefined;
-    verificationStatus?: "pending" | "expired" | "rejected" | "unverified" | "verified" | undefined;
+    verificationStatus?: "pending" | "rejected" | "expired" | "unverified" | "verified" | undefined;
     verificationDocuments?: {
         documentType: string;
         documentNumber: string;
@@ -226,7 +226,7 @@ export declare const UserProfileSchema: z.ZodObject<{
         preferredStones?: string[] | undefined;
         style?: string | undefined;
     } | undefined;
-    verificationStatus?: "pending" | "expired" | "rejected" | "unverified" | "verified" | undefined;
+    verificationStatus?: "pending" | "rejected" | "expired" | "unverified" | "verified" | undefined;
     verificationDocuments?: {
         documentType: string;
         documentNumber: string;
@@ -410,7 +410,7 @@ export declare const CreateUserSchema: z.ZodObject<{
             preferredStones?: string[] | undefined;
             style?: string | undefined;
         } | undefined;
-        verificationStatus?: "pending" | "expired" | "rejected" | "unverified" | "verified" | undefined;
+        verificationStatus?: "pending" | "rejected" | "expired" | "unverified" | "verified" | undefined;
         verificationDocuments?: {
             documentType: string;
             documentNumber: string;
@@ -446,7 +446,7 @@ export declare const CreateUserSchema: z.ZodObject<{
             preferredStones?: string[] | undefined;
             style?: string | undefined;
         } | undefined;
-        verificationStatus?: "pending" | "expired" | "rejected" | "unverified" | "verified" | undefined;
+        verificationStatus?: "pending" | "rejected" | "expired" | "unverified" | "verified" | undefined;
         verificationDocuments?: {
             documentType: string;
             documentNumber: string;
@@ -533,7 +533,7 @@ export declare const CreateUserSchema: z.ZodObject<{
             preferredStones?: string[] | undefined;
             style?: string | undefined;
         } | undefined;
-        verificationStatus?: "pending" | "expired" | "rejected" | "unverified" | "verified" | undefined;
+        verificationStatus?: "pending" | "rejected" | "expired" | "unverified" | "verified" | undefined;
         verificationDocuments?: {
             documentType: string;
             documentNumber: string;
@@ -587,7 +587,7 @@ export declare const CreateUserSchema: z.ZodObject<{
             preferredStones?: string[] | undefined;
             style?: string | undefined;
         } | undefined;
-        verificationStatus?: "pending" | "expired" | "rejected" | "unverified" | "verified" | undefined;
+        verificationStatus?: "pending" | "rejected" | "expired" | "unverified" | "verified" | undefined;
         verificationDocuments?: {
             documentType: string;
             documentNumber: string;
@@ -880,7 +880,7 @@ export declare const UserResponseSchema: z.ZodObject<{
             preferredStones?: string[] | undefined;
             style?: string | undefined;
         } | undefined;
-        verificationStatus?: "pending" | "expired" | "rejected" | "unverified" | "verified" | undefined;
+        verificationStatus?: "pending" | "rejected" | "expired" | "unverified" | "verified" | undefined;
         verificationDocuments?: {
             documentType: string;
             documentNumber: string;
@@ -916,7 +916,7 @@ export declare const UserResponseSchema: z.ZodObject<{
             preferredStones?: string[] | undefined;
             style?: string | undefined;
         } | undefined;
-        verificationStatus?: "pending" | "expired" | "rejected" | "unverified" | "verified" | undefined;
+        verificationStatus?: "pending" | "rejected" | "expired" | "unverified" | "verified" | undefined;
         verificationDocuments?: {
             documentType: string;
             documentNumber: string;
@@ -1023,7 +1023,7 @@ export declare const UserResponseSchema: z.ZodObject<{
             preferredStones?: string[] | undefined;
             style?: string | undefined;
         } | undefined;
-        verificationStatus?: "pending" | "expired" | "rejected" | "unverified" | "verified" | undefined;
+        verificationStatus?: "pending" | "rejected" | "expired" | "unverified" | "verified" | undefined;
         verificationDocuments?: {
             documentType: string;
             documentNumber: string;
@@ -1087,7 +1087,7 @@ export declare const UserResponseSchema: z.ZodObject<{
             preferredStones?: string[] | undefined;
             style?: string | undefined;
         } | undefined;
-        verificationStatus?: "pending" | "expired" | "rejected" | "unverified" | "verified" | undefined;
+        verificationStatus?: "pending" | "rejected" | "expired" | "unverified" | "verified" | undefined;
         verificationDocuments?: {
             documentType: string;
             documentNumber: string;
@@ -1231,7 +1231,7 @@ export declare const UserListResponseSchema: z.ZodArray<z.ZodObject<{
             preferredStones?: string[] | undefined;
             style?: string | undefined;
         } | undefined;
-        verificationStatus?: "pending" | "expired" | "rejected" | "unverified" | "verified" | undefined;
+        verificationStatus?: "pending" | "rejected" | "expired" | "unverified" | "verified" | undefined;
         verificationDocuments?: {
             documentType: string;
             documentNumber: string;
@@ -1267,7 +1267,7 @@ export declare const UserListResponseSchema: z.ZodArray<z.ZodObject<{
             preferredStones?: string[] | undefined;
             style?: string | undefined;
         } | undefined;
-        verificationStatus?: "pending" | "expired" | "rejected" | "unverified" | "verified" | undefined;
+        verificationStatus?: "pending" | "rejected" | "expired" | "unverified" | "verified" | undefined;
         verificationDocuments?: {
             documentType: string;
             documentNumber: string;
@@ -1374,7 +1374,7 @@ export declare const UserListResponseSchema: z.ZodArray<z.ZodObject<{
             preferredStones?: string[] | undefined;
             style?: string | undefined;
         } | undefined;
-        verificationStatus?: "pending" | "expired" | "rejected" | "unverified" | "verified" | undefined;
+        verificationStatus?: "pending" | "rejected" | "expired" | "unverified" | "verified" | undefined;
         verificationDocuments?: {
             documentType: string;
             documentNumber: string;
@@ -1438,7 +1438,7 @@ export declare const UserListResponseSchema: z.ZodArray<z.ZodObject<{
             preferredStones?: string[] | undefined;
             style?: string | undefined;
         } | undefined;
-        verificationStatus?: "pending" | "expired" | "rejected" | "unverified" | "verified" | undefined;
+        verificationStatus?: "pending" | "rejected" | "expired" | "unverified" | "verified" | undefined;
         verificationDocuments?: {
             documentType: string;
             documentNumber: string;

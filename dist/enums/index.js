@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.TransactionStatus = exports.EventType = exports.ServiceType = exports.ProfessionType = exports.DocumentType = exports.LocationSource = exports.LoyaltyTier = exports.PriveTier = exports.RezPlusTier = exports.ReferralTier = exports.Theme = exports.JewelryStyle = exports.VerificationStatus = exports.FinanceTransactionStatus = exports.FinanceTransactionType = exports.DiscountType = exports.OfferType = exports.NotificationChannel = exports.NotificationType = exports.CampaignChannel = exports.CampaignStatus = exports.CoinTransactionType = exports.COIN_PRIORITY = exports.PaymentGateway = exports.PaymentMethod = exports.PaymentStatus = exports.OrderStatus = exports.Gender = exports.UserRole = exports.COIN_TYPE_VALUES = exports.normalizeCoinTypeAs = exports.isCanonicalCoinType = exports.normalizeCoinType = exports.CoinType = void 0;
+exports.TravelPurpose = exports.GiftCampaignType = exports.GSTServiceType = exports.CorpPaymentSource = exports.CorpPartnerTier = exports.CorporateOrderStatus = exports.BookingType = exports.CorpCoinType = exports.BenefitType = exports.CorpRole = exports.TransactionStatus = exports.EventType = exports.ServiceType = exports.ProfessionType = exports.DocumentType = exports.LocationSource = exports.LoyaltyTier = exports.PriveTier = exports.RezPlusTier = exports.ReferralTier = exports.Theme = exports.JewelryStyle = exports.VerificationStatus = exports.FinanceTransactionStatus = exports.FinanceTransactionType = exports.DiscountType = exports.OfferType = exports.NotificationChannel = exports.NotificationType = exports.CampaignChannel = exports.CampaignStatus = exports.CoinTransactionType = exports.COIN_PRIORITY = exports.PaymentGateway = exports.PaymentMethod = exports.PaymentStatus = exports.OrderStatus = exports.Gender = exports.UserRole = exports.COIN_TYPE_VALUES = exports.normalizeCoinTypeAs = exports.isCanonicalCoinType = exports.normalizeCoinType = exports.CoinType = void 0;
 var coinType_1 = require("./coinType");
 Object.defineProperty(exports, "CoinType", { enumerable: true, get: function () { return coinType_1.CoinType; } });
 Object.defineProperty(exports, "normalizeCoinType", { enumerable: true, get: function () { return coinType_1.normalizeCoinType; } });
@@ -263,4 +263,98 @@ var TransactionStatus;
     TransactionStatus["PENDING"] = "pending";
     TransactionStatus["FAILED"] = "failed";
 })(TransactionStatus || (exports.TransactionStatus = TransactionStatus = {}));
+var corpPerks_1 = require("./corpPerks");
+Object.defineProperty(exports, "CorpRole", { enumerable: true, get: function () { return corpPerks_1.CorpRole; } });
+Object.defineProperty(exports, "BenefitType", { enumerable: true, get: function () { return corpPerks_1.BenefitType; } });
+Object.defineProperty(exports, "CorpCoinType", { enumerable: true, get: function () { return corpPerks_1.CorpCoinType; } });
+Object.defineProperty(exports, "BookingType", { enumerable: true, get: function () { return corpPerks_1.BookingType; } });
+Object.defineProperty(exports, "CorporateOrderStatus", { enumerable: true, get: function () { return corpPerks_1.CorporateOrderStatus; } });
+Object.defineProperty(exports, "CorpPartnerTier", { enumerable: true, get: function () { return corpPerks_1.CorpPartnerTier; } });
+Object.defineProperty(exports, "CorpPaymentSource", { enumerable: true, get: function () { return corpPerks_1.CorpPaymentSource; } });
+Object.defineProperty(exports, "GSTServiceType", { enumerable: true, get: function () { return corpPerks_1.GSTServiceType; } });
+Object.defineProperty(exports, "GiftCampaignType", { enumerable: true, get: function () { return corpPerks_1.GiftCampaignType; } });
+Object.defineProperty(exports, "TravelPurpose", { enumerable: true, get: function () { return corpPerks_1.TravelPurpose; } });
+var CorpRole;
+(function (CorpRole) {
+    CorpRole["CORP_ADMIN"] = "corp_admin";
+    CorpRole["CORP_HR"] = "corp_hr";
+    CorpRole["CORP_FINANCE"] = "corp_finance";
+    CorpRole["CORP_MANAGER"] = "corp_manager";
+    CorpRole["CORP_EMPLOYEE"] = "corp_employee";
+})(CorpRole || (exports.CorpRole = CorpRole = {}));
+var BenefitType;
+(function (BenefitType) {
+    BenefitType["MEAL"] = "meal";
+    BenefitType["TRAVEL"] = "travel";
+    BenefitType["GIFT"] = "gift";
+    BenefitType["WELLNESS"] = "wellness";
+    BenefitType["FLEX"] = "flex";
+    BenefitType["LEARNING"] = "learning";
+})(BenefitType || (exports.BenefitType = BenefitType = {}));
+var CorpCoinType;
+(function (CorpCoinType) {
+    CorpCoinType["MEAL_BENEFIT"] = "meal_benefit";
+    CorpCoinType["DINING_CREDIT"] = "dining_credit";
+    CorpCoinType["TRAVEL_BENEFIT"] = "travel_benefit";
+    CorpCoinType["GIFT_BENEFIT"] = "gift_benefit";
+    CorpCoinType["WELLNESS_BENEFIT"] = "wellness_benefit";
+    CorpCoinType["RECOGNITION"] = "recognition";
+    CorpCoinType["CSR_KARMA"] = "csr_karma";
+})(CorpCoinType || (exports.CorpCoinType = CorpCoinType = {}));
+var BookingType;
+(function (BookingType) {
+    BookingType["TEAM_LUNCH"] = "team_lunch";
+    BookingType["CLIENT_DINNER"] = "client_dinner";
+    BookingType["CATERING"] = "catering";
+    BookingType["HOTEL_BOOKING"] = "hotel_booking";
+    BookingType["FLIGHT_BOOKING"] = "flight_booking";
+    BookingType["GIFT_ORDER"] = "gift_order";
+})(BookingType || (exports.BookingType = BookingType = {}));
+var CorporateOrderStatus;
+(function (CorporateOrderStatus) {
+    CorporateOrderStatus["PENDING"] = "pending";
+    CorporateOrderStatus["APPROVED"] = "approved";
+    CorporateOrderStatus["CONFIRMED"] = "confirmed";
+    CorporateOrderStatus["IN_PROGRESS"] = "in_progress";
+    CorporateOrderStatus["COMPLETED"] = "completed";
+    CorporateOrderStatus["CANCELLED"] = "cancelled";
+    CorporateOrderStatus["REJECTED"] = "rejected";
+})(CorporateOrderStatus || (exports.CorporateOrderStatus = CorporateOrderStatus = {}));
+var CorpPartnerTier;
+(function (CorpPartnerTier) {
+    CorpPartnerTier["BRONZE"] = "bronze";
+    CorpPartnerTier["SILVER"] = "silver";
+    CorpPartnerTier["GOLD"] = "gold";
+    CorpPartnerTier["PLATINUM"] = "platinum";
+})(CorpPartnerTier || (exports.CorpPartnerTier = CorpPartnerTier = {}));
+var CorpPaymentSource;
+(function (CorpPaymentSource) {
+    CorpPaymentSource["CORPORATE_WALLET"] = "corporate_wallet";
+    CorpPaymentSource["EMPLOYEE_MEAL_BENEFIT"] = "employee_meal_benefit";
+    CorpPaymentSource["EMPLOYEE_TRAVEL_BENEFIT"] = "employee_travel_benefit";
+    CorpPaymentSource["EXPENSE_CLAIM"] = "expense_claim";
+    CorpPaymentSource["COMPANY_CARD"] = "company_card";
+})(CorpPaymentSource || (exports.CorpPaymentSource = CorpPaymentSource = {}));
+var GSTServiceType;
+(function (GSTServiceType) {
+    GSTServiceType["DINING"] = "dining";
+    GSTServiceType["HOTEL"] = "hotel";
+    GSTServiceType["GIFTING"] = "gifting";
+    GSTServiceType["TRAVEL"] = "travel";
+})(GSTServiceType || (exports.GSTServiceType = GSTServiceType = {}));
+var GiftCampaignType;
+(function (GiftCampaignType) {
+    GiftCampaignType["FESTIVAL"] = "festival";
+    GiftCampaignType["MILESTONE"] = "milestone";
+    GiftCampaignType["CLIENT"] = "client";
+    GiftCampaignType["THANK_YOU"] = "thank_you";
+    GiftCampaignType["REFERRAL"] = "referral";
+})(GiftCampaignType || (exports.GiftCampaignType = GiftCampaignType = {}));
+var TravelPurpose;
+(function (TravelPurpose) {
+    TravelPurpose["BUSINESS"] = "business";
+    TravelPurpose["TRAINING"] = "training";
+    TravelPurpose["CLIENT_VISIT"] = "client_visit";
+    TravelPurpose["TEAM_OUTING"] = "team_outing";
+})(TravelPurpose || (exports.TravelPurpose = TravelPurpose = {}));
 //# sourceMappingURL=index.js.map

@@ -366,7 +366,7 @@ export declare const UpdatePaymentStatusSchema: z.ZodObject<{
         paypalOrderId: z.ZodOptional<z.ZodString>;
     }, z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull]>, "strip">>>;
 }, "strict", z.ZodTypeAny, {
-    status: "cancelled" | "refunded" | "pending" | "processing" | "completed" | "failed" | "expired" | "refund_initiated" | "refund_processing" | "refund_failed" | "partially_refunded";
+    status: "pending" | "completed" | "cancelled" | "refunded" | "processing" | "failed" | "expired" | "refund_initiated" | "refund_processing" | "refund_failed" | "partially_refunded";
     failureReason?: string | undefined;
     metadata?: z.objectOutputType<{
         razorpayOrderId: z.ZodOptional<z.ZodString>;
@@ -376,7 +376,7 @@ export declare const UpdatePaymentStatusSchema: z.ZodObject<{
     walletCredited?: boolean | undefined;
     refundedAmount?: number | undefined;
 }, {
-    status: "cancelled" | "refunded" | "pending" | "processing" | "completed" | "failed" | "expired" | "refund_initiated" | "refund_processing" | "refund_failed" | "partially_refunded";
+    status: "pending" | "completed" | "cancelled" | "refunded" | "processing" | "failed" | "expired" | "refund_initiated" | "refund_processing" | "refund_failed" | "partially_refunded";
     failureReason?: string | undefined;
     metadata?: z.objectInputType<{
         razorpayOrderId: z.ZodOptional<z.ZodString>;
@@ -527,7 +527,7 @@ export declare const PaymentResponseSchema: z.ZodObject<{
     user: string;
     orderId: string;
     paymentId: string;
-    status: "cancelled" | "refunded" | "pending" | "processing" | "completed" | "failed" | "expired" | "refund_initiated" | "refund_processing" | "refund_failed" | "partially_refunded";
+    status: "pending" | "completed" | "cancelled" | "refunded" | "processing" | "failed" | "expired" | "refund_initiated" | "refund_processing" | "refund_failed" | "partially_refunded";
     amount: number;
     createdAt: string | Date;
     updatedAt: string | Date;
@@ -588,7 +588,7 @@ export declare const PaymentResponseSchema: z.ZodObject<{
     user: string;
     orderId: string;
     paymentId: string;
-    status: "cancelled" | "refunded" | "pending" | "processing" | "completed" | "failed" | "expired" | "refund_initiated" | "refund_processing" | "refund_failed" | "partially_refunded";
+    status: "pending" | "completed" | "cancelled" | "refunded" | "processing" | "failed" | "expired" | "refund_initiated" | "refund_processing" | "refund_failed" | "partially_refunded";
     amount: number;
     createdAt: string | Date;
     updatedAt: string | Date;
@@ -787,7 +787,7 @@ export declare const PaymentListResponseSchema: z.ZodArray<z.ZodObject<{
     user: string;
     orderId: string;
     paymentId: string;
-    status: "cancelled" | "refunded" | "pending" | "processing" | "completed" | "failed" | "expired" | "refund_initiated" | "refund_processing" | "refund_failed" | "partially_refunded";
+    status: "pending" | "completed" | "cancelled" | "refunded" | "processing" | "failed" | "expired" | "refund_initiated" | "refund_processing" | "refund_failed" | "partially_refunded";
     amount: number;
     createdAt: string | Date;
     updatedAt: string | Date;
@@ -848,7 +848,7 @@ export declare const PaymentListResponseSchema: z.ZodArray<z.ZodObject<{
     user: string;
     orderId: string;
     paymentId: string;
-    status: "cancelled" | "refunded" | "pending" | "processing" | "completed" | "failed" | "expired" | "refund_initiated" | "refund_processing" | "refund_failed" | "partially_refunded";
+    status: "pending" | "completed" | "cancelled" | "refunded" | "processing" | "failed" | "expired" | "refund_initiated" | "refund_processing" | "refund_failed" | "partially_refunded";
     amount: number;
     createdAt: string | Date;
     updatedAt: string | Date;
