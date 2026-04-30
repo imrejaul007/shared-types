@@ -649,6 +649,33 @@ Rendez uses Prisma with PostgreSQL. Default Prisma connection pool size is 5 con
 
 **Effort:** 1-2 days
 
+**STATUS: RESOLVED (2026-04-30)**
+
+Files created:
+
+| File | Purpose |
+|------|---------|
+| `pgbouncer.ini` | PgBouncer config: transaction mode, 20 pool size, 100 max connections |
+| `pgbouncer-userlist.txt` | Auth file for PgBouncer user authentication |
+| `docker-compose.yml` | Local dev stack with PostgreSQL + PgBouncer + Redis |
+
+**Configuration:**
+- `pool_mode = transaction` — release connection back to pool after each transaction
+- `max_client_conn = 100` — supports 100 concurrent app connections
+- `default_pool_size = 20` — 20 backend connections to PostgreSQL
+- `min_pool_size = 5` — minimum connections to maintain
+
+**Usage:**
+```bash
+# Local development with PgBouncer
+docker compose -f rendez-backend/docker-compose.yml up -d
+
+# App connects via PgBouncer on port 6432
+DATABASE_URL=postgresql://rendez:changeme@localhost:6432/rendez_dev
+```
+
+**Note:** Render Starter PostgreSQL has built-in connection pooling. For self-hosted production, deploy PgBouncer as a sidecar container.
+
 ---
 
 ### TECH-004: Hotel OTA Module Structure is Flat
@@ -1063,7 +1090,7 @@ Not all Rendez API routes were audited for auth middleware coverage. Some routes
 | SEC-006 | No PCI-DSS docs | P2 | SEC+BIZ | Payment+Legal | 2-4w | Open |
 | TECH-001 | MongoDB no replica set | P0 | TECH+OPS | DevOps | 1-2w | Code Complete |
 | TECH-002 | Unbounded queries | P1 | TECH | Hotel OTA | 3-5w | Open |
-| TECH-003 | PostgreSQL no pooler | P1 | TECH | Rendez | 1-2d | Open |
+| TECH-003 | PostgreSQL no pooler | P1 | TECH | Rendez | 1-2d | Resolved |
 | TECH-004 | Hotel OTA flat structure | P1 | TECH | Hotel OTA | 8-12w | Open |
 | TECH-005 | PMS bundle size | P1 | TECH | Hotel PMS | 2-3w | Open |
 | TECH-006 | Two hotel frontends | P1 | TECH+OPS | Hotel OTA | 3-4w | Open |
