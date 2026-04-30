@@ -508,6 +508,51 @@ Redis is used for sessions, OAuth state, Socket.io pub/sub, caching, and rate li
 
 **Effort:** 1-2 weeks
 
+**STATUS: CODE READY (2026-04-30)**
+
+Files created:
+
+| File | Purpose |
+|------|---------|
+| `docker-compose.redis-sentinel.yml` | Local dev with Redis Sentinel HA (1 primary + 2 replicas + 3 sentinels) |
+| `sentinel.conf` | Sentinel 1 configuration |
+| `sentinel2.conf` | Sentinel 2 configuration |
+| `sentinel3.conf` | Sentinel 3 configuration |
+| `docker-compose.example.env` | Added Sentinel environment variables |
+| `rez-auth-service/src/config/redisSentinel.ts` | Sentinel-aware Redis client |
+
+**Architecture:**
+```
+┌─────────────┐     ┌─────────────┐
+│  Sentinel 1 │     │  Sentinel 2 │
+└──────┬──────┘     └──────┬──────┘
+       │                   │
+       └────────┬──────────┘
+                │
+       ┌────────▼────────┐
+       │  Sentinel 3      │
+       └────────┬────────┘
+                │
+    ┌───────────┼───────────┐
+    │           │           │
+┌───▼───┐  ┌───▼───┐  ┌───▼───┐
+│Primary│  │Replica│  │Replica│
+└───────┘  └───────┘  └───────┘
+```
+
+**Usage:**
+```bash
+# Start Redis Sentinel cluster
+docker compose -f docker-compose.redis-sentinel.yml up -d
+
+# Connect via Sentinel
+REDIS_URL=redis+sentinel://:password@localhost:26379,mongodb:26380,mongodb:26381/0?sentinel_master=mymaster
+```
+
+**Production:**
+- For managed Redis (Render, Redis Cloud): Use their built-in HA features
+- For self-hosted: Deploy Redis Sentinel or Redis Cluster
+
 ---
 
 ### OPS-006: No Observability Stack
@@ -1078,7 +1123,7 @@ Not all Rendez API routes were audited for auth middleware coverage. Some routes
 | OPS-002 | Socket.io no Redis adapter | P0 | OPS | Hotel OTA + Rendez | 1-2d | Resolved |
 | OPS-003 | No API Gateway | P0 | OPS+SEC | Platform | 4-6w | Resolved |
 | OPS-004 | No CI/CD Pipeline | P0 | OPS | DevOps | 4-6w | Resolved |
-| OPS-005 | Redis no HA | P1 | OPS | DevOps | 1-2w | Open |
+| OPS-005 | Redis no HA | P1 | OPS | DevOps | 1-2w | Code Ready |
 | OPS-006 | No Observability Stack | P1 | OPS | DevOps | 3-4w | Open |
 | OPS-007 | No Staging Parity | P2 | OPS | DevOps | 2-3w | Open |
 | OPS-008 | No SLA/SLO | P2 | BIZ+OPS | Business | 1w | Open |
