@@ -104,7 +104,7 @@ export default {
       },
     ],
   },
-  create(context) {
+  create(context: { report: (msg: unknown) => void }) {
     return {
       // This would need actual AST analysis to implement fully
       // For now, this is a documentation placeholder
