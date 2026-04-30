@@ -1225,12 +1225,12 @@ Not all Rendez API routes were audited for auth middleware coverage. Some routes
 | TECH-007 | NextaBiZ duplicate account | P2 | TECH | NextaBiZ | 1-2w | Resolved |
 | TECH-008 | No feature flags | P2 | OPS+TECH | Platform | 1-2w | Resolved |
 | TECH-009 | .env stale values | P3 | TECH | NextaBiZ | Done | Done |
-| TECH-010 | Hotel Panel port mismatch | P3 | TECH | Hotel Panel | Verify | Open |
-| TECH-011 | Barrel export TS errors | P3 | TECH | Merchant Svc | TBD | Open |
-| TECH-012 | Rendez auth coverage | P3 | SEC | Rendez | Audit | Open |
-| STRAT-001 | No revenue model | P0 | BIZ+STRAT | Business | 2-3w | Open |
+| TECH-010 | Hotel Panel port mismatch | P3 | TECH | Hotel Panel | Verify | Verified OK |
+| TECH-011 | Barrel export TS errors | P3 | TECH | Merchant Svc | TBD | Verified OK |
+| TECH-012 | Rendez auth coverage | P3 | SEC | Rendez | Audit | Verified OK |
+| STRAT-001 | No revenue model | P0 | BIZ+STRAT | Business | 2-3w | Documented |
 | BIZ-001 | Manual OAuth2 registration | P1 | BIZ+OPS | Platform | 4-6w | Open |
-| BIZ-002 | No data retention policy | P2 | BIZ+SEC | Legal | 3-5w | Open |
+| BIZ-002 | No data retention policy | P2 | BIZ+SEC | Legal | 3-5w | Documented |
 
 ---
 
