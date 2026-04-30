@@ -1229,7 +1229,7 @@ Not all Rendez API routes were audited for auth middleware coverage. Some routes
 | TECH-011 | Barrel export TS errors | P3 | TECH | Merchant Svc | TBD | Verified OK |
 | TECH-012 | Rendez auth coverage | P3 | SEC | Rendez | Audit | Verified OK |
 | STRAT-001 | No revenue model | P0 | BIZ+STRAT | Business | 2-3w | Documented |
-| BIZ-001 | Manual OAuth2 registration | P1 | BIZ+OPS | Platform | 4-6w | Open |
+| BIZ-001 | Manual OAuth2 registration | P1 | BIZ+OPS | Platform | 4-6w | Resolved |
 | BIZ-002 | No data retention policy | P2 | BIZ+SEC | Legal | 3-5w | Documented |
 
 ---
