@@ -1,0 +1,397 @@
+# ============================================================
+# REZ Ecosystem — Local Development Docker Compose
+# ============================================================
+# Usage:
+#   Full stack:    docker compose up
+#   Backend only:  docker compose up auth-api merchant-api rendez-backend
+#   Frontend only: docker compose up nextabizz-web hotel-panel
+#   With deps:     docker compose up -d mongodb-primary mongodb-secondary-1 mongodb-secondary-2 redis postgres
+#
+# Ports exposed:
+#   MongoDB Primary:     27017
+#   MongoDB Secondary 1:  27018
+#   MongoDB Secondary 2:  27019
+#   Redis:               6379
+#   PostgreSQL:          5432
+#   REZ Auth:            4002
+#   REZ Merchant:         4005
+#   REZ Wallet:          4001
+#   REZ Payment:         4006
+#   Rendez:              4000
+#   Hotel OTA API:       3000
+#   NextaBiZ Web:       3001
+#   Hotel Panel:         3002
+#   REZ Now:            3003
+#
+# MongoDB Replica Set:
+#   Primary:   mongodb://mongodb-primary:27017
+#   All nodes: mongodb://mongodb-primary:27017,mongodb-secondary-1:27017,mongodb-secondary-2:27017/?replicaSet=rs0
+# ============================================================
+
+services:
+  # ── Databases & Cache ────────────────────────────────────
+
+  # ── MongoDB Replica Set (3-node for production-like local dev) ──
+  # Format: mongodb://mongodb-primary:27017,mongodb-secondary-1:27017,mongodb-secondary-2:27017/?replicaSet=rs0
+
+  mongodb-primary:
+    image: mongo:7
+    container_name: rez-mongodb-primary
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongodb_primary_data:/data/db
+    command: mongod --replSet rs0 --bind_ip_all --priority 2
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', 'db.runCommand({ping:1})']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rez-network
+
+  mongodb-secondary-1:
+    image: mongo:7
+    container_name: rez-mongodb-secondary-1
+    restart: unless-stopped
+    ports:
+      - '27018:27017'
+    volumes:
+      - mongodb_secondary1_data:/data/db
+    command: mongod --replSet rs0 --bind_ip_all --priority 1
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', 'db.runCommand({ping:1})']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rez-network
+
+  mongodb-secondary-2:
+    image: mongo:7
+    container_name: rez-mongodb-secondary-2
+    restart: unless-stopped
+    ports:
+      - '27019:27017'
+    volumes:
+      - mongodb_secondary2_data:/data/db
+    command: mongod --replSet rs0 --bind_ip_all --priority 1 --hidden true
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', 'db.runCommand({ping:1})']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rez-network
+
+  mongodb-init:
+    image: mongo:7
+    container_name: rez-mongodb-init
+    depends_on:
+      mongodb-primary:
+        condition: service_healthy
+      mongodb-secondary-1:
+        condition: service_healthy
+      mongodb-secondary-2:
+        condition: service_healthy
+    entrypoint: ['mongosh', '--host', 'mongodb-primary', '--eval', '''
+      try {
+        rs.initiate({
+          _id: "rs0",
+          members: [
+            {_id: 0, host: "mongodb-primary:27017", priority: 2},
+            {_id: 1, host: "mongodb-secondary-1:27017", priority: 1},
+            {_id: 2, host: "mongodb-secondary-2:27017", priority: 1, hidden: true}
+          ]
+        });
+        print("Replica set initialized with 3 nodes");
+      } catch (e) {
+        if (e.message.includes("already initialized")) {
+          print("Replica set already initialized");
+        } else {
+          throw e;
+        }
+      }
+    ''']
+    networks:
+      - rez-network
+    restart: 'no'
+
+  redis:
+    image: redis:7-alpine
+    container_name: rez-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass ''
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: rez-postgres
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: rez
+      POSTGRES_PASSWORD: rez_password
+      POSTGRES_DB: rez_dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U rez']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Core Backend Services ────────────────────────────────
+
+  auth-api:
+    build:
+      context: ./rez-auth-service
+      dockerfile: Dockerfile
+    container_name: rez-auth-service
+    restart: unless-stopped
+    ports:
+      - '4002:4002'
+    environment:
+      NODE_ENV: development
+      MONGODB_URI: mongodb://mongodb:27017/rez_auth_dev
+      REDIS_URL: redis://redis:6379
+      PORT: 4002
+      # Dev JWT secrets (NEVER use in production)
+      JWT_SECRET: dev-jwt-secret-change-in-production-32chars
+      JWT_REFRESH_SECRET: dev-refresh-secret-change-in-production
+      JWT_ADMIN_SECRET: dev-admin-secret-change-in-production!!
+      JWT_MERCHANT_SECRET: dev-merchant-secret-change-in-production!!
+      OTP_HMAC_SECRET: dev-otp-hmac-secret-change-in-production!!
+      OTP_TOTP_ENCRYPTION_KEY: dev-totp-encryption-key-32-bytes!!
+      EXPOSE_DEV_OTP: 'true'
+      LOG_LEVEL: debug
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:4002/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    volumes:
+      - ./rez-auth-service/src:/app/src:ro
+
+  merchant-api:
+    build:
+      context: ./rez-merchant-service
+      dockerfile: Dockerfile
+    container_name: rez-merchant-service
+    restart: unless-stopped
+    ports:
+      - '4005:4005'
+    environment:
+      NODE_ENV: development
+      PORT: 4005
+      MONGODB_URI: mongodb://mongodb:27017/rez_merchant_dev
+      REDIS_URL: redis://redis:6379
+      JWT_MERCHANT_SECRET: dev-merchant-secret-change-in-production!!
+      ENCRYPTION_KEY: dev-encryption-key-32-bytes-exactly!!
+      INTERNAL_SERVICE_TOKEN: dev-internal-token-change-in-production
+      MARKETING_SERVICE_URL: http://marketing-api:4000
+      LOG_LEVEL: debug
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth-api:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:4005/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    volumes:
+      - ./rez-merchant-service/src:/app/src:ro
+
+  rendez-backend:
+    build:
+      context: ./Rendez/rendez-backend
+      dockerfile: Dockerfile
+    container_name: rendez-backend
+    restart: unless-stopped
+    ports:
+      - '4000:4000'
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      DATABASE_URL: postgresql://rez:rez_password@postgres:5432/rendez_dev
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-jwt-secret-change-in-production-64chars-min
+      JWT_EXPIRES_IN: 7d
+      REZ_AUTH_SERVICE_URL: http://auth-api:4002
+      REZ_OAUTH_CLIENT_ID: rendez-app
+      # Generate with: openssl rand -base64 64
+      REZ_OAUTH_CLIENT_SECRET: dev-oauth-client-secret-generate-in-prod
+      REZ_OAUTH_REDIRECT_URI: http://localhost:4000/api/auth/oauth/callback
+      LOG_LEVEL: debug
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:4000/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    volumes:
+      - ./Rendez/rendez-backend/src:/app/src:ro
+      - ./Rendez/rendez-backend/prisma:/app/prisma:ro
+
+  hotel-ota-api:
+    build:
+      context: ./Hotel OTA
+      dockerfile: ./apps/api/Dockerfile
+    container_name: hotel-ota-api
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://rez:rez_password@postgres:5432/hotel_ota_dev
+      REDIS_URL: redis://redis:6379
+      REZ_AUTH_SERVICE_URL: http://auth-api:4002
+      REZ_MERCHANT_SERVICE_URL: http://merchant-api:4005
+      JWT_SECRET: dev-hotel-ota-jwt-secret-32-chars!!
+      LOG_LEVEL: debug
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth-api:
+        condition: service_healthy
+      merchant-api:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:3000/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    volumes:
+      - ./Hotel OTA/apps/api/src:/app/src:ro
+
+  # ── Frontend Apps ──────────────────────────────────────
+
+  nextabizz-web:
+    build:
+      context: ./nextabizz/apps/web
+      dockerfile: Dockerfile
+    container_name: nextabizz-web
+    restart: unless-stopped
+    ports:
+      - '3001:3000'
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_APP_URL: http://localhost:3001
+      NEXT_PUBLIC_API_URL: http://localhost:4005
+      NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: dev-anon-key
+      REZ_AUTH_SERVICE_URL: http://localhost:4002
+      REZ_MERCHANT_SERVICE_URL: http://localhost:4005
+      LOG_LEVEL: debug
+    depends_on:
+      - merchant-api
+      - auth-api
+    volumes:
+      - ./nextabizz/apps/web/app:/app/app:ro
+      - ./nextabizz/apps/web/lib:/app/lib:ro
+      - ./nextabizz/apps/web/components:/app/components:ro
+      - ./nextabizz/apps/web/public:/app/public:ro
+
+  hotel-panel:
+    build:
+      context: ./Hotel OTA
+      dockerfile: ./apps/hotel-panel/Dockerfile
+    container_name: hotel-panel
+    restart: unless-stopped
+    ports:
+      - '3002:3000'
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:3000/v1
+      NEXT_PUBLIC_APP_URL: http://localhost:3002
+      NEXT_PUBLIC_REZ_AUTH_URL: http://localhost:4002
+      NEXT_PUBLIC_REZ_OAUTH_CLIENT_ID: hotel-panel
+      REZ_OAUTH_CLIENT_SECRET: dev-oauth-client-secret-generate-in-prod
+    depends_on:
+      - hotel-ota-api
+      - auth-api
+    volumes:
+      - ./Hotel OTA/apps/hotel-panel/src:/app/src:ro
+      - ./Hotel OTA/apps/hotel-panel/public:/app/public:ro
+
+  rez-now:
+    build:
+      context: ./rez-now
+      dockerfile: Dockerfile
+    container_name: rez-now
+    restart: unless-stopped
+    ports:
+      - '3003:3000'
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_APP_URL: http://localhost:3003
+      NEXT_PUBLIC_API_URL: https://api.rezapp.com
+      REZ_AUTH_SERVICE_URL: http://localhost:4002
+      REZ_WALLET_SERVICE_URL: http://localhost:4001
+      REZ_MERCHANT_SERVICE_URL: http://localhost:4005
+      # Sentry is initialized in next.config.ts with org: rez-money, project: rez-now
+      # Set these in production; they are safe to be empty in dev
+      SENTRY_AUTH_TOKEN: ''
+      NEXT_PUBLIC_SENTRY_DSN: ''
+    depends_on:
+      - auth-api
+      - merchant-api
+    volumes:
+      - ./rez-now/app:/app/app:ro
+      - ./rez-now/lib:/app/lib:ro
+      - ./rez-now/components:/app/components:ro
+      - ./rez-now/public:/app/public:ro
+      - ./rez-now/i18n:/app/i18n:ro
+
+  # ── Shared Volumes ────────────────────────────────────
+
+volumes:
+  mongodb_primary_data:
+    driver: local
+  mongodb_secondary1_data:
+    driver: local
+  mongodb_secondary2_data:
+    driver: local
+  redis_data:
+    driver: local
+  postgres_data:
+    driver: local
+
+# ── Networks ─────────────────────────────────────────────
+networks:
+  default:
+    name: rez-network
+    driver: bridge
+  rez-network:
+    name: rez-network
+    driver: bridge
