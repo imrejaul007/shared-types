@@ -1221,7 +1221,7 @@ Not all Rendez API routes were audited for auth middleware coverage. Some routes
 | TECH-003 | PostgreSQL no pooler | P1 | TECH | Rendez | 1-2d | Resolved |
 | TECH-004 | Hotel OTA flat structure | P1 | TECH | Hotel OTA | 8-12w | Documented |
 | TECH-005 | PMS bundle size | P1 | TECH | Hotel PMS | 2-3w | Optimized |
-| TECH-006 | Two hotel frontends | P1 | TECH+OPS | Hotel OTA | 3-4w | Documented |
+| TECH-006 | Two hotel frontends | P1 | TECH+OPS | Hotel OTA | 3-4w | Decision: Keep Separate |
 | TECH-007 | NextaBiZ duplicate account | P2 | TECH | NextaBiZ | 1-2w | Resolved |
 | TECH-008 | No feature flags | P2 | OPS+TECH | Platform | 1-2w | Resolved |
 | TECH-009 | .env stale values | P3 | TECH | NextaBiZ | Done | Done |
