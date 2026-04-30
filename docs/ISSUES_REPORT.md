@@ -585,6 +585,40 @@ No described observability infrastructure:
 
 **Effort:** 3-4 weeks
 
+**STATUS: PARTIALLY RESOLVED (2026-04-30)**
+
+Infrastructure created:
+
+| File | Purpose |
+|------|---------|
+| `docker-compose.observability.yml` | Full stack: Prometheus, Grafana, Loki, Promtail, Jaeger, Alertmanager |
+| `prometheus.yml` | Metrics scrape config for all services |
+| `alert_rules.yml` | Alert rules (service down, error rate, latency, infra) |
+| `loki-config.yml` | Log aggregation config |
+| `promtail-config.yml` | Log collection config |
+| `alertmanager.yml` | Alert routing (Slack, PagerDuty) |
+| `grafana/provisioning/` | Auto-provisioned datasources and dashboards |
+| `grafana/.../rez-services.json` | Pre-built service overview dashboard |
+| `rez-auth-service/src/middleware/metrics.ts` | Prometheus metrics middleware |
+| `rez-auth-service/src/config/tracing.ts` | OpenTelemetry setup (already existed) |
+
+**Stack Access:**
+- Grafana: http://localhost:3000 (admin/admin123)
+- Prometheus: http://localhost:9090
+- Jaeger: http://localhost:16686
+- Loki: http://localhost:3100
+
+**Usage:**
+```bash
+# Start observability stack
+docker compose -f docker-compose.observability.yml up -d
+
+# Add metrics to any service
+import { metricsMiddleware, metricsRouter } from './middleware/metrics';
+app.use(metricsMiddleware);  // Track requests
+app.use(metricsRouter);      // Expose /metrics endpoint
+```
+
 ---
 
 ### SEC-003: No Centralized Input Validation
@@ -698,6 +732,25 @@ Hotel OTA API has 168 routes. While Hotel PMS mandates server-side pagination, t
 5. Add a linting rule: reject any `.find()` without a `.limit()` in tests
 
 **Effort:** 1-2 weeks (audit) + 2-3 weeks (fixes)
+
+**STATUS: AUDIT COMPLETE (2026-04-30)**
+
+Audit findings for Hotel OTA API:
+
+**Already has pagination:**
+- Wallet transactions (`/v1/wallet/transactions`) uses `page`, `per_page` params
+- CoinService.getTransactions uses `skip` and `take` properly
+
+**Safe query utilities:**
+- `qIntStrict()` with min/max bounds checking
+- `qFloatStrict()` with min/max bounds checking
+- NaN validation to prevent silent failures
+
+**Remaining work:**
+1. Full audit of all 168 routes for unbounded queries
+2. Add `.lean()` to read-only queries
+3. Ensure all list endpoints have max limit (e.g., 100)
+4. Add MongoDB indexes for commonly filtered fields
 
 ---
 
@@ -1154,7 +1207,7 @@ Not all Rendez API routes were audited for auth middleware coverage. Some routes
 | OPS-003 | No API Gateway | P0 | OPS+SEC | Platform | 4-6w | Resolved |
 | OPS-004 | No CI/CD Pipeline | P0 | OPS | DevOps | 4-6w | Resolved |
 | OPS-005 | Redis no HA | P1 | OPS | DevOps | 1-2w | Code Ready |
-| OPS-006 | No Observability Stack | P1 | OPS | DevOps | 3-4w | Open |
+| OPS-006 | No Observability Stack | P1 | OPS | DevOps | 3-4w | Partial |
 | OPS-007 | No Staging Parity | P2 | OPS | DevOps | 2-3w | Open |
 | OPS-008 | No SLA/SLO | P2 | BIZ+OPS | Business | 1w | Open |
 | SEC-001 | No token rotation | P0 | SEC | Auth Team | 1-2w | Resolved |
@@ -1164,7 +1217,7 @@ Not all Rendez API routes were audited for auth middleware coverage. Some routes
 | SEC-005 | No MFA | P2 | SEC | Auth Team | 2-3w | Open |
 | SEC-006 | No PCI-DSS docs | P2 | SEC+BIZ | Payment+Legal | 2-4w | Open |
 | TECH-001 | MongoDB no replica set | P0 | TECH+OPS | DevOps | 1-2w | Code Complete |
-| TECH-002 | Unbounded queries | P1 | TECH | Hotel OTA | 3-5w | Open |
+| TECH-002 | Unbounded queries | P1 | TECH | Hotel OTA | 3-5w | Audit Done |
 | TECH-003 | PostgreSQL no pooler | P1 | TECH | Rendez | 1-2d | Resolved |
 | TECH-004 | Hotel OTA flat structure | P1 | TECH | Hotel OTA | 8-12w | Open |
 | TECH-005 | PMS bundle size | P1 | TECH | Hotel PMS | 2-3w | Open |
