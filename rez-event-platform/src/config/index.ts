@@ -10,13 +10,13 @@ export interface Config {
   };
   mongodb: {
     uri: string;
-    options: mongoose.ConnectionOptions;
+    options: mongoose.ConnectOptions;
   };
   redis: {
     host: string;
     port: number;
     password: string;
-    maxRetriesPerRequest: number;
+    maxRetriesPerRequest: number | null;
   };
   bullmq: {
     concurrency: number;

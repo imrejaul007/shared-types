@@ -1,6 +1,8 @@
 import { z, ZodSchema, ZodError } from 'zod';
 import { logger } from '../utils/logger';
 
+export { logger };
+
 // Base event schema that all events must extend
 export const BaseEventSchema = z.object({
   id: z.string().uuid(),
