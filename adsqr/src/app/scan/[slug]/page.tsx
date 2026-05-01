@@ -1,8 +1,6 @@
 import { createClient } from '@/lib/supabase'
 import { templates } from './components'
 
-export const dynamic = 'force-dynamic'
-
 interface PageProps {
   params: Promise<{ slug: string }>
   searchParams: Promise<{ template?: string }>

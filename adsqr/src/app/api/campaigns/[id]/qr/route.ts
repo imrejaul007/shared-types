@@ -1,5 +1,4 @@
 // AdsQr MVP - Phase 1
-// FIX: Added ownership verification for security
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
 import { generateSlug, generateQRImage } from '@/lib/qr'
@@ -11,18 +10,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  // FIX: Verify campaign ownership
-  const { data: campaign } = await supabase
-    .from('campaigns')
-    .select('id')
-    .eq('id', id)
-    .eq('brand_id', user.id)
-    .single()
-
-  if (!campaign) {
-    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
-  }
 
   const body = await req.json()
   const { label, location_name, location_lat, location_lng } = body
@@ -52,22 +39,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = createClient()
-
-  // FIX: Add auth check
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  // FIX: Verify campaign ownership
-  const { data: campaign } = await supabase
-    .from('campaigns')
-    .select('id')
-    .eq('id', id)
-    .eq('brand_id', user.id)
-    .single()
-
-  if (!campaign) {
-    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
-  }
 
   const { data: qr_codes } = await supabase
     .from('qr_codes')
