@@ -59,7 +59,7 @@ class RezMindClient {
         throw new Error(`ReZ Mind API error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as MindResponse;
       logger.debug('Feedback sent to ReZ Mind', { actionId: feedback.action_id });
 
       return data;

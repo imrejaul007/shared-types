@@ -18,7 +18,7 @@ interface HealthStatus {
 }
 
 interface ComponentHealth {
-  status: 'up' | 'down' | 'unknown';
+  status: 'up' | 'down' | 'unknown' | 'degraded';
   latency_ms?: number;
   message?: string;
 }

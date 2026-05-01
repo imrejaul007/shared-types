@@ -1,7 +1,7 @@
 export interface ActionFeedback {
   action_id: string;
   outcome: 'approved' | 'rejected' | 'ignored' | 'failed' | 'edited';
-  latency_ms: number | null;
+  latency_ms?: number | null;
   confidence_score: number;
   feedback_type: 'explicit' | 'implicit';
 
@@ -11,8 +11,8 @@ export interface ActionFeedback {
   decision_made: string;
 
   // Edit tracking (if edited)
-  original_value?: any;
-  edited_value?: any;
+  original_value?: unknown;
+  edited_value?: unknown;
 
   timestamp: number;
 }

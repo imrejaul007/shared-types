@@ -85,7 +85,7 @@ class LearningService {
       outcomeCounts[feedback.outcome]++;
       confidenceSum += feedback.confidence_score;
 
-      if (feedback.latency_ms !== null) {
+      if (feedback.latency_ms != null) {
         totalLatency += feedback.latency_ms;
         latencyCount++;
       }
@@ -171,7 +171,7 @@ class LearningService {
       outcomeDistribution[feedback.outcome] = (outcomeDistribution[feedback.outcome] || 0) + 1;
       confidenceSum += feedback.confidence_score;
 
-      if (feedback.latency_ms !== null) {
+      if (feedback.latency_ms != null) {
         totalLatency += feedback.latency_ms;
         latencyCount++;
       }
