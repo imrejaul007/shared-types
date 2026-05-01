@@ -4,11 +4,15 @@ import helmet from 'helmet';
 import compression from 'compression';
 import mongoose from 'mongoose';
 
+import { initSentry } from './config/sentry';
 import feedbackRoutes from './routes/feedback';
 import dashboardRoutes from './dashboard';
 import { checkHealth, isAlive, isReady } from './health';
 import { logger } from './utils/logger';
 import { feedbackProcessor } from './workers/feedback-processor';
+
+// Initialize Sentry
+initSentry();
 
 const PORT = parseInt(process.env.PORT || '4010');
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/rez-feedback';

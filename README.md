@@ -147,6 +147,61 @@ npx tsx packages/rez-intent-graph/src/server/agent-server.ts
 
 ---
 
+## Advertising Ecosystem
+
+The ReZ platform includes a comprehensive advertising ecosystem:
+
+| Product | Purpose | Status |
+|---------|---------|--------|
+| **AdBazaar** | Marketplace for ad inventory | Live |
+| **AdsQr** | Quick QR campaigns | MVP Ready |
+| **AdOS** | Intelligence layer | Spec Ready |
+
+### Products
+
+#### AdBazaar
+- Live at [ad-bazaar.vercel.app](https://ad-bazaar.vercel.app)
+- ~100/111 security issues fixed
+- Booking flow with Razorpay
+- QR attribution tracking
+
+#### AdsQr
+- Quick campaign creation (5 minutes)
+- Bulk QR generation
+- Multi-step rewards (scan/visit/purchase)
+- 3 landing page templates
+
+#### AdOS (Future)
+- AI recommendations
+- ROI prediction
+- Budget optimization
+- Requires 100+ campaigns
+
+### Documentation
+
+| Document | Description |
+|----------|-------------|
+| [AdBazaar Features](adBazaar/FEATURES.md) | Features & architecture |
+| [AdBazaar Fixes](adBazaar/FIXES-REQUIRED.md) | Issue tracker |
+| [AdsQr README](adsqr/README.md) | Full AdsQr documentation |
+| [AdsQr Concept](adsqr/CONCEPT.md) | Product concept & vision |
+| [AdOS Spec](ados/ADOS-SPEC.md) | Intelligence layer spec |
+| [Roadmap](ROADMAP.md) | Build order & timeline |
+
+### Quick Start
+
+**AdBazaar:**
+```bash
+cd adBazaar && npm install && npm run dev
+```
+
+**AdsQr:**
+```bash
+cd adsqr && npm install && npm run dev
+```
+
+---
+
 ## License
 
 Proprietary - ReZ / RuFlo
