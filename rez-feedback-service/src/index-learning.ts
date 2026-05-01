@@ -18,16 +18,49 @@ const EVENT_PLATFORM_URL = process.env.EVENT_PLATFORM_URL || 'http://localhost:4
 
 // Schema
 const feedbackSchema = new mongoose.Schema({
+  // Core identifiers
   correlationId: { type: String, required: true, index: true },
   decision: String,
   confidence: Number,
+
+  // Core outcome
   outcome: { type: String, enum: ['approved', 'rejected', 'ignored', 'modified', 'pending'], default: 'pending' },
   actionTaken: String,
   latencyMs: { type: Number, default: 0 },
+
+  // Modification data
   modifications: mongoose.Schema.Types.Mixed,
-  // Enhanced modification tracking
   modificationDirection: { type: String, enum: ['up', 'down', 'neutral'], default: 'neutral' },
   deltaPercent: { type: Number, default: 0 },
+
+  // DISCOVERY: WHY it changed
+  reasonCategory: { type: String, enum: ['high_demand', 'low_trust', 'constraint', 'preference', 'habit', 'seasonality'], default: null },
+  reasonDetail: { type: String, default: null },
+
+  // DISCOVERY: Intention type
+  intentionType: {
+    correction: { type: Boolean, default: false },
+    preference: { type: Boolean, default: false },
+    constraint: { type: Boolean, default: false }
+  },
+
+  // DISCOVERY: Confidence gap analysis
+  confidenceGap: { type: String, enum: ['high_delta_low_confidence', 'aligned', 'low_delta_high_confidence', 'unknown'], default: 'unknown' },
+
+  // DISCOVERY: Context completeness
+  contextCompleteness: {
+    hadRecentSales: { type: Boolean, default: false },
+    hadDayPattern: { type: Boolean, default: false },
+    hadSeasonality: { type: Boolean, default: false },
+    hadSupplierLeadTime: { type: Boolean, default: false },
+    missingFeatures: [String]
+  },
+
+  // Ignored tracking
+  ignoredAt: { type: Date, default: null },
+  ignoredAfterHours: { type: Number, default: null },
+
+  // Learning
   feedbackType: { type: String, enum: ['explicit', 'implicit'], default: 'explicit' },
   source: { type: String, default: 'api' },
   decisionCreatedAt: Date,
@@ -35,15 +68,12 @@ const feedbackSchema = new mongoose.Schema({
   learningSignal: {
     accuracyDelta: Number,
     confidenceAdjusted: Number,
-    modificationWeightedDelta: Number, // Weighted by delta magnitude
+    modificationWeightedDelta: Number,
   },
   merchantId: String,
   itemId: String,
   processed: { type: Boolean, default: false },
   learningEmitted: { type: Boolean, default: false },
-  // Ignored feedback tracking (timeout-based)
-  ignoredAt: { type: Date, default: null },
-  ignoredReason: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -1467,7 +1497,7 @@ app.get('/decision-timeline', async (req: Request, res: Response) => {
 app.get('/safety-events', async (req: Request, res: Response) => {
   try {
     const allParams = await LearnedParams.find().lean();
-    const safetyEvents = [];
+    const safetyEvents: any[] = [];
 
     allParams.forEach(p => {
       if (p.quantityMultiplier <= LEARNING_CONFIG.multiplierBounds.min ||
@@ -1653,5 +1683,255 @@ function startIgnoredFeedbackScheduler() {
     }
   }, INTERVAL_MS);
 }
+
+// ============================================================
+// INSIGHT SYNTHESIS LAYER
+// Transforms raw feedback into structured intelligence
+// ============================================================
+
+// Weekly Insights
+app.get('/insights/weekly', async (req: Request, res: Response) => {
+  try {
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    // Get all feedback from last week
+    const weekFeedback = await Feedback.find({
+      feedbackReceivedAt: { $gte: oneWeekAgo }
+    }).lean();
+
+    if (weekFeedback.length === 0) {
+      return res.json({
+        period: 'last_7_days',
+        dataAvailable: false,
+        message: 'No feedback data for analysis'
+      });
+    }
+
+    // 1. Modification patterns by reason
+    const reasonCounts: Record<string, number> = {};
+    weekFeedback.forEach(fb => {
+      if (fb.reasonCategory) {
+        reasonCounts[fb.reasonCategory] = (reasonCounts[fb.reasonCategory] || 0) + 1;
+      }
+    });
+    const topReasons = Object.entries(reasonCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([reason, count]) => ({ reason, count }));
+
+    // 2. Delta patterns (normalize across scale)
+    const deltaAnalysis: any[] = [];
+    weekFeedback.forEach(fb => {
+      if (fb.modifications && fb.deltaPercent !== undefined) {
+        const suggested = typeof fb.modifications.suggested === 'object'
+          ? fb.modifications.suggested.quantity
+          : fb.modifications.suggested;
+        const final = typeof fb.modifications.final === 'object'
+          ? fb.modifications.final.quantity
+          : fb.modifications.final;
+        const absolute = Math.abs(final - suggested);
+        const impactScore = suggested > 0 ? absolute / suggested : 0;
+
+        deltaAnalysis.push({
+          merchantId: fb.merchantId,
+          deltaPercent: fb.deltaPercent,
+          deltaAbsolute: absolute,
+          impactScore,
+          direction: fb.deltaPercent >= 0 ? 'up' : 'down'
+        });
+      }
+    });
+
+    const avgDelta = deltaAnalysis.length > 0
+      ? deltaAnalysis.reduce((sum, d) => sum + d.deltaPercent, 0) / deltaAnalysis.length
+      : 0;
+    const avgImpact = deltaAnalysis.length > 0
+      ? deltaAnalysis.reduce((sum, d) => sum + d.impactScore, 0) / deltaAnalysis.length
+      : 0;
+
+    // 3. Merchant patterns
+    const merchantPatterns: Record<string, any> = {};
+    weekFeedback.forEach(fb => {
+      if (fb.merchantId) {
+        if (!merchantPatterns[fb.merchantId]) {
+          merchantPatterns[fb.merchantId] = {
+            merchantId: fb.merchantId,
+            decisions: 0,
+            modifications: 0,
+            approvals: 0,
+            rejections: 0,
+            avgDelta: 0,
+            deltas: []
+          };
+        }
+        const m = merchantPatterns[fb.merchantId];
+        m.decisions++;
+        if (fb.outcome === 'approved') m.approvals++;
+        if (fb.outcome === 'rejected') m.rejections++;
+        if (fb.outcome === 'modified') {
+          m.modifications++;
+          if (fb.deltaPercent !== undefined) m.deltas.push(fb.deltaPercent);
+        }
+      }
+    });
+
+    // Calculate avg delta per merchant
+    Object.values(merchantPatterns).forEach((m: any) => {
+      m.avgDelta = m.deltas.length > 0
+        ? m.deltas.reduce((a: number, b: number) => a + b, 0) / m.deltas.length
+        : 0;
+      m.modificationRate = m.decisions > 0 ? m.modifications / m.decisions : 0;
+      m.approvalRate = m.decisions > 0 ? m.approvals / m.decisions : 0;
+    });
+
+    const topMerchantPatterns = Object.values(merchantPatterns)
+      .sort((a: any, b: any) => b.decisions - a.decisions)
+      .slice(0, 5);
+
+    // 4. Context gaps
+    const contextGaps: Record<string, number> = {};
+    weekFeedback.forEach(fb => {
+      if (fb.contextCompleteness?.missingFeatures) {
+        fb.contextCompleteness.missingFeatures.forEach((f: string) => {
+          contextGaps[f] = (contextGaps[f] || 0) + 1;
+        });
+      }
+    });
+    const topContextGaps = Object.entries(contextGaps)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([feature, count]) => ({ feature, count }));
+
+    // 5. Trust signals per merchant
+    const trustSignals: Record<string, any> = {};
+    Object.entries(merchantPatterns).forEach(([merchantId, m]: [string, any]) => {
+      trustSignals[merchantId] = {
+        merchantId,
+        autoAcceptRate: m.approvalRate + m.modificationRate,
+        overrideRate: 1 - (m.approvalRate + m.modificationRate),
+        trustLevel: m.approvalRate > 0.7 ? 'high' : m.approvalRate > 0.4 ? 'medium' : 'low'
+      };
+    });
+
+    res.json({
+      period: 'last_7_days',
+      generatedAt: new Date().toISOString(),
+      dataAvailable: true,
+      summary: {
+        totalDecisions: weekFeedback.length,
+        totalModifications: deltaAnalysis.length,
+        avgDeltaPercent: Math.round(avgDelta * 100) / 100,
+        avgImpactScore: Math.round(avgImpact * 1000) / 1000,
+        totalMerchants: Object.keys(merchantPatterns).length
+      },
+      insights: {
+        topReasons,
+        topMerchantPatterns,
+        topContextGaps,
+        trustSignals: Object.values(trustSignals).slice(0, 5),
+        clusters: detectClusters(deltaAnalysis)
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Simple cluster detection
+function detectClusters(data: any[]) {
+  // Basic cluster detection based on delta ranges
+  const clusters = {
+    aggressive: data.filter(d => d.deltaPercent > 15).length,
+    moderate: data.filter(d => d.deltaPercent >= -15 && d.deltaPercent <= 15).length,
+    conservative: data.filter(d => d.deltaPercent < -15).length
+  };
+  return clusters;
+}
+
+// Merchant insights
+app.get('/insights/merchant/:merchantId', async (req: Request, res: Response) => {
+  try {
+    const { merchantId } = req.params;
+    const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const feedback = await Feedback.find({
+      merchantId,
+      feedbackReceivedAt: { $gte: oneMonthAgo }
+    }).sort({ feedbackReceivedAt: -1 }).lean();
+
+    if (feedback.length === 0) {
+      return res.json({ found: false, merchantId });
+    }
+
+    // Calculate patterns
+    const deltas = feedback
+      .filter(f => f.deltaPercent !== undefined)
+      .map(f => f.deltaPercent);
+
+    const avgDelta = deltas.length > 0
+      ? deltas.reduce((a, b) => a + b, 0) / deltas.length
+      : 0;
+
+    // Trust signal
+    const approvals = feedback.filter(f => f.outcome === 'approved').length;
+    const approvalsRate = approvals / feedback.length;
+
+    // Repeat patterns
+    const recentDeltas = deltas.slice(0, 7);
+    const avgDeltaWeek = recentDeltas.length > 0
+      ? recentDeltas.reduce((a, b) => a + b, 0) / recentDeltas.length
+      : 0;
+    const deltaVariance = deltas.length > 1
+      ? Math.sqrt(deltas.reduce((sum, d) => sum + Math.pow(d - avgDelta, 2), 0) / deltas.length)
+      : 0;
+
+    res.json({
+      merchantId,
+      period: 'last_30_days',
+      found: true,
+      profile: {
+        decisions: feedback.length,
+        avgDeltaPercent: Math.round(avgDelta * 100) / 100,
+        trustLevel: approvalsRate > 0.7 ? 'high' : approvalsRate > 0.4 ? 'medium' : 'low',
+        patternStability: deltaVariance < 5 ? 'stable' : deltaVariance < 15 ? 'moderate' : 'variable'
+      },
+      repeatPattern: {
+        avgDelta7d: Math.round(avgDeltaWeek * 100) / 100,
+        deltaVariance: Math.round(deltaVariance * 100) / 100,
+        isPattern: recentDeltas.length >= 3 && deltaVariance < 10
+      },
+      decisions: feedback.slice(0, 20).map(f => ({
+        itemId: f.itemId,
+        outcome: f.outcome,
+        deltaPercent: f.deltaPercent,
+        reasonCategory: f.reasonCategory,
+        timestamp: f.feedbackReceivedAt
+      }))
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Dashboard info endpoint
+app.get('/', (req: Request, res: Response) => {
+  res.json({
+    service: 'rez-feedback-service',
+    version: '1.0.0',
+    mode: 'learning',
+    description: 'Feedback + Insight Synthesis Service',
+    endpoints: {
+      health: '/health',
+      feedback: 'POST /feedback',
+      stats: '/stats',
+      insights: {
+        weekly: 'GET /insights/weekly',
+        merchant: 'GET /insights/merchant/:merchantId'
+      },
+      patterns: '/modification-stats',
+      loop: '/loop-test'
+    }
+  });
+});
 
 start();

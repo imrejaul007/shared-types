@@ -149,8 +149,11 @@ app.get('/health', async (req: Request, res: Response) => {
   res.json({
     status: 'healthy',
     service: 'rez-action-engine',
-    mode: 'adaptive',
+    mode: 'shadow',
+    description: 'Learning disabled - baseline only',
     baselinePercentage: BASELINE_PERCENTAGE * 100 + '%',
+    hybridMode: HYBRID_MODE.baselineForDecisions ? 'baseline_for_decisions' : 'adaptive_decisions',
+    learningEnabled: false,
     mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
     feedbackService: FEEDBACK_SERVICE_URL,
     timestamp: new Date().toISOString(),
@@ -762,46 +765,31 @@ function createAdaptiveDecision(eventType: string, event: any, learnedParams: an
 
   switch (eventType) {
     case 'inventory.low': {
-      // For baseline group, use context-aware calculation
-      // For adaptive group, apply learning ONLY to quantity (not confidence)
-      const useLearning = !isBaseline && learnedParams.found && learnedParams.params.totalDecisions >= 15;
+      // LEARNING DISABLED - Using context-aware baseline only
+      // Re-enable learning only when proven better than baseline
 
-      // Only learn quantity multiplier from modifications (not from approvals/rejections)
-      const multiplier = useLearning ? learnedParams.params.quantityMultiplier : 1.0;
-
-      // CONTEXT-AWARE FINAL QUANTITY
+      // CONTEXT-AWARE QUANTITY (no learning applied)
+      const multiplier = 1.0; // No learning
       let suggestedQuantity = Math.round(baseQuantity * multiplier);
-      suggestedQuantity = Math.max(1, Math.min(suggestedQuantity, 50)); // Bound to 1-50
+      suggestedQuantity = Math.max(1, Math.min(suggestedQuantity, 50));
 
-      // Learning ONLY affects quantity, NOT confidence
-      // Confidence is based on context strength
-      let confidence = baseConfidence;
-      if (useLearning && learnedParams.params.approvalRate > 0.8) {
-        confidence = Math.min(0.95, confidence + 0.05);
-      }
+      // Confidence based on context only
+      const confidence = baseConfidence;
       const unitPrice = event.data?.unit_price || event.data?.price || 0;
-      // Calculate adaptive confidence
-      // Determine action level and recommendation based on safety thresholds
-      const { level: actionLevel, recommendation: actionRecommendation, reason: actionReason } = determineActionLevel(confidence, learnedParams);
+
+      // Determine action level
+      const { level: actionLevel, recommendation: actionRecommendation } = determineActionLevel(confidence, learnedParams);
 
       // Apply safety caps
       const { finalQuantity, finalValue, capped, capReason } = applySafetyCaps(suggestedQuantity, unitPrice);
 
-      let reason: string;
-      if (isBaseline) {
-        reason = 'Baseline group - using default values (no learning applied)';
-      } else if (learnedParams.found) {
-        reason = `Learned: user prefers ${((multiplier - 1) * 100).toFixed(0)}% more (${learnedParams.params.totalDecisions} decisions)`;
-      } else {
-        reason = 'No learning yet - using base suggestion';
-      }
+      const reason = 'Context-aware baseline (learning disabled)';
 
       return {
         type: 'draft_po_suggested',
         confidence: Math.round(confidence * 1000) / 1000,
         actionLevel,
         actionRecommendation,
-        actionReason,
         reason,
         data: {
           item_id: event.data?.item_id || event.data?.itemId,
