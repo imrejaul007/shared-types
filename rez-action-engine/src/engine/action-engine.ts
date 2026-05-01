@@ -20,7 +20,7 @@ export class ActionEngine {
   private executionHistory: ActionResult[] = [];
 
   private constructor() {
-    this.approvalQueue = new ApprovalQueue();
+    this.approvalQueue = ApprovalQueue.getInstance();
   }
 
   /**
@@ -104,7 +104,7 @@ export class ActionEngine {
     }
 
     // Determine if approval is required
-    const needsApproval = action.requiresApproval ?? !action.autoExecute ?? requiresApproval(request.actionId);
+    const needsApproval = action.requiresApproval || (!action.autoExecute && requiresApproval(request.actionId));
 
     if (needsApproval) {
       // Queue for approval
