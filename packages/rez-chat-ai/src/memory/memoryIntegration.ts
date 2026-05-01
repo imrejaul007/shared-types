@@ -1,10 +1,10 @@
 // ── Shared Memory Integration ─────────────────────────────────────────────────────
 // Connects AgentMemory to AI Chat for cross-app context
-// Uses local types to avoid dependency issues
+// Uses local types and dependency injection to avoid circular dependencies
 
 import { CustomerContext } from '../types';
 import { logger } from '../logger';
-import { crossAppAggregationService } from 'rez-intent-graph';
+import { getIntentGraphProvider } from '../intent-graph';
 
 // ── Local Types (matching @rez/agent-memory) ────────────────────────────────────
 
@@ -260,12 +260,14 @@ export class MemoryService {
    */
   async enrichFromIntentGraph(userId: string): Promise<void> {
     try {
-      const enriched = await crossAppAggregationService.getEnrichedContext(userId);
+      // Use dependency injection to get intent graph provider
+      const intentGraphProvider = getIntentGraphProvider();
+      const enriched = await intentGraphProvider.getEnrichedContext(userId);
       if (!enriched) return;
 
       // Compute dominant category from affinities (not stored on profile)
-      if (enriched.crossAppProfile) {
-        const { travelAffinity, diningAffinity, retailAffinity } = enriched.crossAppProfile;
+      if (enriched.profile) {
+        const { travelAffinity, diningAffinity, retailAffinity } = enriched.profile;
         const dominantCategory =
           travelAffinity >= diningAffinity && travelAffinity >= retailAffinity
             ? 'TRAVEL'
@@ -282,25 +284,25 @@ export class MemoryService {
       }
 
       // Store affinities as individual preferences
-      if (enriched.crossAppProfile) {
+      if (enriched.profile) {
         await this.store.setPreference(userId, {
           category: 'general',
           key: 'travelAffinity',
-          value: enriched.crossAppProfile.travelAffinity,
+          value: enriched.profile.travelAffinity,
           confidence: 0.7,
           source: 'behavior',
         });
         await this.store.setPreference(userId, {
           category: 'general',
           key: 'diningAffinity',
-          value: enriched.crossAppProfile.diningAffinity,
+          value: enriched.profile.diningAffinity,
           confidence: 0.7,
           source: 'behavior',
         });
         await this.store.setPreference(userId, {
           category: 'general',
           key: 'retailAffinity',
-          value: enriched.crossAppProfile.retailAffinity,
+          value: enriched.profile.retailAffinity,
           confidence: 0.7,
           source: 'behavior',
         });

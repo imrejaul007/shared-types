@@ -1,8 +1,9 @@
 // ── Commerce Memory Context ─────────────────────────────────────────────────────
 // Integration between Chat AI and Commerce Memory
 // Provides intent context to AI conversations
+// Uses dependency injection to avoid circular dependencies
 
-import { crossAppAggregationService, dormantIntentService } from 'rez-intent-graph';
+import { getIntentGraphProvider } from '../intent-graph';
 import { logger } from '../logger';
 
 export interface CommerceMemoryContext {
@@ -54,8 +55,9 @@ export async function getCommerceMemoryContext(
   try {
     logger.info('[CommerceMemoryContext] Loading context', { userId });
 
-    // Get enriched context from Intent Graph
-    const enrichedContext = await crossAppAggregationService.getEnrichedContext(userId);
+    // Get enriched context from Intent Graph (via dependency injection)
+    const intentGraphProvider = getIntentGraphProvider();
+    const enrichedContext = await intentGraphProvider.getEnrichedContext(userId);
 
     if (!enrichedContext) {
       logger.info('[CommerceMemoryContext] No context found', { userId });
@@ -65,7 +67,7 @@ export async function getCommerceMemoryContext(
     // Filter based on options
     const filteredActive = includeActive ? enrichedContext.activeIntents : [];
     const filteredDormant = includeDormant ? enrichedContext.dormantIntents : [];
-    const filteredProfile = includeProfile ? enrichedContext.crossAppProfile : undefined;
+    const filteredProfile = includeProfile ? enrichedContext.profile : undefined;
 
     // Format active intents
     const activeIntents: IntentSummary[] = filteredActive.map((intent: { category: string; key: string; confidence: number; lastSeen: Date }) => ({

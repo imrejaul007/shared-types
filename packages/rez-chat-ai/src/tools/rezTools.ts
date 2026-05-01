@@ -708,24 +708,37 @@ export const getUserIntentsTool: ToolHandlerConfig = {
   },
   execute: async (params: Record<string, unknown>, _context: CustomerContext): Promise<ToolResult> => {
     try {
-      const { intentCaptureService, crossAppAggregationService } = await import('rez-intent-graph');
-      const intents = await intentCaptureService.getActiveIntents(String(params.userId));
-      const enriched = await crossAppAggregationService.getEnrichedContext(String(params.userId));
+      // Use dependency injection to get intent graph provider
+      const { getIntentGraphProvider } = await import('../intent-graph');
+      const provider = getIntentGraphProvider();
+      const enriched = await provider.getEnrichedContext(String(params.userId));
+
+      if (!enriched) {
+        return {
+          success: true,
+          data: {
+            activeIntents: [],
+            dormantIntents: [],
+            affinities: {},
+          },
+        };
+      }
+
       return {
         success: true,
         data: {
-          activeIntents: intents.map(i => ({
-            key: i.intentKey,
+          activeIntents: enriched.activeIntents.map(i => ({
+            key: i.key,
             category: i.category,
             confidence: i.confidence,
-            lastSeen: i.lastSeenAt,
+            lastSeen: i.lastSeen,
           })),
-          dormantIntents: enriched?.dormantIntents?.slice(0, 5) || [],
-          affinities: enriched?.crossAppProfile?.travelAffinity
+          dormantIntents: enriched.dormantIntents.slice(0, 5),
+          affinities: enriched.profile
             ? {
-                travel: enriched.crossAppProfile.travelAffinity,
-                dining: enriched.crossAppProfile.diningAffinity,
-                retail: enriched.crossAppProfile.retailAffinity,
+                travel: enriched.profile.travelAffinity,
+                dining: enriched.profile.diningAffinity,
+                retail: enriched.profile.retailAffinity,
               }
             : {},
         },
@@ -747,14 +760,14 @@ export const triggerNudgeTool: ToolHandlerConfig = {
   },
   execute: async (params: Record<string, unknown>, _context: CustomerContext): Promise<ToolResult> => {
     try {
-      const { dormantIntentService } = await import('rez-intent-graph');
-      const dormant = await dormantIntentService.getUserDormantIntents(String(params.userId));
-      const target = dormant.find(d => d.intentKey.includes(String(params.intentKey)));
-      if (!target) {
-        return { success: false, error: 'Dormant intent not found' };
-      }
-      await dormantIntentService.triggerRevival(target._id.toString(), (params.triggerType as 'price_drop' | 'return_user' | 'seasonality' | 'offer_match' | 'manual') || 'manual');
-      return { success: true, data: { message: 'Revival triggered' } };
+      // Use event-based communication for nudge triggering
+      const { emitIntentRevived } = await import('../intent-graph');
+      emitIntentRevived(
+        String(params.userId),
+        String(params.intentKey),
+        String(params.triggerType || 'manual')
+      );
+      return { success: true, data: { message: 'Revival event emitted' } };
     } catch (err) {
       logger.error('trigger_nudge failed', { error: (err as Error).message });
       return { success: false, error: 'Failed to trigger revival' };

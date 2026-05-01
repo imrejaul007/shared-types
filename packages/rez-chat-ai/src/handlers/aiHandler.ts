@@ -16,7 +16,7 @@ import { UnifiedKnowledgeBase, createKnowledgeBase, MerchantKnowledgeData } from
 import { defaultSanitizer, sanitizeCustomerContext } from '../sanitizers/sanitize';
 import { detectIntent, getLearningSystem } from '../analytics';
 import { getCommerceMemoryContext } from '../memory/commerceMemoryContext';
-import { intentCaptureService } from 'rez-intent-graph';
+import { getIntentGraphProvider, emitIntentCaptured } from '../intent-graph';
 import { logger } from '../logger';
 
 // ── Intent Graph Context ────────────────────────────────────────────────────────
@@ -56,6 +56,9 @@ async function captureIntentFromChat(
 ): Promise<void> {
   const lower = message.toLowerCase();
 
+  // Get intent graph provider via dependency injection
+  const intentGraphProvider = getIntentGraphProvider();
+
   // Detect hotel/travel intent
   const hotelKeywords = [
     'hotel', 'stay', 'room', 'book', 'travel', 'trip',
@@ -63,7 +66,7 @@ async function captureIntentFromChat(
   ];
   if (hotelKeywords.some(k => lower.includes(k))) {
     const intentKey = `chat_${Date.now()}_hotel_${message.substring(0, 50).replace(/\s+/g, '_')}`;
-    intentCaptureService.capture({
+    intentGraphProvider.captureIntent({
       userId,
       appType: 'chat_ai',
       eventType: 'search',
@@ -71,6 +74,8 @@ async function captureIntentFromChat(
       intentKey,
       metadata: { message: message.substring(0, 200), channel: 'chat' },
     }).catch(() => {});
+    // Emit event for event-based communication
+    emitIntentCaptured(userId, intentKey, 'TRAVEL', { message, channel: 'chat' });
   }
 
   // Detect dining/restaurant intent
@@ -80,7 +85,7 @@ async function captureIntentFromChat(
   ];
   if (diningKeywords.some(k => lower.includes(k))) {
     const intentKey = `chat_${Date.now()}_dining_${message.substring(0, 50).replace(/\s+/g, '_')}`;
-    intentCaptureService.capture({
+    intentGraphProvider.captureIntent({
       userId,
       appType: 'chat_ai',
       eventType: 'search',
@@ -88,13 +93,15 @@ async function captureIntentFromChat(
       intentKey,
       metadata: { message: message.substring(0, 200), channel: 'chat' },
     }).catch(() => {});
+    // Emit event for event-based communication
+    emitIntentCaptured(userId, intentKey, 'DINING', { message, channel: 'chat' });
   }
 
   // Detect retail/shopping intent
   const retailKeywords = ['buy', 'shop', 'product', 'price', 'discount', 'clothes', 'shoes'];
   if (retailKeywords.some(k => lower.includes(k))) {
     const intentKey = `chat_${Date.now()}_retail_${message.substring(0, 50).replace(/\s+/g, '_')}`;
-    intentCaptureService.capture({
+    intentGraphProvider.captureIntent({
       userId,
       appType: 'chat_ai',
       eventType: 'search',
@@ -102,6 +109,8 @@ async function captureIntentFromChat(
       intentKey,
       metadata: { message: message.substring(0, 200), channel: 'chat' },
     }).catch(() => {});
+    // Emit event for event-based communication
+    emitIntentCaptured(userId, intentKey, 'RETAIL', { message, channel: 'chat' });
   }
 }
 
