@@ -1,15 +1,17 @@
-import Redis from 'ioredis';
+import IORedis from 'ioredis';
 import { env } from './env';
 
-let redisClient: Redis | null = null;
+type RedisClient = IORedis;
 
-export function createRedisClient(): Redis {
+let redisClient: RedisClient | null = null;
+
+export function createRedisClient(): RedisClient {
   const { REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, REDIS_TLS } = env;
 
-  const redisOptions: Record<string, string | boolean | number> = {
+  const config: Record<string, unknown> = {
     host: REDIS_HOST,
     port: parseInt(REDIS_PORT, 10),
-    retryStrategy: (times: number) => {
+    retryStrategy: (times: number): number | null => {
       const delay = Math.min(times * 50, 2000);
       return delay;
     },
@@ -19,14 +21,14 @@ export function createRedisClient(): Redis {
   };
 
   if (REDIS_PASSWORD) {
-    redisOptions.password = REDIS_PASSWORD;
+    config.password = REDIS_PASSWORD;
   }
 
   if (REDIS_TLS === 'true' || REDIS_TLS === '1') {
-    redisOptions.tls = true;
+    config.tls = true;
   }
 
-  const client = new Redis(redisOptions as ConstructorParameters<typeof Redis>[0]);
+  const client = new IORedis(config as never);
 
   client.on('connect', () => {
     console.log('Redis client connected');
@@ -36,7 +38,7 @@ export function createRedisClient(): Redis {
     console.log('Redis client ready');
   });
 
-  client.on('error', (error) => {
+  client.on('error', (error: Error) => {
     console.error('Redis client error:', error);
   });
 
@@ -51,7 +53,7 @@ export function createRedisClient(): Redis {
   return client;
 }
 
-export async function connectRedis(): Promise<Redis> {
+export async function connectRedis(): Promise<RedisClient> {
   if (!redisClient) {
     redisClient = createRedisClient();
   }
@@ -80,35 +82,44 @@ export async function disconnectRedis(): Promise<void> {
   }
 }
 
-export function getRedisClient(): Redis {
+export function getRedis(): RedisClient {
   if (!redisClient) {
     redisClient = createRedisClient();
   }
   return redisClient;
 }
 
+export { redisClient as redis };
+export { getRedis as getRedisClient };
+
+// Cache utility functions
 export async function cacheGet<T>(key: string): Promise<T | null> {
-  const client = getRedisClient();
+  const client = getRedis();
   const data = await client.get(key);
-  if (data) {
+  if (!data) return null;
+  try {
     return JSON.parse(data) as T;
+  } catch {
+    return null;
   }
-  return null;
 }
 
-export async function cacheSet(key: string, value: unknown, ttlSeconds?: number): Promise<void> {
-  const client = getRedisClient();
-  const ttl = ttlSeconds || parseInt(env.INSIGHT_CACHE_TTL_SECONDS, 10);
-  await client.setex(key, ttl, JSON.stringify(value));
+export async function cacheSet(key: string, value: unknown, ttlSeconds = 3600): Promise<void> {
+  const client = getRedis();
+  await client.setex(key, ttlSeconds, JSON.stringify(value));
 }
 
-export async function cacheDelete(key: string): Promise<void> {
-  const client = getRedisClient();
+export async function cacheDel(key: string): Promise<void> {
+  const client = getRedis();
   await client.del(key);
 }
 
+export async function cacheDelete(key: string): Promise<void> {
+  return cacheDel(key);
+}
+
 export async function cacheDeletePattern(pattern: string): Promise<void> {
-  const client = getRedisClient();
+  const client = getRedis();
   const keys = await client.keys(pattern);
   if (keys.length > 0) {
     await client.del(...keys);

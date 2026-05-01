@@ -1,11 +1,13 @@
-import Redis from 'ioredis';
+import IORedis, { RedisOptions } from 'ioredis';
 import { config } from './env';
 import logger from '../utils/logger';
 
+type Redis = IORedis;
+
 class RedisConnection {
   private static instance: RedisConnection;
-  private client: Redis | null = null;
-  private subscriber: Redis | null = null;
+  private client: IORedis | null = null;
+  private subscriber: IORedis | null = null;
   private isConnected: boolean = false;
 
   private constructor() {}
@@ -17,8 +19,8 @@ class RedisConnection {
     return RedisConnection.instance;
   }
 
-  private getConnectionOptions(): Redis.RedisOptions {
-    const options: Redis.RedisOptions = {
+  private getConnectionOptions(): RedisOptions {
+    const options: RedisOptions = {
       host: config.redis.host,
       port: config.redis.port,
       db: config.redis.db,
@@ -58,8 +60,8 @@ class RedisConnection {
         db: config.redis.db,
       });
 
-      this.client = new Redis(options);
-      this.subscriber = new Redis(options);
+      this.client = new IORedis(options);
+      this.subscriber = new IORedis(options);
 
       this.client.on('connect', () => {
         logger.info('Redis client connected');

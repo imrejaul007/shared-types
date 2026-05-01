@@ -65,6 +65,7 @@ app.use('/api/hris', corpHRISRoutes);            // HRIS Integration
 app.use('/api/finance', rtmnFinanceRoutes);     // RTMN Finance (Wallet, Cards, BNPL)
 app.use('/api/analytics', corpAnalyticsRoutes);   // Analytics & Reports
 app.use('/api/wallet', corpWalletRoutes);        // Multi-Category Benefit Wallet
+app.use('/api/benefits-config', require('./routes/corpBenefitsConfigRoutes')); // Benefits Configuration
 
 // Error handler
 app.use((err, req, res, next) => {

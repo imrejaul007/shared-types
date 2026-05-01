@@ -339,6 +339,18 @@ app.get('/stats/compare', async (req: Request, res: Response) => {
             ? 'Sample size is sufficient for statistical significance'
             : 'Need 30+ decisions per group for statistical significance',
         },
+        hybridMode: {
+          enabled: HYBRID_MODE.enabled,
+          baselineForDecisions: HYBRID_MODE.baselineForDecisions,
+          status: absoluteLift > HYBRID_MODE.minimumLiftForAuto ? 'learning_better' :
+                  absoluteLift < ROLLBACK_CONFIG.maxAcceptableDrop ? 'ROLLBACK_RECOMMENDED' : 'monitoring',
+        },
+        rollbackGuard: {
+          enabled: ROLLBACK_CONFIG.enabled,
+          recommendation: absoluteLift < ROLLBACK_CONFIG.maxAcceptableDrop ? 'DISABLE_ADAPTIVE' : 'monitoring',
+          currentLift: (absoluteLift * 100).toFixed(2) + '%',
+          threshold: (ROLLBACK_CONFIG.maxAcceptableDrop * 100) + '%',
+        },
       },
       storedComparisons,
       filters: { merchantId, itemId, eventType },
@@ -717,41 +729,58 @@ app.post('/webhook/feedback', async (req: Request, res: Response) => {
 
 /**
  * Create adaptive decision based on event type and learned parameters
- * @param isBaseline - if true, ignore learning and use base values
+ * @param isBaseline - if true, use improved baseline calculation with context
  */
 function createAdaptiveDecision(eventType: string, event: any, learnedParams: any, isBaseline: boolean = false) {
-  const baseQuantity = 10;
-  const baseConfidence = 0.82;
+
+  // CONTEXT FEATURES - Extract from event data
+  const dayOfWeek = new Date().getDay(); // 0=Sunday, 6=Saturday
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const hourOfDay = new Date().getHours();
+  const isRushHour = hourOfDay >= 11 && hourOfDay <= 14 || hourOfDay >= 18 && hourOfDay <= 21;
+
+  // From event data (if available)
+  const recentOrders = event.data?.recent_orders_last_3_days || 0;
+  const avgDailySales = event.data?.avg_daily_sales || 5;
+  const currentStock = event.data?.current_stock || 3;
+  const threshold = event.data?.threshold || 5;
+  const itemId = event.data?.item_id || 'unknown';
+
+  // BASE CALCULATION - Context-aware baseline
+  // This is the STRONG baseline that should perform well
+  const deficit = Math.max(0, threshold - currentStock);
+  const safetyBuffer = avgDailySales * 2; // 2 days of average sales as buffer
+  const weekendBoost = isWeekend ? 1.3 : 1.0; // 30% more on weekends
+  const rushBoost = isRushHour ? 1.15 : 1.0; // 15% more during rush hours
+
+  const baseQuantity = Math.max(
+    deficit,
+    Math.round(safetyBuffer * weekendBoost * rushBoost)
+  );
+
+  const baseConfidence = 0.85; // Higher base confidence with context
 
   switch (eventType) {
     case 'inventory.low': {
-      // For baseline group, ignore learning
-      const useLearning = !isBaseline && learnedParams.found;
+      // For baseline group, use context-aware calculation
+      // For adaptive group, apply learning ONLY to quantity (not confidence)
+      const useLearning = !isBaseline && learnedParams.found && learnedParams.params.totalDecisions >= 15;
 
-      // Get learned parameters (only if not baseline)
+      // Only learn quantity multiplier from modifications (not from approvals/rejections)
       const multiplier = useLearning ? learnedParams.params.quantityMultiplier : 1.0;
-      const bias = useLearning ? learnedParams.params.confidenceBias : 0;
 
-      // Calculate adaptive quantity
-      const suggestedQuantity = Math.round(baseQuantity * multiplier);
-      const threshold = event.data?.threshold || 5;
-      const currentStock = event.data?.current_stock || 0;
-      const unitPrice = event.data?.unit_price || event.data?.price || 0;
+      // CONTEXT-AWARE FINAL QUANTITY
+      let suggestedQuantity = Math.round(baseQuantity * multiplier);
+      suggestedQuantity = Math.max(1, Math.min(suggestedQuantity, 50)); // Bound to 1-50
 
-      // Calculate adaptive confidence
-      let confidence = Math.min(1, Math.max(0, baseConfidence + bias));
-
-      // Boost confidence if we have strong learning (only for adaptive group)
-      if (useLearning) {
-        const approvalRate = learnedParams.params.approvalRate;
-        confidence = Math.min(1, confidence + (approvalRate * 0.05));
-
-        // Higher multiplier = user consistently wants more
-        if (multiplier > 1.2) {
-          confidence = Math.min(0.99, confidence + 0.03);
-        }
+      // Learning ONLY affects quantity, NOT confidence
+      // Confidence is based on context strength
+      let confidence = baseConfidence;
+      if (useLearning && learnedParams.params.approvalRate > 0.8) {
+        confidence = Math.min(0.95, confidence + 0.05);
       }
-
+      const unitPrice = event.data?.unit_price || event.data?.price || 0;
+      // Calculate adaptive confidence
       // Determine action level and recommendation based on safety thresholds
       const { level: actionLevel, recommendation: actionRecommendation, reason: actionReason } = determineActionLevel(confidence, learnedParams);
 

@@ -139,7 +139,7 @@ const insightSchema = new Schema<IInsightDocument>(
     timestamps: true,
     toJSON: {
       virtuals: true,
-      transform: (_doc, ret) => {
+      transform: (_doc, ret: Record<string, unknown>) => {
         delete ret.__v;
         return ret;
       },
@@ -179,7 +179,7 @@ export async function findUserInsights(
     .sort({ priority: 1, createdAt: -1 })
     .skip(skip)
     .limit(limit)
-    .lean();
+    .lean() as unknown as IInsightDocument[];
 }
 
 export async function findMerchantInsights(
@@ -201,7 +201,7 @@ export async function findMerchantInsights(
     .sort({ priority: 1, createdAt: -1 })
     .skip(skip)
     .limit(limit)
-    .lean();
+    .lean() as unknown as IInsightDocument[];
 }
 
 export async function findInsightById(id: string): Promise<IInsightDocument | null> {

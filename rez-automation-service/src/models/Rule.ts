@@ -129,7 +129,7 @@ const RuleSchema = new Schema<IRule>(
   {
     timestamps: true,
     toJSON: {
-      transform: (_doc, ret) => {
+      transform: (_doc, ret: Record<string, unknown>) => {
         delete ret.__v;
         return ret;
       },
@@ -179,6 +179,12 @@ RuleSchema.methods.enable = function (): Promise<IRule> {
   return this.save();
 };
 
-export const Rule: Model<IRule> = mongoose.model<IRule>('Rule', RuleSchema);
+// Extended model interface with static methods
+export interface IRuleModel extends Model<IRule> {
+  findByEvent(event: string): Promise<IRule[]>;
+  findEnabledRules(): Promise<IRule[]>;
+}
+
+export const Rule = mongoose.model<IRule, IRuleModel>('Rule', RuleSchema);
 
 export default Rule;
