@@ -389,3 +389,7 @@ export {
 export * from './schemas/campaign.schema';
 export * from './schemas/user.schema';
 export * from './schemas/notification.schema';
+
+// ─── Audit Logger ──────────────────────────────────────────────────────────────
+export { AuditLogger, AUDIT_ACTIONS } from './utils/AuditLogger';
+export type { AuditLogEntry } from './utils/AuditLogger';

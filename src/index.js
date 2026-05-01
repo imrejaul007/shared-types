@@ -1,4 +1,32 @@
 "use strict";
+/**
+ * @rez/shared-types — canonical cross-repo type surface.
+ *
+ * v2.0 rewrite — see MIGRATION.md. Major additions over v1:
+ *   - Strict zod schemas (no more `.passthrough()`) with discriminated unions
+ *   - FSM helpers: isValidPaymentTransition, assertValidOrderTransition, etc.
+ *   - Branded ID types: OrderId, UserId, PaymentId, ... (compile-time safety)
+ *   - Runtime guards (no-zod): isOrderResponse, isWalletResponse, isArrayOf, ...
+ *   - Deeper entity coverage matching rezbackend source of truth
+ *
+ * Import patterns:
+ *
+ *   // Entities + enums (no zod dep)
+ *   import type { IOrder, IUser } from '@rez/shared-types';
+ *   import { OrderStatus, CoinType } from '@rez/shared-types';
+ *
+ *   // Zod schemas (backend, admin)
+ *   import { CreateOrderSchema, WalletDebitSchema } from '@rez/shared-types';
+ *
+ *   // FSM helpers (backend, admin, merchant)
+ *   import { isValidPaymentTransition, canOrderBeCancelled } from '@rez/shared-types';
+ *
+ *   // Branded IDs (backend, merchant where strict)
+ *   import { toOrderId, type OrderId } from '@rez/shared-types';
+ *
+ *   // Runtime guards (consumer — no zod)
+ *   import { isOrderResponse, asPaymentStatus } from '@rez/shared-types';
+ */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -16,7 +44,8 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.isTerminalOrderStatus = exports.getValidNextOrderStates = exports.assertValidOrderTransition = exports.isValidOrderTransition = exports.ORDER_STATE_TRANSITIONS = exports.isPaymentOutcomeState = exports.PAYMENT_REFUND_STATES = exports.PAYMENT_FAILURE_STATES = exports.PAYMENT_SUCCESS_STATES = exports.isTerminalPaymentStatus = exports.getValidNextPaymentStates = exports.assertValidPaymentTransition = exports.isValidPaymentTransition = exports.getValidNextWalletDebitCoin = exports.COIN_PRIORITY_ORDER = exports.PAYMENT_STATE_TRANSITIONS = exports.COIN_TYPE_VALUES = exports.normalizeCoinTypeAs = exports.isCanonicalCoinType = exports.normalizeCoinType = exports.TransactionStatus = exports.EventType = exports.ServiceType = exports.ProfessionType = exports.DocumentType = exports.LocationSource = exports.LoyaltyTier = exports.PriveTier = exports.RezPlusTier = exports.ReferralTier = exports.Theme = exports.JewelryStyle = exports.VerificationStatus = exports.FinanceTransactionStatus = exports.FinanceTransactionType = exports.DiscountType = exports.OfferType = exports.NotificationChannel = exports.NotificationType = exports.CampaignChannel = exports.CampaignStatus = exports.CoinTransactionType = exports.COIN_PRIORITY = exports.CoinType = exports.PaymentGateway = exports.PaymentMethod = exports.PaymentStatus = exports.OrderStatus = exports.Gender = exports.UserRole = void 0;
 exports.UpdatePaymentStatusSchema = exports.CreatePaymentSchema = exports.PaymentMetadataSchema = exports.PaymentGatewayResponseSchema = exports.PaymentUserDetailsSchema = exports.PAYMENT_PURPOSE = exports.PAYMENT_GATEWAY = exports.PAYMENT_METHOD = exports.PAYMENT_STATUS = exports.OrderListResponseSchema = exports.OrderResponseSchema = exports.UpdateOrderStatusSchema = exports.CreateOrderSchema = exports.OrderDeliverySchema = exports.OrderAddressSchema = exports.OrderPaymentSchema = exports.OrderTotalsSchema = exports.OrderItemSchema = exports.ORDER_PAYMENT_STATUS = exports.ORDER_STATUS = exports.isArrayOf = exports.asCoinType = exports.asPaymentStatus = exports.asOrderStatus = exports.isProductResponse = exports.isUserResponse = exports.isWalletResponse = exports.isPaymentResponse = exports.isOrderResponse = exports.toRefundId = exports.toCouponId = exports.toCampaignId = exports.toCategoryId = exports.toWalletId = exports.toPaymentId = exports.toProductId = exports.toStoreId = exports.toMerchantId = exports.toUserId = exports.toOrderId = exports.isObjectIdLike = exports.mapPaymentStatusToOrderPaymentStatus = exports.getValidNextOrderPaymentStates = exports.assertValidOrderPaymentTransition = exports.isValidOrderPaymentTransition = exports.ORDER_PAYMENT_STATE_TRANSITIONS = exports.ORDER_PAYMENT_STATUSES = exports.canOrderBeCancelled = exports.ORDER_CANCELLABLE_STATES = exports.ORDER_ACTIVE_STATES = void 0;
-exports.AUDIT_ACTIONS = exports.AuditLogger = exports.WalletBalanceResponseSchema = exports.CoinTransactionListResponseSchema = exports.CoinTransactionResponseSchema = exports.WalletCreditSchema = exports.WalletDebitSchema = exports.BrandedCoinSchema = exports.CoinSchema = exports.WalletBalanceSchema = exports.TRANSACTION_STATUS = exports.COIN_TRANSACTION_TYPE = exports.COIN_TYPE = exports.ProductListResponseSchema = exports.ProductResponseSchema = exports.UpdateProductSchema = exports.CreateProductSchema = exports.ProductModifierSchema = exports.ProductModifierOptionSchema = exports.ProductInventorySchema = exports.ProductVariantSchema = exports.ProductRatingDistributionSchema = exports.ProductRatingSchema = exports.ProductPricingSchema = exports.ProductGSTSchema = exports.ProductImageSchema = exports.MENU_PERIOD = exports.TAX_SLAB = exports.PRODUCT_VISIBILITY = exports.PRODUCT_TYPE = exports.PaymentListResponseSchema = exports.PaymentResponseSchema = void 0;
+exports.WalletBalanceResponseSchema = exports.CoinTransactionListResponseSchema = exports.CoinTransactionResponseSchema = exports.WalletCreditSchema = exports.WalletDebitSchema = exports.BrandedCoinSchema = exports.CoinSchema = exports.WalletBalanceSchema = exports.TRANSACTION_STATUS = exports.COIN_TRANSACTION_TYPE = exports.COIN_TYPE = exports.ProductListResponseSchema = exports.ProductResponseSchema = exports.UpdateProductSchema = exports.CreateProductSchema = exports.ProductModifierSchema = exports.ProductModifierOptionSchema = exports.ProductInventorySchema = exports.ProductVariantSchema = exports.ProductRatingDistributionSchema = exports.ProductRatingSchema = exports.ProductPricingSchema = exports.ProductGSTSchema = exports.ProductImageSchema = exports.MENU_PERIOD = exports.TAX_SLAB = exports.PRODUCT_VISIBILITY = exports.PRODUCT_TYPE = exports.PaymentListResponseSchema = exports.PaymentResponseSchema = void 0;
+// ─── Enums ────────────────────────────────────────────────────────────────────
 var index_1 = require("./enums/index");
 Object.defineProperty(exports, "UserRole", { enumerable: true, get: function () { return index_1.UserRole; } });
 Object.defineProperty(exports, "Gender", { enumerable: true, get: function () { return index_1.Gender; } });
@@ -57,7 +86,9 @@ Object.defineProperty(exports, "PAYMENT_STATE_TRANSITIONS", { enumerable: true, 
 var wallet_1 = require("./entities/wallet");
 Object.defineProperty(exports, "COIN_PRIORITY_ORDER", { enumerable: true, get: function () { return wallet_1.COIN_PRIORITY_ORDER; } });
 Object.defineProperty(exports, "getValidNextWalletDebitCoin", { enumerable: true, get: function () { return wallet_1.getValidNextWalletDebitCoin; } });
+// ─── FSM helpers ──────────────────────────────────────────────────────────────
 var index_2 = require("./fsm/index");
+// Payment FSM
 Object.defineProperty(exports, "isValidPaymentTransition", { enumerable: true, get: function () { return index_2.isValidPaymentTransition; } });
 Object.defineProperty(exports, "assertValidPaymentTransition", { enumerable: true, get: function () { return index_2.assertValidPaymentTransition; } });
 Object.defineProperty(exports, "getValidNextPaymentStates", { enumerable: true, get: function () { return index_2.getValidNextPaymentStates; } });
@@ -66,6 +97,7 @@ Object.defineProperty(exports, "PAYMENT_SUCCESS_STATES", { enumerable: true, get
 Object.defineProperty(exports, "PAYMENT_FAILURE_STATES", { enumerable: true, get: function () { return index_2.PAYMENT_FAILURE_STATES; } });
 Object.defineProperty(exports, "PAYMENT_REFUND_STATES", { enumerable: true, get: function () { return index_2.PAYMENT_REFUND_STATES; } });
 Object.defineProperty(exports, "isPaymentOutcomeState", { enumerable: true, get: function () { return index_2.isPaymentOutcomeState; } });
+// Order FSM
 Object.defineProperty(exports, "ORDER_STATE_TRANSITIONS", { enumerable: true, get: function () { return index_2.ORDER_STATE_TRANSITIONS; } });
 Object.defineProperty(exports, "isValidOrderTransition", { enumerable: true, get: function () { return index_2.isValidOrderTransition; } });
 Object.defineProperty(exports, "assertValidOrderTransition", { enumerable: true, get: function () { return index_2.assertValidOrderTransition; } });
@@ -74,6 +106,7 @@ Object.defineProperty(exports, "isTerminalOrderStatus", { enumerable: true, get:
 Object.defineProperty(exports, "ORDER_ACTIVE_STATES", { enumerable: true, get: function () { return index_2.ORDER_ACTIVE_STATES; } });
 Object.defineProperty(exports, "ORDER_CANCELLABLE_STATES", { enumerable: true, get: function () { return index_2.ORDER_CANCELLABLE_STATES; } });
 Object.defineProperty(exports, "canOrderBeCancelled", { enumerable: true, get: function () { return index_2.canOrderBeCancelled; } });
+// Order.payment FSM
 Object.defineProperty(exports, "ORDER_PAYMENT_STATUSES", { enumerable: true, get: function () { return index_2.ORDER_PAYMENT_STATUSES; } });
 Object.defineProperty(exports, "ORDER_PAYMENT_STATE_TRANSITIONS", { enumerable: true, get: function () { return index_2.ORDER_PAYMENT_STATE_TRANSITIONS; } });
 Object.defineProperty(exports, "isValidOrderPaymentTransition", { enumerable: true, get: function () { return index_2.isValidOrderPaymentTransition; } });
@@ -93,6 +126,7 @@ Object.defineProperty(exports, "toCategoryId", { enumerable: true, get: function
 Object.defineProperty(exports, "toCampaignId", { enumerable: true, get: function () { return ids_1.toCampaignId; } });
 Object.defineProperty(exports, "toCouponId", { enumerable: true, get: function () { return ids_1.toCouponId; } });
 Object.defineProperty(exports, "toRefundId", { enumerable: true, get: function () { return ids_1.toRefundId; } });
+// ─── Runtime guards (no zod) ──────────────────────────────────────────────────
 var index_3 = require("./guards/index");
 Object.defineProperty(exports, "isOrderResponse", { enumerable: true, get: function () { return index_3.isOrderResponse; } });
 Object.defineProperty(exports, "isPaymentResponse", { enumerable: true, get: function () { return index_3.isPaymentResponse; } });
@@ -103,6 +137,9 @@ Object.defineProperty(exports, "asOrderStatus", { enumerable: true, get: functio
 Object.defineProperty(exports, "asPaymentStatus", { enumerable: true, get: function () { return index_3.asPaymentStatus; } });
 Object.defineProperty(exports, "asCoinType", { enumerable: true, get: function () { return index_3.asCoinType; } });
 Object.defineProperty(exports, "isArrayOf", { enumerable: true, get: function () { return index_3.isArrayOf; } });
+// ─── Zod schemas ──────────────────────────────────────────────────────────────
+// Each domain's schema module is also exported on the root so callers can
+// `import { CreateOrderSchema } from '@rez/shared-types'`.
 var order_schema_1 = require("./schemas/order.schema");
 Object.defineProperty(exports, "ORDER_STATUS", { enumerable: true, get: function () { return order_schema_1.ORDER_STATUS; } });
 Object.defineProperty(exports, "ORDER_PAYMENT_STATUS", { enumerable: true, get: function () { return order_schema_1.ORDER_PAYMENT_STATUS; } });
@@ -157,10 +194,8 @@ Object.defineProperty(exports, "WalletCreditSchema", { enumerable: true, get: fu
 Object.defineProperty(exports, "CoinTransactionResponseSchema", { enumerable: true, get: function () { return wallet_schema_1.CoinTransactionResponseSchema; } });
 Object.defineProperty(exports, "CoinTransactionListResponseSchema", { enumerable: true, get: function () { return wallet_schema_1.CoinTransactionListResponseSchema; } });
 Object.defineProperty(exports, "WalletBalanceResponseSchema", { enumerable: true, get: function () { return wallet_schema_1.WalletBalanceResponseSchema; } });
+// Campaign / user / notification schemas are still exported from their modules.
 __exportStar(require("./schemas/campaign.schema"), exports);
 __exportStar(require("./schemas/user.schema"), exports);
 __exportStar(require("./schemas/notification.schema"), exports);
-var AuditLogger_1 = require("./utils/AuditLogger");
-Object.defineProperty(exports, "AuditLogger", { enumerable: true, get: function () { return AuditLogger_1.AuditLogger; } });
-Object.defineProperty(exports, "AUDIT_ACTIONS", { enumerable: true, get: function () { return AuditLogger_1.AUDIT_ACTIONS; } });
 //# sourceMappingURL=index.js.map

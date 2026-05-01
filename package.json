@@ -13,7 +13,8 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "clean": "rm -rf dist",
-    "test": "echo '(tests live in __tests__; run via parent repo jest)'"
+    "test": "echo '(tests live in __tests__; run via parent repo jest)'",
+    "publish:npm": "npm run build && npm publish --access public"
   },
   "keywords": [
     "types",

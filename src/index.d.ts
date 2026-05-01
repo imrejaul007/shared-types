@@ -1,3 +1,31 @@
+/**
+ * @rez/shared-types — canonical cross-repo type surface.
+ *
+ * v2.0 rewrite — see MIGRATION.md. Major additions over v1:
+ *   - Strict zod schemas (no more `.passthrough()`) with discriminated unions
+ *   - FSM helpers: isValidPaymentTransition, assertValidOrderTransition, etc.
+ *   - Branded ID types: OrderId, UserId, PaymentId, ... (compile-time safety)
+ *   - Runtime guards (no-zod): isOrderResponse, isWalletResponse, isArrayOf, ...
+ *   - Deeper entity coverage matching rezbackend source of truth
+ *
+ * Import patterns:
+ *
+ *   // Entities + enums (no zod dep)
+ *   import type { IOrder, IUser } from '@rez/shared-types';
+ *   import { OrderStatus, CoinType } from '@rez/shared-types';
+ *
+ *   // Zod schemas (backend, admin)
+ *   import { CreateOrderSchema, WalletDebitSchema } from '@rez/shared-types';
+ *
+ *   // FSM helpers (backend, admin, merchant)
+ *   import { isValidPaymentTransition, canOrderBeCancelled } from '@rez/shared-types';
+ *
+ *   // Branded IDs (backend, merchant where strict)
+ *   import { toOrderId, type OrderId } from '@rez/shared-types';
+ *
+ *   // Runtime guards (consumer — no zod)
+ *   import { isOrderResponse, asPaymentStatus } from '@rez/shared-types';
+ */
 export { UserRole, Gender, OrderStatus, PaymentStatus, PaymentMethod, PaymentGateway, CoinType, COIN_PRIORITY, CoinTransactionType, CampaignStatus, CampaignChannel, NotificationType, NotificationChannel, OfferType, DiscountType, FinanceTransactionType, FinanceTransactionStatus, VerificationStatus, JewelryStyle, Theme, ReferralTier, RezPlusTier, PriveTier, LoyaltyTier, LocationSource, DocumentType, ProfessionType, ServiceType, EventType, TransactionStatus, normalizeCoinType, isCanonicalCoinType, normalizeCoinTypeAs, COIN_TYPE_VALUES, } from './enums/index';
 export type { IUserProfile, IUserPreferences, IUserAuth, IUserReferral, IUserWallet, IUserVerifications, IUser, IUserLocation, IUserLocationHistory, IUserJewelryPreferences, IUserNotificationPreferences, IUserVerificationDocument, IUserSocialLogin, IUserPushToken, IUserPatchTest, IUserFraudFlags, IStudentVerification, ICorporateVerification, IDefenceVerification, IHealthcareVerification, ISeniorVerification, ITeacherVerification, IGovernmentVerification, IDifferentlyAbledVerification, UserAccountStatus, UserVerificationSegment, UserSegment, UserInstituteStatus, UserStatedIdentity, } from './entities/user';
 export type { IOrder, IOrderItem, IOrderTotals, IOrderPayment, IOrderDelivery, IOrderAddress, IOrderServiceBookingDetails, IFulfillmentDetails, IOrderDeliveryAttempt, IOrderTimelineEntry, IOrderAnalytics, FulfillmentType, OrderItemType, OrderServiceLocation, OrderPaymentMethod, OrderDeliveryMethod, OrderDeliveryStatus, OrderAnalyticsSource, OrderAddressType, OrderPriority, } from './entities/order';
@@ -26,6 +54,4 @@ export { COIN_TYPE, COIN_TRANSACTION_TYPE, TRANSACTION_STATUS, WalletBalanceSche
 export * from './schemas/campaign.schema';
 export * from './schemas/user.schema';
 export * from './schemas/notification.schema';
-export { AuditLogger, AUDIT_ACTIONS } from './utils/AuditLogger';
-export type { AuditLogEntry } from './utils/AuditLogger';
 //# sourceMappingURL=index.d.ts.map
