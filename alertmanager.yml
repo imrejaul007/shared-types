@@ -47,7 +47,7 @@ receivers:
 
   - name: 'pagerduty-critical'
     pagerduty_configs:
-      - service_key: '${PAGERDUTY_SERVICE_KEY}'
+      - service_key: '${PAGERDUTY_ROUTING_KEY}'
         severity: critical
         send_resolved: true
         client: 'REZ Ecosystem'
@@ -56,3 +56,27 @@ receivers:
             value: critical
           - key: service
             value: REZ Platform
+
+  # Additional enhanced receivers
+  - name: 'slack-alerts'
+    slack_configs:
+      - send_resolved: true
+        channel: '#alerts'
+        api_url: '${SLACK_WEBHOOK_URL}'
+        title: '{{ if eq .Status "firing" }}:fire: {{ else }}:white_check_mark: {{ end }} {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *{{ .Labels.alertname }}*
+          Severity: {{ .Labels.severity }}
+          {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ end }}
+
+  - name: 'pagerduty-alerts'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_ROUTING_KEY}'
+        severity: critical
+        details:
+          - type: 'link'
+            name: 'Runbook'
+            text: '{{ .Annotations.runbook_url }}'
