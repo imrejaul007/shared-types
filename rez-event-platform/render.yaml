@@ -1,41 +1,13 @@
-# Render Blueprint
-# https://render.com/docs/blueprint-spec
-
 services:
   - type: web
     name: rez-event-platform
     env: node
-    region: oregon
-    plan: starter
-    buildCommand: npm install && npm run build
-    startCommand: npm start
-    healthCheckPath: /health
+    region: mumbai
+    plan: free
+    buildCommand: npm install
+    startCommand: npx ts-node src/index-simple.ts
     envVars:
-      - key: NODE_ENV
-        value: production
-      - key: PORT
-        value: 4008
-      - key: SERVICE_NAME
-        value: rez-event-platform
       - key: MONGODB_URI
         sync: false
-      - key: REDIS_HOST
-        fromDatabase:
-          name: rez-redis
-          property: host
-      - key: REDIS_PORT
-        fromDatabase:
-          name: rez-redis
-          property: port
-      - key: REDIS_PASSWORD
-        fromDatabase:
-          name: rez-redis
-          property: password
-      - key: LOG_LEVEL
-        value: info
-      - key: BULLMQ_CONCURRENCY
-        value: "5"
-      - key: BULLMQ_MAX_RETRIES
-        value: "3"
-      - key: BULLMQ_RETRY_DELAY
-        value: "5000"
+      - key: ACTION_ENGINE_URL
+        value: https://rez-action-engine.onrender.com

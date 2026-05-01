@@ -1,59 +1,13 @@
 services:
   - type: web
     name: rez-feedback-service
-    env: docker
-    region: oregon
-    plan: starter
-    dockerfilePath: ./Dockerfile
-    healthCheckPath: /health/live
+    env: node
+    region: mumbai
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: node dist/index-learning.js
     envVars:
-      - key: NODE_ENV
-        value: production
-      - key: PORT
-        value: 4010
       - key: MONGODB_URI
         sync: false
-      - key: REDIS_HOST
-        fromDatabase:
-          name: rez-redis
-          property: REDIS_HOST
-      - key: REDIS_PORT
-        fromDatabase:
-          name: rez-redis
-          property: REDIS_PORT
-      - key: REZ_MIND_URL
-        value: https://rez-mind.onrender.com
-      - key: REZ_MIND_API_KEY
-        sync: false
-      - key: LOG_LEVEL
-        value: info
-
-  - type: worker
-    name: rez-feedback-worker
-    env: docker
-    region: oregon
-    plan: starter
-    dockerfilePath: ./Dockerfile.worker
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: MONGODB_URI
-        sync: false
-      - key: REDIS_HOST
-        fromDatabase:
-          name: rez-redis
-          property: REDIS_HOST
-      - key: REDIS_PORT
-        fromDatabase:
-          name: rez-redis
-          property: REDIS_PORT
-      - key: REZ_MIND_URL
-        value: https://rez-mind.onrender.com
-      - key: REZ_MIND_API_KEY
-        sync: false
-
-databases:
-  - name: rez-feedback-db
-    plan: starter
-    databaseName: rez_feedback
-    ipAllowList: []
+      - key: EVENT_PLATFORM_URL
+        value: https://rez-event-platform.onrender.com

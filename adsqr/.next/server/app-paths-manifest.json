@@ -1,16 +1,3 @@
 {
-  "/_not-found": "app/_not-found.js",
-  "/api/analytics/attribution/route": "app/api/analytics/attribution/route.js",
-  "/api/campaigns/[id]/qr/bulk/route": "app/api/campaigns/[id]/qr/bulk/route.js",
-  "/api/campaigns/[id]/qr/route": "app/api/campaigns/[id]/qr/route.js",
-  "/api/campaigns/[id]/qr/download/route": "app/api/campaigns/[id]/qr/download/route.js",
-  "/api/purchase/route": "app/api/purchase/route.js",
-  "/api/scan/[slug]/route": "app/api/scan/[slug]/route.js",
-  "/api/visit/route": "app/api/visit/route.js",
-  "/api/campaigns/route": "app/api/campaigns/route.js",
-  "/campaigns/[id]/page": "app/campaigns/[id]/page.js",
-  "/api/campaigns/[id]/route": "app/api/campaigns/[id]/route.js",
-  "/campaigns/new/page": "app/campaigns/new/page.js",
-  "/page": "app/page.js",
-  "/scan/[slug]/page": "app/scan/[slug]/page.js"
+  "/page": "app/page.js"
 }

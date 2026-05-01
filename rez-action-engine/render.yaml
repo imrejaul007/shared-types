@@ -1,54 +1,13 @@
-# Render Blueprint for REZ Action Engine
-# https://render.com/docs/blueprint-spec
-
 services:
   - type: web
     name: rez-action-engine
     env: node
-    region: singapore
-    plan: starter
-    buildCommand: npm install && npm run build
-    startCommand: npm start
-    healthCheckPath: /health/live
-    readinessCheckPath: /health/ready
+    region: mumbai
+    plan: free
+    buildCommand: npm install
+    startCommand: npx ts-node src/index-adaptive.ts
     envVars:
-      - key: NODE_ENV
-        value: production
-      - key: PORT
-        value: "4009"
-      - key: REDIS_HOST
-        sync: false
-      - key: REDIS_PORT
-        value: "6379"
-      - key: REDIS_PASSWORD
-        sync: false
       - key: MONGODB_URI
         sync: false
-      - key: EVENT_PLATFORM_HOST
-        value: rez-event-platform
-      - key: EVENT_PLATFORM_PORT
-        value: "4001"
-      - key: EVENT_PLATFORM_API_KEY
-        sync: false
-      - key: NEXTABIZ_API_URL
-        value: http://nextabizz:4002
-      - key: NEXTABIZ_API_KEY
-        sync: false
-      - key: LOG_LEVEL
-        value: info
-      - key: RATE_LIMIT_WINDOW_MS
-        value: "60000"
-      - key: RATE_LIMIT_MAX_REQUESTS
-        value: "100"
-
-# Redis instance
-redis:
-  name: rez-action-engine-redis
-  plan: starter
-  region: singapore
-
-# PostgreSQL/MongoDB instance (if using MongoDB)
-# databases:
-#   - name: rez-action-engine-db
-#     plan: starter
-#     region: singapore
+      - key: FEEDBACK_SERVICE_URL
+        value: https://rez-feedback-service.onrender.com
