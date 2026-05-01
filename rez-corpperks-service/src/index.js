@@ -29,6 +29,7 @@ const corpIntegrationRoutes = require('./routes/corpIntegrationRoutes');
 const corpHRISRoutes = require('./routes/corpHRISRoutes');
 const rtmnFinanceRoutes = require('./routes/finance/rtmnFinanceRoutes');
 const corpAnalyticsRoutes = require('./routes/corpAnalyticsRoutes');
+const corpWalletRoutes = require('./routes/corpWalletRoutes');
 
 const app = express();
 
@@ -63,6 +64,7 @@ app.use('/api/integrations', corpIntegrationRoutes); // Integration health
 app.use('/api/hris', corpHRISRoutes);            // HRIS Integration
 app.use('/api/finance', rtmnFinanceRoutes);     // RTMN Finance (Wallet, Cards, BNPL)
 app.use('/api/analytics', corpAnalyticsRoutes);   // Analytics & Reports
+app.use('/api/wallet', corpWalletRoutes);        // Multi-Category Benefit Wallet
 
 // Error handler
 app.use((err, req, res, next) => {
