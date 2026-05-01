@@ -1,6 +1,22 @@
-# ReZ Automation Service
+# rez-automation-service
 
-A powerful automation rule engine service for the ReZ platform that enables event-driven automation with configurable rules for customer management, inventory control, dynamic pricing, and loyalty programs.
+Rule engine for automated triggers and workflow automation in the ReZ ecosystem.
+
+---
+
+## Overview
+
+The `rez-automation-service` is a flexible, rule-based automation engine that listens to business events and executes automated actions based on configurable rules. It enables intelligent workflow automation, customer engagement, and operational efficiency.
+
+## Purpose
+
+- **Rule Management**: Create, update, and manage automation rules
+- **Event Processing**: Listen to all business events via Event Bus
+- **Action Execution**: Execute webhook, email, notification, and API actions
+- **Workflow Automation**: Chain multiple actions with conditions
+- **Execution Tracking**: Comprehensive logging and analytics
+
+---
 
 ## Features
 
@@ -13,6 +29,226 @@ A powerful automation rule engine service for the ReZ platform that enables even
 - **RESTful API**: Full CRUD operations for rules and logs
 - **TypeScript**: Fully typed codebase for better developer experience
 
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Event Bus                                    │
+│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐ │
+│  │  order  │  │ payment │  │ wallet  │  │  hotel  │  │  other  │ │
+│  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘ │
+└───────┼────────────┼────────────┼────────────┼────────────┼───────┘
+        │            │            │            │            │
+        ▼            ▼            ▼            ▼            ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    automation-service                                │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                 │
+│  │   Rules     │  │  Executor   │  │   Logger    │                 │
+│  │   Engine    │  │             │  │             │                 │
+│  └─────────────┘  └─────────────┘  └─────────────┘                 │
+└─────────────────────────────────────────────────────────────────────┘
+        │
+        ▼
+┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+│ Notification│  │   Webhook   │  │    Email    │  │   API Call  │
+│   Service   │  │   Handler   │  │   Service   │  │   Handler   │
+└─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘
+```
+
+---
+
+## Built-in Rules
+
+### 1. Customer Churn Prevention
+**Trigger**: `order.cancelled`
+**Conditions**:
+- Order total > $100
+- User has less than 3 orders
+
+**Actions**:
+- Send personalized re-engagement notification
+- Flag user in CRM
+- Generate insight for sales team
+
+### 2. Inventory Alerts
+**Trigger**: `inventory.updated`
+**Conditions**:
+- Stock below threshold
+
+**Actions**:
+- Notify inventory manager
+- Trigger reorder workflow
+- Update dashboard metrics
+
+### 3. Dynamic Pricing
+**Trigger**: `market.demand_changed`
+**Conditions**:
+- Demand exceeds 150% of normal
+
+**Actions**:
+- Calculate new price
+- Update product pricing
+- Log price change
+
+### 4. Payment Failure Recovery
+**Trigger**: `payment.failed`
+**Conditions**:
+- Retry count < 3
+
+**Actions**:
+- Queue retry with exponential backoff
+- Send payment reminder
+- Update payment analytics
+
+### 5. Loyalty Points Processing
+**Trigger**: `order.completed`
+**Conditions**:
+- User is loyalty member
+
+**Actions**:
+- Calculate points earned
+- Update user points balance
+- Send points notification
+
+### 6. Fraud Detection Alert
+**Trigger**: `order.created`
+**Conditions**:
+- Multiple risk factors detected
+
+**Actions**:
+- Hold order for review
+- Alert fraud team
+- Log security event
+
+### 7. Welcome Series
+**Trigger**: `user.registered`
+**Conditions**:
+- New user signup
+
+**Actions**:
+- Send welcome email (delayed 1 hour)
+- Create onboarding insight
+- Add to welcome campaign
+
+### 8. Subscription Renewal Reminder
+**Trigger**: `subscription.expiry_approaching`
+**Conditions**:
+- 7 days before expiry
+
+**Actions**:
+- Send renewal reminder
+- Offer renewal incentive
+- Update CRM record
+
+---
+
+## API Endpoints
+
+### Rules API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/rules` | List all rules |
+| GET | `/api/rules/:id` | Get rule by ID |
+| POST | `/api/rules` | Create new rule |
+| PUT | `/api/rules/:id` | Update rule |
+| DELETE | `/api/rules/:id` | Delete rule |
+| POST | `/api/rules/:id/execute` | Execute rule manually |
+| POST | `/api/rules/:id/toggle` | Toggle rule enabled/disabled |
+| GET | `/api/rules/stats` | Get rule statistics |
+
+### Events API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/events` | List supported events |
+| POST | `/api/events` | Trigger an event |
+| GET | `/api/events/history` | Get event history |
+
+### Logs API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/logs` | List execution logs |
+| GET | `/api/logs/:id` | Get log by ID |
+| GET | `/api/logs/stats` | Get execution statistics |
+
+### Health API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| GET | `/api/health` | Detailed health check |
+
+---
+
+## Rule Structure
+
+```typescript
+interface Rule {
+  name: string;
+  description?: string;
+  trigger: {
+    event: string;
+    conditions?: ITriggerCondition[];
+  };
+  action: {
+    type: 'send_offer' | 'create_po' | 'update_price' | 'notify' | 'webhook' | 'email' | 'sms';
+    config: IActionConfig;
+  };
+  enabled: boolean;
+  priority: number;
+  tags?: string[];
+  cooldown?: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface ITriggerCondition {
+  field?: string;
+  operator?: 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'nin' | 'contains' | 'exists' | 'between' | 'regex';
+  value?: string | number | boolean | string[] | number[];
+  conditions?: ITriggerCondition[];
+  logic?: 'and' | 'or';
+}
+```
+
+---
+
+## Condition Operators
+
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `==` | Equals | `status == "pending"` |
+| `!=` | Not equals | `type != "test"` |
+| `>` | Greater than | `total > 100` |
+| `>=` | Greater or equal | `count >= 5` |
+| `<` | Less than | `stock < 10` |
+| `<=` | Less or equal | `priority <= 3` |
+| `contains` | String contains | `name contains "urgent"` |
+| `in` | Value in array | `status in ["a", "b"]` |
+| `not_in` | Value not in array | `type not_in ["void", "test"]` |
+| `between` | Value in range | `total between [50, 200]` |
+| `regex` | Regex match | `email regex "^admin@"` |
+
+---
+
+## Action Types
+
+| Type | Description | Configuration |
+|------|-------------|---------------|
+| `notification` | Send in-app notification | `target`, `template`, `priority` |
+| `webhook` | HTTP POST to external URL | `url`, `headers`, `payload` |
+| `email` | Send email via SMTP | `to`, `template`, `subject` |
+| `api_call` | Internal service call | `service`, `endpoint`, `method` |
+| `insight` | Generate AI insight | `type`, `category`, `content` |
+| `delay` | Wait before next action | `duration` (seconds) |
+| `condition` | Conditional branch | `if`, `then`, `else` |
+
+---
+
 ## Supported Events
 
 ### Order Events
@@ -20,80 +256,76 @@ A powerful automation rule engine service for the ReZ platform that enables even
 - `order.completed` - Order completed
 - `order.cancelled` - Order cancelled
 - `order.refunded` - Order refunded
+- `order.updated` - Order modified
 
 ### Payment Events
 - `payment.success` - Payment successful
 - `payment.failed` - Payment failed
 - `payment.pending` - Payment pending
+- `payment.initiated` - Payment started
+
+### Wallet Events
+- `wallet.created` - Wallet created
+- `wallet.deposit` - Funds deposited
+- `wallet.withdrawal` - Funds withdrawn
+- `wallet.transfer` - Transfer between wallets
+- `wallet.balance_changed` - Balance changed
 
 ### Customer Events
 - `customer.created` - New customer created
 - `customer.updated` - Customer profile updated
 - `customer.inactive` - Customer inactive (30+ days)
 - `customer.churned` - Customer churned
+- `user.registered` - User registered
+- `user.verified` - User verified
+- `user.suspended` - User suspended
 
 ### Inventory Events
 - `inventory.low` - Inventory below threshold
 - `inventory.updated` - Inventory updated
 - `inventory.out_of_stock` - Item out of stock
+- `inventory.restocked` - Inventory replenished
+
+### Hotel Events
+- `hotel.booking.created` - Hotel booking created
+- `hotel.booking.updated` - Booking updated
+- `hotel.booking.cancelled` - Booking cancelled
+- `hotel.room.checked_in` - Guest checked in
+- `hotel.room.checked_out` - Guest checked out
+- `hotel.room.status_changed` - Room status changed
 
 ### Occupancy Events
 - `occupancy.high` - High occupancy (>80%)
 - `occupancy.low` - Low occupancy (<30%)
 - `occupancy.normal` - Normal occupancy
 
-### Reservation Events
-- `reservation.created` - New reservation
-- `reservation.confirmed` - Reservation confirmed
-- `reservation.cancelled` - Reservation cancelled
-- `reservation.no_show` - No-show
+### AI Events
+- `intent.captured` - Intent captured
+- `intent.processed` - Intent processed
+- `insight.generated` - Insight generated
+- `analysis.complete` - Analysis complete
 
-## Pre-defined Rules
+### Subscription Events
+- `subscription.created` - Subscription created
+- `subscription.expiry_approaching` - Expiry approaching
 
-### Customer Rules
-| Rule Name | Trigger | Action |
-|-----------|---------|--------|
-| Churn Prevention | `customer.inactive` | Send 10% discount offer |
-| Customer Welcome | `customer.created` | Send welcome notification |
-| High Value Alert | `customer.created` | Notify sales team |
-| VIP Birthday | `customer.updated` | Send birthday offer |
+---
 
-### Inventory Rules
-| Rule Name | Trigger | Action |
-|-----------|---------|--------|
-| Low Inventory Alert | `inventory.low` | Create purchase order |
-| Out of Stock Alert | `inventory.updated` | Send urgent notification |
-| Overstock Warning | `inventory.updated` | Notify team |
+## Environment
 
-### Pricing Rules
-| Rule Name | Trigger | Action |
-|-----------|---------|--------|
-| High Occupancy Pricing | `occupancy.high` | Increase prices 20% |
-| Low Occupancy Discount | `occupancy.low` | Reduce prices 15% |
-| Happy Hour | `occupancy.low` | Apply 25% discount |
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `EVENT_BUS_URL` | Yes | - | Event bus connection string |
+| `DATABASE_URL` | Yes | - | PostgreSQL connection string |
+| `JWT_SECRET` | Yes | - | JWT verification secret |
+| `WEBHOOK_TIMEOUT` | No | `30` | Webhook timeout in seconds |
+| `MAX_RETRY_ATTEMPTS` | No | `3` | Maximum action retries |
+| `EXECUTION_TIMEOUT` | No | `60` | Max execution time in seconds |
+| `LOG_RETENTION_DAYS` | No | `90` | Days to retain execution logs |
+| `PORT` | No | `3009` | Service port |
+| `LOG_LEVEL` | No | `info` | Logging level |
 
-### Loyalty Rules
-| Rule Name | Trigger | Action |
-|-----------|---------|--------|
-| Post-Order Follow-up | `order.completed` | Send follow-up message |
-| First Order Reward | `order.completed` | Send 20% discount |
-| VIP Tier Upgrade | `customer.updated` | Send VIP reward |
-
-## Installation
-
-```bash
-# Install dependencies
-npm install
-
-# Copy environment file
-cp .env.example .env
-
-# Edit .env with your configuration
-```
-
-## Configuration
-
-### Environment Variables
+### Legacy Environment (MongoDB)
 
 ```env
 # Server
@@ -122,87 +354,32 @@ WORKER_CONCURRENCY=5
 WORKER_INTERVAL_MS=1000
 ```
 
-## Running the Service
+---
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 18+
+- MongoDB 6+
+- Redis 7+
+
+### Installation
 
 ```bash
-# Development
+# Install dependencies
+npm install
+
+# Copy environment file
+cp .env.example .env
+
+# Edit .env with your configuration
+
+# Run the service
 npm run dev
-
-# Production
-npm run build
-npm start
-
-# Run tests
-npm test
 ```
 
-## API Endpoints
-
-### Rules
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/rules` | List all rules |
-| GET | `/api/rules/:id` | Get rule by ID |
-| POST | `/api/rules` | Create new rule |
-| PUT | `/api/rules/:id` | Update rule |
-| DELETE | `/api/rules/:id` | Delete rule |
-| POST | `/api/rules/:id/execute` | Execute rule manually |
-| POST | `/api/rules/:id/toggle` | Toggle rule enabled/disabled |
-| GET | `/api/rules/stats` | Get rule statistics |
-
-### Events
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/events` | List supported events |
-| POST | `/api/events` | Trigger an event |
-| GET | `/api/events/history` | Get event history |
-
-### Logs
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/logs` | List execution logs |
-| GET | `/api/logs/:id` | Get log by ID |
-| GET | `/api/logs/stats` | Get execution statistics |
-
-### Health
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Health check |
-| GET | `/api/health` | Detailed health check |
-
-## Rule Structure
-
-```typescript
-interface Rule {
-  name: string;
-  description?: string;
-  trigger: {
-    event: string;
-    conditions?: ITriggerCondition[];
-  };
-  action: {
-    type: 'send_offer' | 'create_po' | 'update_price' | 'notify' | 'webhook' | 'email' | 'sms';
-    config: IActionConfig;
-  };
-  enabled: boolean;
-  priority: number;
-  tags?: string[];
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-interface ITriggerCondition {
-  field?: string;
-  operator?: 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'nin' | 'contains' | 'exists';
-  value?: string | number | boolean | string[] | number[];
-  conditions?: ITriggerCondition[];
-  logic?: 'and' | 'or';
-}
-```
+---
 
 ## Example Usage
 
@@ -257,36 +434,7 @@ curl -X POST http://localhost:3001/api/rules/:id/execute \
   }'
 ```
 
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     ReZ Automation Service                   │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────┐  │
-│  │   Express   │───▶│   Routes    │───▶│    Services     │  │
-│  │   Server    │    │             │    │                 │  │
-│  └─────────────┘    └─────────────┘    │  ┌───────────┐  │  │
-│                                         │  │RuleEngine │  │  │
-│                                         │  ├───────────┤  │  │
-│  ┌─────────────┐    ┌─────────────┐    │  │ActionExec │  │  │
-│  │   Worker    │───▶│   Trigger   │───▶│  ├───────────┤  │  │
-│  │  (Cron)     │    │   Service   │    │  │TriggerSvc │  │  │
-│  └─────────────┘    └─────────────┘    │  └───────────┘  │  │
-│                                         └─────────────────┘  │
-│  ┌─────────────┐    ┌─────────────┐                        │
-│  │    Rule     │◀───│   MongoDB   │                        │
-│  │   Models    │    │             │                        │
-│  └─────────────┘    └─────────────┘                        │
-│                                                             │
-│  ┌─────────────┐                                           │
-│  │    Redis    │ ◀── Pub/Sub & Queue                        │
-│  │             │                                           │
-│  └─────────────┘                                           │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
+---
 
 ## Testing
 
@@ -299,7 +447,64 @@ npm test -- --coverage
 
 # Run tests in watch mode
 npm run test:watch
+
+# Lint
+npm run lint
 ```
+
+---
+
+## Docker
+
+```bash
+# Build
+docker build -t rez-automation-service:latest .
+
+# Run
+docker run -p 3009:3009 \
+  -e EVENT_BUS_URL=amqp://host.docker.internal:5672 \
+  -e DATABASE_URL=postgresql://user:pass@host.docker.internal:5432/automation_db \
+  -e JWT_SECRET=your-secret \
+  rez-automation-service:latest
+```
+
+---
+
+## Project Structure
+
+```
+rez-automation-service/
+├── src/
+│   ├── index.ts              # Main entry point
+│   ├── config/
+│   │   ├── env.ts           # Environment configuration
+│   │   ├── mongodb.ts       # MongoDB connection
+│   │   └── redis.ts         # Redis connection
+│   ├── models/
+│   │   ├── Rule.ts          # Rule model
+│   │   └── Log.ts           # Log model
+│   ├── routes/
+│   │   ├── rules.routes.ts  # Rules API
+│   │   ├── events.routes.ts # Events API
+│   │   └── logs.routes.ts   # Logs API
+│   ├── services/
+│   │   ├── ruleEngine.ts    # Rule matching engine
+│   │   ├── actionExecutor.ts # Action execution
+│   │   └── triggerService.ts # Trigger handling
+│   ├── workers/
+│   │   └── cronWorker.ts    # Scheduled tasks
+│   └── middleware/
+│       ├── auth.ts          # JWT authentication
+│       └── errorHandler.ts  # Error handling
+├── tests/
+│   └── automation.test.ts   # Unit tests
+├── package.json
+├── tsconfig.json
+├── jest.config.js
+└── README.md
+```
+
+---
 
 ## License
 

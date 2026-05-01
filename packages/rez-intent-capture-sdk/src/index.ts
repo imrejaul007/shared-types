@@ -223,6 +223,58 @@ export function createIntentTracker(capture: IntentCapture) {
   };
 }
 
+// ── Standalone captureIntent function ─────────────────────────────────────────────
+
+/**
+ * Convenience wrapper for fire-and-forget intent capture.
+ * Reads INTENT_CAPTURE_URL from environment variable.
+ * Falls back to INTENT_GRAPH_URL for backward compatibility.
+ *
+ * @param params - Intent capture parameters
+ * @param params.userId - User ID (required)
+ * @param params.appType - Application type (required)
+ * @param params.eventType - Event type (required)
+ * @param params.intentKey - Intent key (required)
+ * @param params.category - Category (required)
+ * @param params.metadata - Optional metadata
+ */
+export async function captureIntent(params: {
+  userId: string;
+  appType: AppType;
+  eventType: EventType;
+  intentKey: string;
+  category: Category;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  const baseUrl = process.env.INTENT_CAPTURE_URL || process.env.INTENT_GRAPH_URL;
+  if (!baseUrl) {
+    console.warn('[IntentCapture] No INTENT_CAPTURE_URL or INTENT_GRAPH_URL set, skipping capture');
+    return;
+  }
+
+  if (!params.userId) {
+    console.warn('[IntentCapture] No userId provided, skipping capture');
+    return;
+  }
+
+  try {
+    await fetch(`${baseUrl}/api/intent/capture`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: params.userId,
+        appType: params.appType,
+        intentKey: params.intentKey,
+        eventType: params.eventType,
+        category: params.category,
+        metadata: params.metadata || {},
+      }),
+    });
+  } catch (error) {
+    console.error('[IntentCapture] Failed to capture intent', error);
+  }
+}
+
 // ── Pre-built Event Functions ─────────────────────────────────────────────────
 
 export function createHotelIntentCapture(baseUrl: string, userId?: string) {
