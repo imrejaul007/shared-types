@@ -156,12 +156,12 @@ class RuleEngine {
 
       case 'in':
         return {
-          passed: Array.isArray(value) && value.includes(fieldValue as string | number),
+          passed: Array.isArray(value) && (value as Array<string | number>).includes(fieldValue as string | number),
         };
 
       case 'nin':
         return {
-          passed: Array.isArray(value) && !value.includes(fieldValue as string | number),
+          passed: Array.isArray(value) && !(value as Array<string | number>).includes(fieldValue as string | number),
         };
 
       case 'contains':
@@ -269,7 +269,7 @@ class RuleEngine {
   public async executeRule(
     rule: IRule,
     eventData: Record<string, unknown>,
-    manual: boolean = false
+    _manual: boolean = false
   ): Promise<ActionResult> {
     const startTime = Date.now();
 
@@ -407,7 +407,7 @@ class RuleEngine {
           .sort({ createdAt: -1 });
 
         return {
-          ...rule.toObject(),
+          ...(rule.toObject() as unknown as IRule),
           executionCount: await AutomationLog.countDocuments({ ruleId: rule._id }),
           lastExecuted: lastLog?.createdAt,
         } as IRule & { executionCount: number; lastExecuted?: Date };

@@ -17,7 +17,7 @@ export interface ITrigger {
 
 // Action config interface
 export interface IActionConfig {
-  [key: string]: string | number | boolean | object | undefined;
+  [key: string]: string | number | boolean | object | string[] | number[] | undefined;
 }
 
 // Action interface
