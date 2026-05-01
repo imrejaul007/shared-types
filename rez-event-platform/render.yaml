@@ -1,13 +1,22 @@
+# Render Deployment Configuration
+# Deploy to: https://dashboard.render.com
+
 services:
   - type: web
     name: rez-event-platform
     env: node
-    region: mumbai
-    plan: free
+    region: singapore
+    repo: https://github.com/imrejaul007/REZ-event-platform.git
+    branch: main
     buildCommand: npm install
     startCommand: npx ts-node src/index-simple.ts
+    healthCheckPath: /health
     envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4008
       - key: MONGODB_URI
         sync: false
       - key: ACTION_ENGINE_URL
-        value: https://rez-action-engine.onrender.com
+        sync: false

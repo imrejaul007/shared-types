@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
 import { generateQRImage } from '@/lib/qr'
 
+// FIX: HTML escape function to prevent XSS
+function escapeHtml(text: string | null | undefined): string {
+  if (!text) return ''
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+}
+
 // POST /api/campaigns/[id]/qr/download - Generate PDF with all QR codes
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: campaignId } = await params
@@ -39,8 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'No active QR codes found' }, { status: 404 })
   }
 
-  // Generate HTML for PDF
-  const qrPerPage = layout === 'list' ? 6 : 9
+  // Generate HTML for PDF with XSS protection
   const qrHtml = qrCodes.map((qr, i) => `
     <div class="qr-item" style="
       width: ${layout === 'list' ? '100%' : '33%'};
@@ -48,11 +58,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       text-align: center;
       page-break-inside: avoid;
     ">
-      <img src="${qr.qr_image_url || generateQRImage(qr.qr_slug)}"
+      <img src="${escapeHtml(qr.qr_image_url) || generateQRImage(escapeHtml(qr.qr_slug))}"
            alt="QR Code" style="width: 200px; height: 200px;" />
-      <p style="font-weight: bold; margin: 10px 0 5px;">${qr.qr_label || `QR ${i + 1}`}</p>
-      ${qr.location_name ? `<p style="color: #666; font-size: 12px;">${qr.location_name}</p>` : ''}
-      <p style="color: #999; font-size: 10px;">${qr.qr_slug}</p>
+      <p style="font-weight: bold; margin: 10px 0 5px;">${escapeHtml(qr.qr_label) || `QR ${i + 1}`}</p>
+      ${qr.location_name ? `<p style="color: #666; font-size: 12px;">${escapeHtml(qr.location_name)}</p>` : ''}
+      <p style="color: #999; font-size: 10px;">${escapeHtml(qr.qr_slug)}</p>
     </div>
   `).join('')
 
@@ -75,8 +85,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     </head>
     <body>
       <div class="header">
-        <h1>${campaign.name}</h1>
-        <p>${campaign.description || 'QR Code Pack'}</p>
+        <h1>${escapeHtml(campaign.name)}</h1>
+        <p>${escapeHtml(campaign.description) || 'QR Code Pack'}</p>
         <p style="margin-top: 10px;">Total QR Codes: ${qrCodes.length}</p>
       </div>
       <div class="qr-grid">

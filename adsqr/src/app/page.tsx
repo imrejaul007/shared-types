@@ -2,6 +2,9 @@
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic'
+
 export default async function Dashboard() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
