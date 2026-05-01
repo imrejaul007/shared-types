@@ -181,7 +181,7 @@ export async function getRecentEvents(
   return EventStore.find(query)
     .sort({ timestamp: -1 })
     .limit(limit)
-    .lean();
+    .lean() as unknown as IEventStore[];
 }
 
 export async function getFailedEvents(limit: number = 100): Promise<IEventStore[]> {
@@ -190,7 +190,7 @@ export async function getFailedEvents(limit: number = 100): Promise<IEventStore[
   })
     .sort({ updatedAt: -1 })
     .limit(limit)
-    .lean();
+    .lean() as unknown as IEventStore[];
 }
 
 export async function getDeadLetterEvents(
@@ -206,7 +206,7 @@ export async function getDeadLetterEvents(
   return DeadLetterEvent.find(query)
     .sort({ failedAt: -1 })
     .limit(limit)
-    .lean();
+    .lean() as unknown as IDeadLetterEvent[];
 }
 
 export async function retryDeadLetterEvent(eventId: string): Promise<boolean> {

@@ -19,13 +19,13 @@ export interface HealthStatus {
 }
 
 interface ServiceHealth {
-  status: 'up' | 'down';
+  status: 'up' | 'down' | 'degraded';
   latencyMs?: number;
   error?: string;
 }
 
 interface QueueHealth {
-  status: 'up' | 'down';
+  status: 'up' | 'down' | 'degraded';
   queues: Record<string, {
     waiting: number;
     active: number;
