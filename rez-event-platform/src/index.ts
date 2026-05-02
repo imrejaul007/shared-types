@@ -168,6 +168,145 @@ app.post('/webhook/consumer/booking', async (req: Request, res: Response) => {
 });
 
 // ============================================
+// Ad/Growth Event Webhooks (for rez-ads, rez-marketing)
+// ============================================
+
+app.post('/webhook/ads/impression', async (req: Request, res: Response) => {
+  try {
+    const { ad_id, campaign_id, merchant_id, user_id, placement, device_type, platform, location, referrer } = req.body;
+    const result = await eventEmitter.emitAdImpression({
+      adId: ad_id,
+      campaignId: campaign_id,
+      merchantId: merchant_id,
+      userId: user_id,
+      placement,
+      deviceType: device_type,
+      platform,
+      location,
+      referrer,
+    });
+    res.status(result.success ? 201 : 400).json({ success: result.success, eventId: result.eventId, correlationId: result.correlationId });
+  } catch (error) {
+    logger.error('Failed to handle ad impression webhook', { error });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/webhook/ads/click', async (req: Request, res: Response) => {
+  try {
+    const { ad_id, campaign_id, merchant_id, user_id, placement, device_type, platform, location, cta_clicked } = req.body;
+    const result = await eventEmitter.emitAdClick({
+      adId: ad_id,
+      campaignId: campaign_id,
+      merchantId: merchant_id,
+      userId: user_id,
+      placement,
+      deviceType: device_type,
+      platform,
+      location,
+      ctaClicked: cta_clicked,
+    });
+    res.status(result.success ? 201 : 400).json({ success: result.success, eventId: result.eventId, correlationId: result.correlationId });
+  } catch (error) {
+    logger.error('Failed to handle ad click webhook', { error });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/webhook/ads/conversion', async (req: Request, res: Response) => {
+  try {
+    const { conversion_id, campaign_id, merchant_id, user_id, order_id, value, currency, source, channel } = req.body;
+    const result = await eventEmitter.emitConversion({
+      conversionId: conversion_id,
+      campaignId: campaign_id,
+      merchantId: merchant_id,
+      userId: user_id,
+      orderId: order_id,
+      value: value || 0,
+      currency: currency || 'INR',
+      source: source || 'ad',
+      channel,
+    });
+    res.status(result.success ? 201 : 400).json({ success: result.success, eventId: result.eventId, correlationId: result.correlationId });
+  } catch (error) {
+    logger.error('Failed to handle conversion webhook', { error });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/webhook/marketing/campaign', async (req: Request, res: Response) => {
+  try {
+    const { campaign_id, campaign_name, merchant_id, channel, budget, start_date, end_date } = req.body;
+    const result = await eventEmitter.emitCampaignCreated({
+      campaignId: campaign_id,
+      campaignName: campaign_name || campaign_id,
+      merchantId: merchant_id,
+      channel: channel || 'marketing',
+      budget,
+      startDate: start_date,
+      endDate: end_date,
+    });
+    res.status(result.success ? 201 : 400).json({ success: result.success, eventId: result.eventId, correlationId: result.correlationId });
+  } catch (error) {
+    logger.error('Failed to handle campaign webhook', { error });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/webhook/marketing/voucher', async (req: Request, res: Response) => {
+  try {
+    const { voucher_id, campaign_id, merchant_id, user_id, voucher_code, discount_type, discount_value, min_order_value, expires_at } = req.body;
+    const result = await eventEmitter.emitVoucherIssued({
+      voucherId: voucher_id,
+      campaignId: campaign_id,
+      merchantId: merchant_id,
+      userId: user_id,
+      voucherCode: voucher_code,
+      discountType: discount_type || 'percentage',
+      discountValue: discount_value || 0,
+      minOrderValue: min_order_value,
+      expiresAt: expires_at,
+    });
+    res.status(result.success ? 201 : 400).json({ success: result.success, eventId: result.eventId, correlationId: result.correlationId });
+  } catch (error) {
+    logger.error('Failed to handle voucher webhook', { error });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/webhook/marketing/notification', async (req: Request, res: Response) => {
+  try {
+    const { notification_id, campaign_id, merchant_id, user_id, channel, template_id, title, action } = req.body;
+    // Handle both sent and opened via action field
+    if (action === 'opened') {
+      const result = await eventEmitter.emitNotificationOpened({
+        notificationId: notification_id,
+        campaignId: campaign_id,
+        merchantId: merchant_id,
+        userId: user_id,
+        channel: channel || 'push',
+        openedAt: new Date().toISOString(),
+      });
+      res.status(result.success ? 201 : 400).json({ success: result.success, eventId: result.eventId, correlationId: result.correlationId });
+    } else {
+      const result = await eventEmitter.emitNotificationSent({
+        notificationId: notification_id,
+        campaignId: campaign_id,
+        merchantId: merchant_id,
+        userId: user_id,
+        channel: channel || 'push',
+        templateId: template_id,
+        title,
+      });
+      res.status(result.success ? 201 : 400).json({ success: result.success, eventId: result.eventId, correlationId: result.correlationId });
+    }
+  } catch (error) {
+    logger.error('Failed to handle notification webhook', { error });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================
 // Event Publishing Routes
 // ============================================
 

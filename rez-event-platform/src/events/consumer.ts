@@ -184,6 +184,131 @@ async function handlePaymentSuccess(job: Job): Promise<void> {
 }
 
 /**
+ * Process ad.impression events
+ */
+async function handleAdImpression(job: Job): Promise<void> {
+  const { event } = job.data as { event: Event; publishedAt: string };
+  const payload = (event as any).payload;
+
+  logger.info('Processing ad.impression event', {
+    jobId: job.id,
+    eventId: event.id,
+    adId: payload?.adId,
+    campaignId: payload?.campaignId,
+  });
+
+  // Store for analytics - ad.impression events are tracked for ROAS calculation
+  // analytics-events service will consume this and store in appevents collection
+
+  logger.info('ad.impression event processed', { eventId: event.id });
+}
+
+/**
+ * Process ad.click events
+ */
+async function handleAdClick(job: Job): Promise<void> {
+  const { event } = job.data as { event: Event; publishedAt: string };
+  const payload = (event as any).payload;
+
+  logger.info('Processing ad.click event', {
+    jobId: job.id,
+    eventId: event.id,
+    adId: payload?.adId,
+    campaignId: payload?.campaignId,
+  });
+
+  logger.info('ad.click event processed', { eventId: event.id });
+}
+
+/**
+ * Process conversion events
+ */
+async function handleConversion(job: Job): Promise<void> {
+  const { event } = job.data as { event: Event; publishedAt: string };
+  const payload = (event as any).payload;
+
+  logger.info('Processing conversion event', {
+    jobId: job.id,
+    eventId: event.id,
+    campaignId: payload?.campaignId,
+    value: payload?.value,
+  });
+
+  // Conversion events are critical for ROAS calculation
+  // Store in analytics for cross-service reporting
+
+  logger.info('conversion event processed', { eventId: event.id });
+}
+
+/**
+ * Process campaign.created events
+ */
+async function handleCampaignCreated(job: Job): Promise<void> {
+  const { event } = job.data as { event: Event; publishedAt: string };
+  const payload = (event as any).payload;
+
+  logger.info('Processing campaign.created event', {
+    jobId: job.id,
+    eventId: event.id,
+    campaignId: payload?.campaignId,
+    campaignName: payload?.campaignName,
+  });
+
+  logger.info('campaign.created event processed', { eventId: event.id });
+}
+
+/**
+ * Process voucher.issued events
+ */
+async function handleVoucherIssued(job: Job): Promise<void> {
+  const { event } = job.data as { event: Event; publishedAt: string };
+  const payload = (event as any).payload;
+
+  logger.info('Processing voucher.issued event', {
+    jobId: job.id,
+    eventId: event.id,
+    voucherId: payload?.voucherId,
+    campaignId: payload?.campaignId,
+  });
+
+  logger.info('voucher.issued event processed', { eventId: event.id });
+}
+
+/**
+ * Process notification.sent events
+ */
+async function handleNotificationSent(job: Job): Promise<void> {
+  const { event } = job.data as { event: Event; publishedAt: string };
+  const payload = (event as any).payload;
+
+  logger.info('Processing notification.sent event', {
+    jobId: job.id,
+    eventId: event.id,
+    notificationId: payload?.notificationId,
+    channel: payload?.channel,
+  });
+
+  logger.info('notification.sent event processed', { eventId: event.id });
+}
+
+/**
+ * Process notification.opened events
+ */
+async function handleNotificationOpened(job: Job): Promise<void> {
+  const { event } = job.data as { event: Event; publishedAt: string };
+  const payload = (event as any).payload;
+
+  logger.info('Processing notification.opened event', {
+    jobId: job.id,
+    eventId: event.id,
+    notificationId: payload?.notificationId,
+    channel: payload?.channel,
+  });
+
+  logger.info('notification.opened event processed', { eventId: event.id });
+}
+
+/**
  * Create a worker for an event type
  */
 function createWorker(eventType: string, handler: (job: Job) => Promise<void>): Worker {
@@ -323,6 +448,14 @@ export async function initializeWorkers(): Promise<void> {
   createWorker(EventType.INVENTORY_LOW, handleInventoryLow);
   createWorker(EventType.ORDER_COMPLETED, handleOrderCompleted);
   createWorker(EventType.PAYMENT_SUCCESS, handlePaymentSuccess);
+  // Ad/Growth Event Workers
+  createWorker(EventType.AD_IMPRESSION, handleAdImpression);
+  createWorker(EventType.AD_CLICK, handleAdClick);
+  createWorker(EventType.CONVERSION, handleConversion);
+  createWorker(EventType.CAMPAIGN_CREATED, handleCampaignCreated);
+  createWorker(EventType.VOUCHER_ISSUED, handleVoucherIssued);
+  createWorker(EventType.NOTIFICATION_SENT, handleNotificationSent);
+  createWorker(EventType.NOTIFICATION_OPENED, handleNotificationOpened);
 
   logger.info('All workers initialized');
 }

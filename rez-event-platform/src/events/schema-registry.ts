@@ -21,6 +21,14 @@ export enum EventType {
   INVENTORY_LOW = 'inventory.low',
   ORDER_COMPLETED = 'order.completed',
   PAYMENT_SUCCESS = 'payment.success',
+  // Ad/Growth Events
+  AD_IMPRESSION = 'ad.impression',
+  AD_CLICK = 'ad.click',
+  CONVERSION = 'conversion',
+  CAMPAIGN_CREATED = 'campaign.created',
+  VOUCHER_ISSUED = 'voucher.issued',
+  NOTIFICATION_SENT = 'notification.sent',
+  NOTIFICATION_OPENED = 'notification.opened',
 }
 
 // Schema versions for migration support
@@ -122,8 +130,158 @@ export const PaymentSuccessEventSchema = BaseEventSchema.extend({
 
 export type PaymentSuccessEvent = z.infer<typeof PaymentSuccessEventSchema>;
 
+// ============================================
+// AD.IMPRESSION Event Schema
+// ============================================
+export const AdImpressionEventPayloadSchema = z.object({
+  adId: z.string(),
+  campaignId: z.string(),
+  merchantId: z.string(),
+  userId: z.string().optional(),
+  placement: z.string().optional(),
+  deviceType: z.enum(['mobile', 'desktop', 'tablet']).optional(),
+  platform: z.string().optional(),
+  location: z.string().optional(),
+  referrer: z.string().optional(),
+});
+
+export const AdImpressionEventSchema = BaseEventSchema.extend({
+  type: z.literal(EventType.AD_IMPRESSION),
+  payload: AdImpressionEventPayloadSchema,
+});
+
+export type AdImpressionEvent = z.infer<typeof AdImpressionEventSchema>;
+
+// ============================================
+// AD.CLICK Event Schema
+// ============================================
+export const AdClickEventPayloadSchema = z.object({
+  adId: z.string(),
+  campaignId: z.string(),
+  merchantId: z.string(),
+  userId: z.string().optional(),
+  placement: z.string().optional(),
+  deviceType: z.enum(['mobile', 'desktop', 'tablet']).optional(),
+  platform: z.string().optional(),
+  location: z.string().optional(),
+  ctaClicked: z.string().optional(),
+});
+
+export const AdClickEventSchema = BaseEventSchema.extend({
+  type: z.literal(EventType.AD_CLICK),
+  payload: AdClickEventPayloadSchema,
+});
+
+export type AdClickEvent = z.infer<typeof AdClickEventSchema>;
+
+// ============================================
+// CONVERSION Event Schema
+// ============================================
+export const ConversionEventPayloadSchema = z.object({
+  conversionId: z.string(),
+  campaignId: z.string(),
+  merchantId: z.string(),
+  userId: z.string().optional(),
+  orderId: z.string().optional(),
+  value: z.number().min(0),
+  currency: z.string().length(3).default('INR'),
+  source: z.enum(['ad', 'marketing', 'notification', 'organic']),
+  channel: z.string().optional(),
+});
+
+export const ConversionEventSchema = BaseEventSchema.extend({
+  type: z.literal(EventType.CONVERSION),
+  payload: ConversionEventPayloadSchema,
+});
+
+export type ConversionEvent = z.infer<typeof ConversionEventSchema>;
+
+// ============================================
+// CAMPAIGN.CREATED Event Schema
+// ============================================
+export const CampaignCreatedEventPayloadSchema = z.object({
+  campaignId: z.string(),
+  campaignName: z.string(),
+  merchantId: z.string(),
+  channel: z.enum(['ads', 'marketing', 'notification', 'affiliate']),
+  budget: z.number().min(0).optional(),
+  startDate: z.string().datetime().optional(),
+  endDate: z.string().datetime().optional(),
+});
+
+export const CampaignCreatedEventSchema = BaseEventSchema.extend({
+  type: z.literal(EventType.CAMPAIGN_CREATED),
+  payload: CampaignCreatedEventPayloadSchema,
+});
+
+export type CampaignCreatedEvent = z.infer<typeof CampaignCreatedEventSchema>;
+
+// ============================================
+// VOUCHER.ISSUED Event Schema
+// ============================================
+export const VoucherIssuedEventPayloadSchema = z.object({
+  voucherId: z.string(),
+  campaignId: z.string(),
+  merchantId: z.string(),
+  userId: z.string(),
+  voucherCode: z.string(),
+  discountType: z.enum(['percentage', 'fixed', 'bogo']),
+  discountValue: z.number(),
+  minOrderValue: z.number().optional(),
+  expiresAt: z.string().datetime().optional(),
+});
+
+export const VoucherIssuedEventSchema = BaseEventSchema.extend({
+  type: z.literal(EventType.VOUCHER_ISSUED),
+  payload: VoucherIssuedEventPayloadSchema,
+});
+
+export type VoucherIssuedEvent = z.infer<typeof VoucherIssuedEventSchema>;
+
+// ============================================
+// NOTIFICATION.SENT Event Schema
+// ============================================
+export const NotificationSentEventPayloadSchema = z.object({
+  notificationId: z.string(),
+  campaignId: z.string().optional(),
+  merchantId: z.string(),
+  userId: z.string(),
+  channel: z.enum(['push', 'email', 'sms', 'in_app']),
+  templateId: z.string().optional(),
+  title: z.string().optional(),
+});
+
+export const NotificationSentEventSchema = BaseEventSchema.extend({
+  type: z.literal(EventType.NOTIFICATION_SENT),
+  payload: NotificationSentEventPayloadSchema,
+});
+
+export type NotificationSentEvent = z.infer<typeof NotificationSentEventSchema>;
+
+// ============================================
+// NOTIFICATION.OPENED Event Schema
+// ============================================
+export const NotificationOpenedEventPayloadSchema = z.object({
+  notificationId: z.string(),
+  campaignId: z.string().optional(),
+  merchantId: z.string(),
+  userId: z.string(),
+  channel: z.enum(['push', 'email', 'sms', 'in_app']),
+  openedAt: z.string().datetime(),
+});
+
+export const NotificationOpenedEventSchema = BaseEventSchema.extend({
+  type: z.literal(EventType.NOTIFICATION_OPENED),
+  payload: NotificationOpenedEventPayloadSchema,
+});
+
+export type NotificationOpenedEvent = z.infer<typeof NotificationOpenedEventSchema>;
+
 // Union type for all events
-export type Event = InventoryLowEvent | OrderCompletedEvent | PaymentSuccessEvent;
+export type Event = InventoryLowEvent | OrderCompletedEvent | PaymentSuccessEvent |
+  AdImpressionEvent | AdClickEvent | ConversionEvent |
+  CampaignCreatedEvent | VoucherIssuedEvent |
+  NotificationSentEvent | NotificationOpenedEvent;
 
 // Schema registry for runtime validation
 export class SchemaRegistry {
@@ -134,6 +292,14 @@ export class SchemaRegistry {
     this.register(EventType.INVENTORY_LOW, InventoryLowEventSchema, SchemaVersions.V1);
     this.register(EventType.ORDER_COMPLETED, OrderCompletedEventSchema, SchemaVersions.V1);
     this.register(EventType.PAYMENT_SUCCESS, PaymentSuccessEventSchema, SchemaVersions.V1);
+    // Ad/Growth Events
+    this.register(EventType.AD_IMPRESSION, AdImpressionEventSchema, SchemaVersions.V1);
+    this.register(EventType.AD_CLICK, AdClickEventSchema, SchemaVersions.V1);
+    this.register(EventType.CONVERSION, ConversionEventSchema, SchemaVersions.V1);
+    this.register(EventType.CAMPAIGN_CREATED, CampaignCreatedEventSchema, SchemaVersions.V1);
+    this.register(EventType.VOUCHER_ISSUED, VoucherIssuedEventSchema, SchemaVersions.V1);
+    this.register(EventType.NOTIFICATION_SENT, NotificationSentEventSchema, SchemaVersions.V1);
+    this.register(EventType.NOTIFICATION_OPENED, NotificationOpenedEventSchema, SchemaVersions.V1);
   }
 
   register(type: string, schema: ZodSchema, version: string): void {

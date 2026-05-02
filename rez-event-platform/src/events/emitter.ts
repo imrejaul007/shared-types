@@ -290,6 +290,146 @@ export class EventEmitter {
       payload,
     } as Event, {});
   }
+
+  /**
+   * Create ad.impression event
+   */
+  async emitAdImpression(payload: {
+    adId: string;
+    campaignId: string;
+    merchantId: string;
+    userId?: string;
+    placement?: string;
+    deviceType?: 'mobile' | 'desktop' | 'tablet';
+    platform?: string;
+    location?: string;
+    referrer?: string;
+  }): Promise<PublishResult> {
+    return this.publish({
+      id: uuidv4(),
+      type: EventType.AD_IMPRESSION,
+      payload,
+    } as Event, {});
+  }
+
+  /**
+   * Create ad.click event
+   */
+  async emitAdClick(payload: {
+    adId: string;
+    campaignId: string;
+    merchantId: string;
+    userId?: string;
+    placement?: string;
+    deviceType?: 'mobile' | 'desktop' | 'tablet';
+    platform?: string;
+    location?: string;
+    ctaClicked?: string;
+  }): Promise<PublishResult> {
+    return this.publish({
+      id: uuidv4(),
+      type: EventType.AD_CLICK,
+      payload,
+    } as Event, {});
+  }
+
+  /**
+   * Create conversion event
+   */
+  async emitConversion(payload: {
+    conversionId: string;
+    campaignId: string;
+    merchantId: string;
+    userId?: string;
+    orderId?: string;
+    value: number;
+    currency?: string;
+    source: 'ad' | 'marketing' | 'notification' | 'organic';
+    channel?: string;
+  }): Promise<PublishResult> {
+    return this.publish({
+      id: uuidv4(),
+      type: EventType.CONVERSION,
+      payload,
+    } as Event, {});
+  }
+
+  /**
+   * Create campaign.created event
+   */
+  async emitCampaignCreated(payload: {
+    campaignId: string;
+    campaignName: string;
+    merchantId: string;
+    channel: 'ads' | 'marketing' | 'notification' | 'affiliate';
+    budget?: number;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<PublishResult> {
+    return this.publish({
+      id: uuidv4(),
+      type: EventType.CAMPAIGN_CREATED,
+      payload,
+    } as Event, {});
+  }
+
+  /**
+   * Create voucher.issued event
+   */
+  async emitVoucherIssued(payload: {
+    voucherId: string;
+    campaignId: string;
+    merchantId: string;
+    userId: string;
+    voucherCode: string;
+    discountType: 'percentage' | 'fixed' | 'bogo';
+    discountValue: number;
+    minOrderValue?: number;
+    expiresAt?: string;
+  }): Promise<PublishResult> {
+    return this.publish({
+      id: uuidv4(),
+      type: EventType.VOUCHER_ISSUED,
+      payload,
+    } as Event, {});
+  }
+
+  /**
+   * Create notification.sent event
+   */
+  async emitNotificationSent(payload: {
+    notificationId: string;
+    campaignId?: string;
+    merchantId: string;
+    userId: string;
+    channel: 'push' | 'email' | 'sms' | 'in_app';
+    templateId?: string;
+    title?: string;
+  }): Promise<PublishResult> {
+    return this.publish({
+      id: uuidv4(),
+      type: EventType.NOTIFICATION_SENT,
+      payload,
+    } as Event, {});
+  }
+
+  /**
+   * Create notification.opened event
+   */
+  async emitNotificationOpened(payload: {
+    notificationId: string;
+    campaignId?: string;
+    merchantId: string;
+    userId: string;
+    channel: 'push' | 'email' | 'sms' | 'in_app';
+    openedAt?: string;
+  }): Promise<PublishResult> {
+    return this.publish({
+      id: uuidv4(),
+      type: EventType.NOTIFICATION_OPENED,
+      payload,
+    } as Event, {});
+  }
 }
 
 // Singleton instance
