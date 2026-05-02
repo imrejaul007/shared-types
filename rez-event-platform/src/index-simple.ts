@@ -413,12 +413,401 @@ app.post('/webhook/consumer/view', async (req: Request, res: Response) => {
 });
 
 // ============================================================
+// AUTH WEBHOOKS - User Authentication Events
+// ============================================================
+
+// User signup event
+app.post('/webhook/auth/signup', async (req: Request, res: Response) => {
+  const { user_id, method, source } = req.body;
+
+  const correlation_id = `auth_signup_${user_id}_${Date.now()}`;
+
+  logger.info('[AUTH SIGNUP EVENT]', { user_id, method, correlation_id });
+
+  try {
+    const event = {
+      event: 'auth.signup',
+      correlation_id,
+      source: source || 'auth_service',
+      data: {
+        user_id,
+        method: method || 'email',
+      }
+    };
+
+    const log = new EventLog({
+      type: 'auth.signup',
+      correlationId: correlation_id,
+      source: source || 'auth_service',
+      payload: event,
+      status: 'received',
+    });
+    await log.save();
+
+    res.json({ success: true, correlation_id, event_id: log._id });
+  } catch (error: any) {
+    logger.error('[AUTH SIGNUP ERROR]', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// User login event
+app.post('/webhook/auth/login', async (req: Request, res: Response) => {
+  const { user_id, method, success, source } = req.body;
+
+  const correlation_id = `auth_login_${user_id}_${Date.now()}`;
+
+  logger.info('[AUTH LOGIN EVENT]', { user_id, method, success, correlation_id });
+
+  try {
+    const event = {
+      event: 'auth.login',
+      correlation_id,
+      source: source || 'auth_service',
+      data: {
+        user_id,
+        method: method || 'email',
+        success: success !== false,
+      }
+    };
+
+    const log = new EventLog({
+      type: 'auth.login',
+      correlationId: correlation_id,
+      source: source || 'auth_service',
+      payload: event,
+      status: 'received',
+    });
+    await log.save();
+
+    res.json({ success: true, correlation_id, event_id: log._id });
+  } catch (error: any) {
+    logger.error('[AUTH LOGIN ERROR]', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// User logout event
+app.post('/webhook/auth/logout', async (req: Request, res: Response) => {
+  const { user_id, source } = req.body;
+
+  const correlation_id = `auth_logout_${user_id}_${Date.now()}`;
+
+  logger.info('[AUTH LOGOUT EVENT]', { user_id, correlation_id });
+
+  try {
+    const event = {
+      event: 'auth.logout',
+      correlation_id,
+      source: source || 'auth_service',
+      data: { user_id }
+    };
+
+    const log = new EventLog({
+      type: 'auth.logout',
+      correlationId: correlation_id,
+      source: source || 'auth_service',
+      payload: event,
+      status: 'received',
+    });
+    await log.save();
+
+    res.json({ success: true, correlation_id, event_id: log._id });
+  } catch (error: any) {
+    logger.error('[AUTH LOGOUT ERROR]', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================
+// WALLET WEBHOOKS - Wallet Transaction Events
+// ============================================================
+
+// Wallet topup event
+app.post('/webhook/wallet/topup', async (req: Request, res: Response) => {
+  const { user_id, amount, payment_method, balance_after, transaction_id, source } = req.body;
+
+  const correlation_id = `wallet_topup_${transaction_id || user_id}_${Date.now()}`;
+
+  logger.info('[WALLET TOPUP EVENT]', { user_id, amount, correlation_id });
+
+  try {
+    const event = {
+      event: 'wallet.topup',
+      correlation_id,
+      source: source || 'wallet_service',
+      data: {
+        user_id,
+        amount: parseFloat(amount),
+        payment_method: payment_method || 'unknown',
+        balance_after: balance_after ? parseFloat(balance_after) : undefined,
+        transaction_id,
+      }
+    };
+
+    const log = new EventLog({
+      type: 'wallet.topup',
+      correlationId: correlation_id,
+      source: source || 'wallet_service',
+      payload: event,
+      status: 'received',
+    });
+    await log.save();
+
+    res.json({ success: true, correlation_id, event_id: log._id });
+  } catch (error: any) {
+    logger.error('[WALLET TOPUP ERROR]', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Wallet withdraw event
+app.post('/webhook/wallet/withdraw', async (req: Request, res: Response) => {
+  const { user_id, amount, status, transaction_id, source } = req.body;
+
+  const correlation_id = `wallet_withdraw_${transaction_id || user_id}_${Date.now()}`;
+
+  logger.info('[WALLET WITHDRAW EVENT]', { user_id, amount, status, correlation_id });
+
+  try {
+    const event = {
+      event: 'wallet.withdraw',
+      correlation_id,
+      source: source || 'wallet_service',
+      data: {
+        user_id,
+        amount: parseFloat(amount),
+        status: status || 'pending',
+        transaction_id,
+      }
+    };
+
+    const log = new EventLog({
+      type: 'wallet.withdraw',
+      correlationId: correlation_id,
+      source: source || 'wallet_service',
+      payload: event,
+      status: 'received',
+    });
+    await log.save();
+
+    res.json({ success: true, correlation_id, event_id: log._id });
+  } catch (error: any) {
+    logger.error('[WALLET WITHDRAW ERROR]', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================
+// CATALOG WEBHOOKS - Menu/Catalog Events
+// ============================================================
+
+// Catalog view event
+app.post('/webhook/catalog/view', async (req: Request, res: Response) => {
+  const { user_id, merchant_id, item_id, item_name, category, source } = req.body;
+
+  const correlation_id = `catalog_view_${item_id || merchant_id}_${Date.now()}`;
+
+  logger.info('[CATALOG VIEW EVENT]', { user_id, merchant_id, item_id, correlation_id });
+
+  try {
+    const event = {
+      event: 'catalog.view',
+      correlation_id,
+      source: source || 'catalog_service',
+      data: {
+        user_id,
+        merchant_id,
+        item_id,
+        item_name,
+        category,
+      }
+    };
+
+    const log = new EventLog({
+      type: 'catalog.view',
+      correlationId: correlation_id,
+      source: source || 'catalog_service',
+      payload: event,
+      status: 'received',
+    });
+    await log.save();
+
+    res.json({ success: true, correlation_id, event_id: log._id });
+  } catch (error: any) {
+    logger.error('[CATALOG VIEW ERROR]', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================
+// GAMIFICATION WEBHOOKS - Points & Loyalty Events
+// ============================================================
+
+// Points earned event
+app.post('/webhook/gamification/earn', async (req: Request, res: Response) => {
+  const { user_id, points, reason, source } = req.body;
+
+  const correlation_id = `gamification_earn_${user_id}_${Date.now()}`;
+
+  logger.info('[GAMIFICATION EARN EVENT]', { user_id, points, reason, correlation_id });
+
+  try {
+    const event = {
+      event: 'gamification.earn',
+      correlation_id,
+      source: source || 'gamification_service',
+      data: {
+        user_id,
+        points: parseInt(points),
+        reason: reason || 'unknown',
+      }
+    };
+
+    const log = new EventLog({
+      type: 'gamification.earn',
+      correlationId: correlation_id,
+      source: source || 'gamification_service',
+      payload: event,
+      status: 'received',
+    });
+    await log.save();
+
+    res.json({ success: true, correlation_id, event_id: log._id });
+  } catch (error: any) {
+    logger.error('[GAMIFICATION EARN ERROR]', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Points redeemed event
+app.post('/webhook/gamification/redeem', async (req: Request, res: Response) => {
+  const { user_id, points, reward_id, source } = req.body;
+
+  const correlation_id = `gamification_redeem_${user_id}_${Date.now()}`;
+
+  logger.info('[GAMIFICATION REDEEM EVENT]', { user_id, points, correlation_id });
+
+  try {
+    const event = {
+      event: 'gamification.redeem',
+      correlation_id,
+      source: source || 'gamification_service',
+      data: {
+        user_id,
+        points: parseInt(points),
+        reward_id,
+      }
+    };
+
+    const log = new EventLog({
+      type: 'gamification.redeem',
+      correlationId: correlation_id,
+      source: source || 'gamification_service',
+      payload: event,
+      status: 'received',
+    });
+    await log.save();
+
+    res.json({ success: true, correlation_id, event_id: log._id });
+  } catch (error: any) {
+    logger.error('[GAMIFICATION REDEEM ERROR]', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================
+// SUPPORT WEBHOOKS - Customer Support Events
+// ============================================================
+
+// Support ticket created
+app.post('/webhook/support/ticket', async (req: Request, res: Response) => {
+  const { ticket_id, user_id, category, priority, source } = req.body;
+
+  const correlation_id = `support_ticket_${ticket_id}_${Date.now()}`;
+
+  logger.info('[SUPPORT TICKET EVENT]', { ticket_id, user_id, category, correlation_id });
+
+  try {
+    const event = {
+      event: 'support.ticket',
+      correlation_id,
+      source: source || 'support_service',
+      data: {
+        ticket_id,
+        user_id,
+        category: category || 'general',
+        priority: priority || 'medium',
+      }
+    };
+
+    const log = new EventLog({
+      type: 'support.ticket',
+      correlationId: correlation_id,
+      source: source || 'support_service',
+      payload: event,
+      status: 'received',
+    });
+    await log.save();
+
+    res.json({ success: true, correlation_id, event_id: log._id });
+  } catch (error: any) {
+    logger.error('[SUPPORT TICKET ERROR]', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================
+// CHAT WEBHOOKS - Messaging Events
+// ============================================================
+
+// Chat message sent
+app.post('/webhook/chat/message', async (req: Request, res: Response) => {
+  const { message_id, conversation_id, sender_id, sender_type, content, context, source } = req.body;
+
+  const correlation_id = `chat_message_${message_id}_${Date.now()}`;
+
+  logger.info('[CHAT MESSAGE EVENT]', { message_id, sender_id, correlation_id });
+
+  try {
+    const event = {
+      event: 'chat.message',
+      correlation_id,
+      source: source || 'chat_service',
+      data: {
+        message_id,
+        conversation_id,
+        sender_id,
+        sender_type: sender_type || 'user',
+        content_preview: content ? content.substring(0, 100) : undefined,
+        context: context || 'general',
+      }
+    };
+
+    const log = new EventLog({
+      type: 'chat.message',
+      correlationId: correlation_id,
+      source: source || 'chat_service',
+      payload: event,
+      status: 'received',
+    });
+    await log.save();
+
+    res.json({ success: true, correlation_id, event_id: log._id });
+  } catch (error: any) {
+    logger.error('[CHAT MESSAGE ERROR]', { error: error.message });
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================
 // INTEGRATION STATUS
 // ============================================================
 
 app.get('/webhook/status', (req: Request, res: Response) => {
   res.json({
     service: 'rez-event-platform',
+    version: '2.0.0',
     webhooks: {
       merchant: {
         'POST /webhook/merchant/inventory': 'Merchant inventory low event',
@@ -429,6 +818,28 @@ app.get('/webhook/status', (req: Request, res: Response) => {
         'POST /webhook/consumer/order': 'Consumer order placed',
         'POST /webhook/consumer/search': 'Consumer search query',
         'POST /webhook/consumer/view': 'Consumer item view',
+      },
+      auth: {
+        'POST /webhook/auth/signup': 'User signup',
+        'POST /webhook/auth/login': 'User login',
+        'POST /webhook/auth/logout': 'User logout',
+      },
+      wallet: {
+        'POST /webhook/wallet/topup': 'Wallet top-up',
+        'POST /webhook/wallet/withdraw': 'Wallet withdrawal',
+      },
+      catalog: {
+        'POST /webhook/catalog/view': 'Catalog item view',
+      },
+      gamification: {
+        'POST /webhook/gamification/earn': 'Points earned',
+        'POST /webhook/gamification/redeem': 'Points redeemed',
+      },
+      support: {
+        'POST /webhook/support/ticket': 'Support ticket created',
+      },
+      chat: {
+        'POST /webhook/chat/message': 'Chat message sent',
       }
     },
     action_engine_url: ACTION_ENGINE_URL,
