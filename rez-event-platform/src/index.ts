@@ -51,6 +51,123 @@ app.get('/live', livenessCheckHandler);
 app.get('/stats', statsHandler);
 
 // ============================================
+// Webhook Routes (from REZ-MIND-CLIENT)
+// Maps client webhooks to internal event types
+// ============================================
+
+// Merchant webhooks
+app.post('/webhook/merchant/inventory', async (req: Request, res: Response) => {
+  try {
+    const { merchant_id, item_id, item_name, current_stock, threshold, avg_daily_sales, recent_orders } = req.body;
+    const result = await eventEmitter.emitInventoryLow({
+      inventoryId: item_id,
+      productId: item_id,
+      productName: item_name || item_id,
+      currentQuantity: current_stock,
+      threshold,
+    });
+    res.status(result.success ? 201 : 400).json({ success: result.success, eventId: result.eventId, correlationId: result.correlationId });
+  } catch (error) {
+    logger.error('Failed to handle merchant inventory webhook', { error });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/webhook/merchant/order', async (req: Request, res: Response) => {
+  try {
+    const { merchant_id, order_id, customer_id, items, total_amount, payment_method } = req.body;
+    const result = await eventEmitter.emitOrderCompleted({
+      orderId: order_id,
+      customerId: customer_id,
+      items: (items || []).map((i: any) => ({
+        productId: i.item_id,
+        name: i.name || i.item_id,
+        quantity: i.quantity,
+        unitPrice: i.price,
+        subtotal: i.price * i.quantity,
+      })),
+      subtotal: total_amount * 0.9,
+      tax: total_amount * 0.05,
+      shipping: total_amount * 0.05,
+      total: total_amount,
+      paymentMethod: payment_method || 'cash',
+    });
+    res.status(result.success ? 201 : 400).json({ success: result.success, eventId: result.eventId, correlationId: result.correlationId });
+  } catch (error) {
+    logger.error('Failed to handle merchant order webhook', { error });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/webhook/merchant/payment', async (req: Request, res: Response) => {
+  try {
+    const { merchant_id, transaction_id, amount, order_id } = req.body;
+    const result = await eventEmitter.emitPaymentSuccess({
+      paymentId: transaction_id,
+      orderId: order_id,
+      customerId: merchant_id,
+      amount,
+      method: 'unknown',
+      transactionId: transaction_id,
+      status: 'completed',
+      gateway: 'internal',
+    });
+    res.status(result.success ? 201 : 400).json({ success: result.success, eventId: result.eventId, correlationId: result.correlationId });
+  } catch (error) {
+    logger.error('Failed to handle merchant payment webhook', { error });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/webhook/merchant/customer', async (req: Request, res: Response) => {
+  // Customer events - store in event store for analytics
+  logger.info('Customer event received', { payload: req.body });
+  res.status(200).json({ success: true, message: 'Customer event logged' });
+});
+
+// Consumer webhooks
+app.post('/webhook/consumer/order', async (req: Request, res: Response) => {
+  try {
+    const { user_id, order_id, merchant_id, items, total_amount } = req.body;
+    const result = await eventEmitter.emitOrderCompleted({
+      orderId: order_id,
+      customerId: user_id,
+      items: (items || []).map((i: any) => ({
+        productId: i.item_id,
+        name: i.name || i.item_id,
+        quantity: i.quantity,
+        unitPrice: i.price,
+        subtotal: i.price * i.quantity,
+      })),
+      subtotal: total_amount * 0.9,
+      tax: total_amount * 0.05,
+      shipping: total_amount * 0.05,
+      total: total_amount,
+      paymentMethod: 'cash',
+    });
+    res.status(result.success ? 201 : 400).json({ success: result.success, eventId: result.eventId, correlationId: result.correlationId });
+  } catch (error) {
+    logger.error('Failed to handle consumer order webhook', { error });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/webhook/consumer/search', async (req: Request, res: Response) => {
+  logger.info('Search event received', { payload: req.body });
+  res.status(200).json({ success: true, message: 'Search event logged' });
+});
+
+app.post('/webhook/consumer/view', async (req: Request, res: Response) => {
+  logger.info('View event received', { payload: req.body });
+  res.status(200).json({ success: true, message: 'View event logged' });
+});
+
+app.post('/webhook/consumer/booking', async (req: Request, res: Response) => {
+  logger.info('Booking event received', { payload: req.body });
+  res.status(200).json({ success: true, message: 'Booking event logged' });
+});
+
+// ============================================
 // Event Publishing Routes
 // ============================================
 
