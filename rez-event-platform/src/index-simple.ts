@@ -9,6 +9,22 @@ import compression from 'compression';
 import mongoose from 'mongoose';
 import axios from 'axios';
 import { logger } from './utils/logger';
+import swaggerUi from 'swagger-ui-express';
+import fs from 'fs';
+import path from 'path';
+
+// Load OpenAPI spec for Swagger UI
+const openApiSpecPath = path.join(__dirname, 'docs', 'openapi.yaml');
+let openApiSpec: any = null;
+try {
+  if (fs.existsSync(openApiSpecPath)) {
+    const specContent = fs.readFileSync(openApiSpecPath, 'utf8');
+    openApiSpec = require('js-yaml').load(specContent);
+    logger.info('OpenAPI spec loaded successfully', { path: openApiSpecPath });
+  }
+} catch (error: any) {
+  logger.warn('Failed to load OpenAPI spec', { error: error.message });
+}
 
 const app: Express = express();
 const PORT = parseInt(process.env.PORT || '4008', 10);
@@ -33,6 +49,19 @@ app.use(cors());
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Swagger UI - API Documentation
+if (openApiSpec) {
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiSpec, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'REZ Event Platform API Docs',
+    swaggerOptions: {
+      persistAuthorization: true,
+      docExpansion: 'list',
+    },
+  }));
+  logger.info('Swagger UI available at /api-docs');
+}
 
 // Request logging
 app.use((req: Request, res: Response, next) => {
@@ -75,6 +104,11 @@ app.get('/', (req: Request, res: Response) => {
     service: 'rez-event-platform',
     version: '1.0.0',
     description: 'REZ Mind - Central event bus',
+    documentation: {
+      swagger_ui: '/api-docs',
+      openapi_spec: '/docs/openapi.yaml',
+      webhook_status: '/webhook/status',
+    },
     endpoints: {
       health: '/health',
       ready: '/ready',
