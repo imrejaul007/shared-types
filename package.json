@@ -11,6 +11,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "prepare": "npm run build",
     "watch": "tsc --watch",
     "clean": "rm -rf dist",
     "test": "echo '(tests live in __tests__; run via parent repo jest)'",
