@@ -1,6 +1,7 @@
 /**
- * Makcorps Hotel OTA Routes
- * Integration with Makcorps API for corporate hotel bookings.
+ * StayOwn Hotel Service for CorpPerks
+ * Integration with StayOwn (Hotel OTA + PMS) for corporate hotel bookings.
+ * StayOwn is ReZ's own hotel platform.
  */
 
 const express = require('express');

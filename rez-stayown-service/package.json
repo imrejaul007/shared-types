@@ -1,7 +1,7 @@
 {
-  "name": "rez-hotel-service",
+  "name": "rez-stayown-service",
   "version": "1.0.0",
-  "description": "CorpPerks Hotel OTA Service - Makcorps Integration",
+  "description": "CorpPerks StayOwn Hotel Service - StayOwn Integration",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

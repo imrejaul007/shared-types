@@ -1,6 +1,7 @@
 /**
- * rez-hotel-service
- * Hotel OTA proxy service for Makcorps integration.
+ * rez-stayown-service
+ * StayOwn Hotel integration for CorpPerks.
+ * Uses StayOwn (ReZ's own Hotel OTA + PMS).
  */
 
 require('dotenv').config();
@@ -18,7 +19,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const mongoSanitize = require('express-mongo-sanitize');
-const makcorpsRoutes = require('./routes/makcorpsRoutes');
+const stayownRoutes = require('./routes/stayownRoutes');
 
 const app = express();
 
@@ -41,15 +42,15 @@ app.use((req, res, next) => {
 
 // Health endpoints
 app.get('/health/live', (req, res) => {
-  res.status(200).json({ status: 'ok', service: 'rez-hotel-service' });
+  res.status(200).json({ status: 'ok', service: 'rez-stayown-service' });
 });
 
 app.get('/health/ready', (req, res) => {
-  res.status(200).json({ status: 'ready', service: 'rez-hotel-service' });
+  res.status(200).json({ status: 'ready', service: 'rez-stayown-service' });
 });
 
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', service: 'rez-hotel-service' });
+  res.status(200).json({ status: 'ok', service: 'rez-stayown-service' });
 });
 
 app.get('/health/detailed', async (req, res) => {
@@ -79,7 +80,7 @@ app.get('/health/detailed', async (req, res) => {
 });
 
 // Routes
-app.use('/api/hotels', makcorpsRoutes);
+app.use('/api/hotels', stayownRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {

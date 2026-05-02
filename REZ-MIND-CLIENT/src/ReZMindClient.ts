@@ -45,9 +45,10 @@ async function sendEvent(endpoint: string, data: any): Promise<{ success: boolea
       }
     });
 
+    // Handle both camelCase and snake_case response formats
     return {
-      success: true,
-      correlation_id: response.data.correlation_id,
+      success: response.data.success !== false,
+      correlation_id: response.data.correlationId || response.data.correlation_id,
     };
   } catch (error: any) {
     console.error('[ReZ Mind] Event failed:', error.message);
