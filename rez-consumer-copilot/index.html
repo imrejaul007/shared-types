@@ -324,7 +324,6 @@
       document.getElementById('dashboard').style.display = 'none';
 
       try {
-        // Load user intelligence
         const response = await fetch(`${USER_INTELLIGENCE}/user/${userId}/profile`);
         const data = await response.json();
 
@@ -334,7 +333,6 @@
         updateDashboard(data.profile || getMockData());
 
       } catch (error) {
-        // Use mock data if service not available
         document.getElementById('loading').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
         updateDashboard(getMockData());
@@ -368,33 +366,27 @@
     }
 
     function updateDashboard(data) {
-      // Intent
       document.getElementById('currentIntent').textContent = data.intent?.current || 'browsing';
       document.getElementById('intentConfidence').textContent = `Confidence: ${((data.intent?.confidence || 0) * 100).toFixed(0)}%`;
 
-      // Scores
       document.getElementById('ltv').textContent = '₹' + (data.scores?.ltv || 0).toLocaleString();
       document.getElementById('engagement').textContent = ((data.scores?.engagement || 0) * 100).toFixed(0) + '%';
       document.getElementById('churnRisk').textContent = ((data.scores?.churn_risk || 0) * 100).toFixed(0) + '%';
       document.getElementById('purchaseProb').textContent = ((data.scores?.purchase_probability || 0) * 100).toFixed(0) + '%';
 
-      // Profile
       document.getElementById('foodPrefs').textContent = (data.preferences?.food || []).slice(0, 3).join(', ');
       document.getElementById('priceRange').textContent = data.preferences?.price_range || 'medium';
       document.getElementById('timePattern').textContent = data.preferences?.time_pattern || 'evening';
       document.getElementById('avgSpend').textContent = '₹' + (data.behavior?.avg_spend || 0);
 
-      // Segments
       const segmentsEl = document.getElementById('segments');
       segmentsEl.innerHTML = (data.segments || []).map(s =>
         `<span class="segment">${s}</span>`
       ).join('');
 
-      // Recommendations
       const recsEl = document.getElementById('recommendations');
       recsEl.innerHTML = generateRecommendations(data);
 
-      // Timeline
       const timelineEl = document.getElementById('timeline');
       timelineEl.innerHTML = generateTimeline();
     }
@@ -469,8 +461,6 @@
 
         const result = await response.json();
         alert(`Event sent! Correlation ID: ${result.correlation_id}`);
-
-        // Reload profile to see updated intelligence
         loadUserProfile();
 
       } catch (error) {
@@ -479,7 +469,6 @@
       }
     }
 
-    // Load demo user on page load
     window.onload = () => {
       loadUserProfile();
     };
