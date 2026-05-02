@@ -4,10 +4,17 @@ services:
     env: node
     region: mumbai
     plan: free
-    buildCommand: npm install
-    startCommand: npx ts-node src/index-simple.ts
+    buildCommand: npm install && npm run build
+    startCommand: node dist/index.js
+    healthCheckPath: /health
     envVars:
       - key: MONGODB_URI
+        sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        value: '6379'
+      - key: REDIS_PASSWORD
         sync: false
       - key: ACTION_ENGINE_URL
         value: https://rez-action-engine.onrender.com
